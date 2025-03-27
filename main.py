@@ -1,5 +1,6 @@
 import sys
 import signal
+from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import QApplication
 from gui.main_window import MainWindow
 from backend.settings_manager import SettingsManager
