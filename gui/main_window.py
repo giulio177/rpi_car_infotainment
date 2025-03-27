@@ -148,7 +148,7 @@ class MainWindow(QMainWindow):
         self.power_button.setIcon(power_icon)
         self.power_button.setIconSize(icon_size)
         self.power_button.setFixedSize(button_size)
-        self.power_botton.setObjectName("powerNavButton") # Typo fixed: power_button
+        self.power_button.setObjectName("powerNavButton") # Typo fixed: power_button
         self.power_button.setToolTip("Exit Application")
         self.power_button.clicked.connect(self.close)
         bottom_bar_layout.addWidget(self.power_button)
