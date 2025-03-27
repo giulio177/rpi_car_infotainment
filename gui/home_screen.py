@@ -132,6 +132,13 @@ class HomeScreen(QWidget):
         bottom_bar_layout.setContentsMargins(5, 5, 5, 5)
         bottom_bar_layout.setSpacing(15)
 
+        self.settings_button = QPushButton("⚙️") # Settings Icon
+        self.settings_button.setFixedSize(40, 40) # Consistent small size
+        self.settings_button.setObjectName("settingsNavButton") # For styling
+        self.settings_button.setToolTip("Open Settings")
+        self.settings_button.clicked.connect(self.go_to_settings) # Connect to handler
+        bottom_bar_layout.addWidget(self.settings_button) # Add to the left
+
         btn_power = QPushButton("🔌")    # Power Icon/Button (Placeholder)
         volume_slider = QSlider(Qt.Orientation.Horizontal)
         volume_slider.setRange(0, 100)
