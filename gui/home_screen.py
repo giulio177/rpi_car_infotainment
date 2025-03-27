@@ -6,10 +6,8 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
 from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtGui import QPixmap, QIcon
 
-# It's generally okay to import MainWindow here for clarity if it doesn't cause
-# immediate circular import errors during initial load. The runtime check below avoids issues.
-# If you DO get circular import errors on startup, remove this import.
-from .main_window import MainWindow
+# REMOVE OR COMMENT OUT THIS LINE:
+# from .main_window import MainWindow
 
 
 class HomeScreen(QWidget):
@@ -97,9 +95,6 @@ class HomeScreen(QWidget):
         self.album_art_label.setMaximumSize(250, 250)
         self.album_art_label.setStyleSheet("background-color: #555; color: white; border: 1px solid grey;")
         self.album_art_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        # To set an image:
-        # pixmap = QPixmap("path/to/album_art.jpg").scaled(self.album_art_label.size(), Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
-        # self.album_art_label.setPixmap(pixmap)
         media_layout.addWidget(self.album_art_label, 0, Qt.AlignmentFlag.AlignHCenter)
 
         # Track Info
@@ -113,9 +108,9 @@ class HomeScreen(QWidget):
 
         # Playback Controls
         playback_layout = QHBoxLayout()
-        btn_prev = QPushButton("<<") # Use Icons later: "⏮" or QIcon
-        btn_play_pause = QPushButton("▶") # Use Icons later: "▶" / "⏸" or QIcon
-        btn_next = QPushButton(">>") # Use Icons later: "⏭" or QIcon
+        btn_prev = QPushButton("<<")
+        btn_play_pause = QPushButton("▶")
+        btn_next = QPushButton(">>")
         playback_layout.addStretch(1)
         playback_layout.addWidget(btn_prev)
         playback_layout.addWidget(btn_play_pause)
@@ -137,14 +132,12 @@ class HomeScreen(QWidget):
         bottom_bar_layout.setContentsMargins(5, 5, 5, 5)
         bottom_bar_layout.setSpacing(15)
 
-        # btn_settings_icon = QPushButton("⚙️") # Settings Icon/Button (Redundant)
         btn_power = QPushButton("🔌")    # Power Icon/Button (Placeholder)
         volume_slider = QSlider(Qt.Orientation.Horizontal)
         volume_slider.setRange(0, 100)
         volume_slider.setValue(50)
         volume_slider.setFixedWidth(150) # Adjust size
 
-        # bottom_bar_layout.addWidget(btn_settings_icon) # REMOVED
         bottom_bar_layout.addStretch(1) # Push volume slider to center/right
         bottom_bar_layout.addWidget(QLabel("Volume:"))
         bottom_bar_layout.addWidget(volume_slider)
@@ -160,7 +153,6 @@ class HomeScreen(QWidget):
         """Handle clicks on the main grid buttons and navigate."""
         print(f"Home button clicked: {button_name}")
 
-        # --- CORRECTED CHECK ---
         # Check if self.main_window exists AND has the 'navigate_to' method
         if self.main_window is not None and hasattr(self.main_window, 'navigate_to'):
             # Now access screen attributes directly from self.main_window
