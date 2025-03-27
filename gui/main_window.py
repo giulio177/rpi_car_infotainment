@@ -71,7 +71,7 @@ class MainWindow(QMainWindow):
         self.radio_manager = RadioManager(
              radio_type=self.settings_manager.get("radio_type"),
              i2c_address=self.settings_manager.get("radio_i2c_address"),
-             initial_freq=self.settings_manager.get("last_fm_station", 98.5)
+             initial_freq = self.settings_manager.get("last_fm_station")
         )
         # self.audio_manager = AudioManager() # If needed
 
