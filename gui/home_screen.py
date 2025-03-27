@@ -74,8 +74,8 @@ class HomeScreen(QWidget):
             ("Settings", "settings-icon.png") # Added Settings
         ]
 
-        rows = 4 # Adjust grid dimensions
-        cols = 6
+        rows = 6 # Adjust grid dimensions
+        cols = 3
         btn_index = 0
         icon_size = QSize(20, 20) # Adjust icon size as needed
 
