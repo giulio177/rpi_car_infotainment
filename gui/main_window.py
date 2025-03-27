@@ -24,11 +24,11 @@ from backend.radio_manager import RadioManager
 
 # --- Define Icon Paths (adjust paths if your folder structure is different) ---
 ICON_PATH = "assets/icons/" # Base path for icons
-ICON_HOME = os.path.join(ICON_PATH, "home.svg")
-ICON_SETTINGS = os.path.join(ICON_PATH, "settings.svg")
-ICON_VOLUME = os.path.join(ICON_PATH, "volume.svg")
-ICON_RESTART = os.path.join(ICON_PATH, "restart.svg")
-ICON_POWER = os.path.join(ICON_PATH, "power.svg")
+ICON_HOME = os.path.join(ICON_PATH, "home.png")
+ICON_SETTINGS = os.path.join(ICON_PATH, "settings.png")
+ICON_VOLUME = os.path.join(ICON_PATH, "volume.png")
+ICON_RESTART = os.path.join(ICON_PATH, "restart.png")
+ICON_POWER = os.path.join(ICON_PATH, "power.png")
 # ---
 
 class MainWindow(QMainWindow):
