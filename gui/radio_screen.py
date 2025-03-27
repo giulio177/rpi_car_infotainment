@@ -30,6 +30,14 @@ class RadioScreen(QWidget):
         top_bar_layout.addWidget(self.home_button)
         top_bar_layout.addStretch(1) # Push button to the left
 
+        self.restart_button = QPushButton("🔄") # Restart symbol (Or use text "Restart")
+        self.restart_button.setFixedSize(40, 40)
+        self.restart_button.setObjectName("restartNavButton")
+        self.restart_button.setToolTip("Restart Application") # Optional tooltip
+        self.restart_button.clicked.connect(self.on_restart_clicked)
+
+        top_bar_layout.addWidget(self.restart_button) # Add to the right
+
         # Add top bar to the main layout first
         self.layout.addLayout(top_bar_layout)
         # --- End Top Bar ---
@@ -109,6 +117,15 @@ class RadioScreen(QWidget):
     #     # TODO: Display RDS info
     #     pass
 
+    def on_restart_clicked(self):
+    """Triggers the application restart via MainWindow."""
+    print(f"Restart requested from {self.__class__.__name__}")
+    # Use self.main_window which should hold the MainWindow instance
+    if self.main_window is not None and hasattr(self.main_window, 'restart_application'):
+        self.main_window.restart_application()
+    else:
+        print("Error: Cannot trigger restart. Main window reference is invalid or missing 'restart_application' method.")
+  
     def go_home(self):
         """Navigate back to the HomeScreen."""
         # Check if self.main_window exists AND has the 'navigate_to' and 'home_screen' methods/attributes
