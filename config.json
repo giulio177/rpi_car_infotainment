@@ -1,0 +1,8 @@
+{
+    "theme": "light",
+    "obd_port": null,
+    "obd_baudrate": null,
+    "radio_type": "none",
+    "radio_i2c_address": null,
+    "last_fm_station": 98.5
+}
