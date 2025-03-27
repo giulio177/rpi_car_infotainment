@@ -68,28 +68,22 @@ class RadioScreen(QWidget):
         self.main_layout.addLayout(header_layout)
 
 
-        # --- Existing Radio Screen Content ---
-        self.title_label = QLabel("FM Radio")
-        self.title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.title_label.setStyleSheet("font-size: 24pt; font-weight: bold; margin-bottom: 15px;")
-        self.main_layout.addWidget(self.title_label)
-
         # Frequency Display
         self.freq_display = QLabel("--- MHz")
         self.freq_display.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.freq_display.setStyleSheet("font-size: 36pt; font-weight: bold; color: #17a2b8;")
-        self.layout.addWidget(self.freq_display)
+        self.main_layout.addWidget(self.freq_display)
 
         # Status/RDS Display
         self.status_display = QLabel("Status: Initializing...")
         self.status_display.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.layout.addWidget(self.status_display)
+        self.main_layout.addWidget(self.status_display)
 
         # Signal Strength
         self.signal_bar = QProgressBar()
         self.signal_bar.setRange(0, 100); self.signal_bar.setValue(0); self.signal_bar.setTextVisible(False)
         self.signal_bar.setFixedHeight(15)
-        self.layout.addWidget(self.signal_bar)
+        self.main_layout.addWidget(self.signal_bar)
 
         # Controls
         self.controls_layout = QHBoxLayout()
@@ -102,7 +96,7 @@ class RadioScreen(QWidget):
         self.controls_layout.addStretch(1)
         self.controls_layout.addWidget(self.btn_tune_up)
         self.controls_layout.addWidget(self.btn_seek_up)
-        self.layout.addLayout(self.controls_layout)
+        self.main_layout.addLayout(self.controls_layout)
 
         # Presets
         self.presets_layout = QHBoxLayout()
@@ -113,7 +107,7 @@ class RadioScreen(QWidget):
             btn.clicked.connect(lambda checked, freq=90.0+i*2: self.radio_manager.tune_frequency(freq)) # Dummy frequencies
             self.presets_layout.addWidget(btn)
             self.preset_buttons.append(btn)
-        self.layout.addLayout(self.presets_layout)
+        self.main_layout.addLayout(self.presets_layout)
 
         self.main_layout.addStretch(1) # Push content towards the top (below home button)
 
