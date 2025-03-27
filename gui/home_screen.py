@@ -77,7 +77,7 @@ class HomeScreen(QWidget):
         rows = 3 # Adjust grid dimensions
         cols = 3
         btn_index = 0
-        icon_size = QSize(48, 48) # Adjust icon size as needed
+        icon_size = QSize(48, 20) # Adjust icon size as needed
 
         for r in range(rows):
             for c in range(cols):
