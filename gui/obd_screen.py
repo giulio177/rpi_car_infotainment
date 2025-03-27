@@ -14,8 +14,8 @@ class OBDScreen(QWidget):
         # Store the parent (which should be the MainWindow instance)
         self.main_window = parent
 
-        self.layout = QVBoxLayout(self)
-        self.layout.setSpacing(10) # Add some spacing
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setSpacing(10) # Add some spacing
 
         header_layout = QHBoxLayout()
         header_layout.setContentsMargins(5, 5, 5, 5) # Adjust margins as needed
@@ -62,14 +62,14 @@ class OBDScreen(QWidget):
         self._update_clock() # Initial update
         
         # --- ADD Header Layout to Main Layout (at the TOP) ---
-        self.layout.addLayout(header_layout)
+        self.main_layout.addLayout(header_layout)
 
 
         # --- Existing OBD Screen Content ---
         self.title_label = QLabel("OBD-II Data")
         self.title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.title_label.setStyleSheet("font-size: 24pt; font-weight: bold; margin-bottom: 15px;")
-        self.layout.addWidget(self.title_label)
+        self.main_layout.addWidget(self.title_label)
 
         self.status_label = QLabel("Status: Initializing...")
         self.layout.addWidget(self.status_label)
@@ -107,7 +107,7 @@ class OBDScreen(QWidget):
         self.grid_layout.addWidget(self.fuel_label, 1, 2)
         self.grid_layout.addWidget(self.fuel_value, 1, 3)
 
-        self.layout.addStretch(1) # Push content towards the top (below home button)
+        self.main_layout.addStretch(1) # Push content towards the top (below home button)
 
     @pyqtSlot(dict)
     def update_data(self, data_dict):
