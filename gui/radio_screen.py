@@ -35,22 +35,6 @@ class RadioScreen(QWidget):
         spacer = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
         header_layout.addItem(spacer)
         
-        # --- MOVE Home Button Here ---
-        # (Copy the existing home_button creation logic here)
-        self.home_button = QPushButton("🏠")
-        self.home_button.setFixedSize(40, 40)
-        self.home_button.setObjectName("homeNavButton")
-        self.home_button.clicked.connect(self.go_home) # Assumes go_home exists
-        header_layout.addWidget(self.home_button) # Add to header
-        
-        # --- MOVE Restart Button Here ---
-        # (Copy the existing restart_button creation logic here)
-        self.restart_button = QPushButton("🔄")
-        self.restart_button.setFixedSize(40, 40)
-        self.restart_button.setObjectName("restartNavButton")
-        self.restart_button.setToolTip("Restart Application")
-        self.restart_button.clicked.connect(self.on_restart_clicked) # Assumes on_restart_clicked exists
-        header_layout.addWidget(self.restart_button) # Add to header
         
         # --- NEW: Clock Label ---
         self.clock_label = QLabel("00:00")
@@ -137,28 +121,6 @@ class RadioScreen(QWidget):
     #     # TODO: Display RDS info
     #     pass
 
-    def on_restart_clicked(self):
-        """Triggers the application restart via MainWindow."""
-        print(f"Restart requested from {self.__class__.__name__}")
-        # Use self.main_window which should hold the MainWindow instance
-        if self.main_window is not None and hasattr(self.main_window, 'restart_application'):
-            self.main_window.restart_application()
-        else:
-            print("Error: Cannot trigger restart. Main window reference is invalid or missing 'restart_application' method.")
-  
-    def go_home(self):
-        """Navigate back to the HomeScreen."""
-        # Check if self.main_window exists AND has the 'navigate_to' and 'home_screen' methods/attributes
-        if self.main_window is not None and hasattr(self.main_window, 'navigate_to') and hasattr(self.main_window, 'home_screen'):
-            self.main_window.navigate_to(self.main_window.home_screen)
-        else:
-            print("Error: Cannot navigate home. Main window reference is invalid or missing required attributes.")
-            if self.main_window is None:
-                print("Reason: self.main_window is None.")
-            elif not hasattr(self.main_window, 'navigate_to'):
-                print(f"Reason: Main window object {type(self.main_window)} does not have 'navigate_to' method.")
-            elif not hasattr(self.main_window, 'home_screen'):
-                 print(f"Reason: Main window object {type(self.main_window)} does not have 'home_screen' attribute.")
 
     def _update_clock(self):
         """Updates the clock label with the current time."""
