@@ -63,21 +63,17 @@ class OBDScreen(QWidget):
         
         # --- ADD Header Layout to Main Layout (at the TOP) ---
         self.main_layout.addLayout(header_layout)
+        # --- END Header Layout  (at the TOP) ---
 
 
-        # --- Existing OBD Screen Content ---
-        self.title_label = QLabel("OBD-II Data")
-        self.title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.title_label.setStyleSheet("font-size: 24pt; font-weight: bold; margin-bottom: 15px;")
-        self.main_layout.addWidget(self.title_label)
-
+      
         self.status_label = QLabel("Status: Initializing...")
-        self.layout.addWidget(self.status_label)
+        self.main_layout.addWidget(self.status_label)
 
         # Grid layout for data
         self.grid_layout = QGridLayout()
         self.grid_layout.setSpacing(10)
-        self.layout.addLayout(self.grid_layout)
+        self.main_layout.addLayout(self.grid_layout)
 
         # --- Labels for specific data points ---
         self.speed_label = QLabel("Speed:")
