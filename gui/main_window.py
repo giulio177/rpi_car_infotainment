@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                              QPushButton, QStackedWidget, QApplication, QLabel, QStatusBar, QMessageBox,
                              QSlider) # Keep QPushButton if used elsewhere
 from PyQt6.QtCore import pyqtSlot, Qt, QTimer, QDateTime, QSize
-from PyQt6 import QtSvg
+
 from PyQt6.QtGui import QIcon # Added QIcon
 
 
