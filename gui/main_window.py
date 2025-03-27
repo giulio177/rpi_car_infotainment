@@ -19,6 +19,15 @@ from backend.obd_manager import OBDManager
 from backend.radio_manager import RadioManager
 # from backend.audio_manager import AudioManager
 
+# --- Define Icon Paths (adjust paths if your folder structure is different) ---
+ICON_PATH = "assets/icons/" # Base path for icons
+ICON_HOME = os.path.join(ICON_PATH, "home.svg")
+ICON_SETTINGS = os.path.join(ICON_PATH, "settings.svg")
+ICON_VOLUME = os.path.join(ICON_PATH, "volume.svg")
+ICON_RESTART = os.path.join(ICON_PATH, "restart.svg")
+ICON_POWER = os.path.join(ICON_PATH, "power.svg")
+# ---
+
 class MainWindow(QMainWindow):
     def __init__(self, settings_manager, parent=None):
         super().__init__(parent)
@@ -63,27 +72,51 @@ class MainWindow(QMainWindow):
         bottom_bar_layout.setContentsMargins(5, 5, 5, 5)
         bottom_bar_layout.setSpacing(15)
 
+        icon_size = QSize(32, 32) # Define a size for the icons
+        button_size = QSize(45, 45) # Slightly larger button size for padding
+      
         # --- Home Button ---
-        self.home_button_bar = QPushButton("🏠") # Use a different variable name if needed
-        self.home_button_bar.setFixedSize(40, 40)
+        self.home_button_bar = QPushButton() # Create empty button
+        home_icon = QIcon(ICON_HOME)
+        if home_icon.isNull(): print(f"Warning: Failed to load icon: {ICON_HOME}")
+        self.home_button_bar.setIcon(home_icon)
+        self.home_button_bar.setIconSize(icon_size)
+        self.home_button_bar.setFixedSize(button_size) # Use QSize
         self.home_button_bar.setObjectName("homeNavButton")
         self.home_button_bar.setToolTip("Go to Home Screen")
-        self.home_button_bar.clicked.connect(self.go_to_home) # Connect to method below
-        bottom_bar_layout.addWidget(self.home_button_bar) # Add to the far left
+        self.home_button_bar.clicked.connect(self.go_to_home)
+        bottom_bar_layout.addWidget(self.home_button_bar)
         
       
         # --- Settings Button ---
-        self.settings_button = QPushButton("⚙️")
-        self.settings_button.setFixedSize(40, 40)
+        self.settings_button = QPushButton() # Create empty button
+        settings_icon = QIcon(ICON_SETTINGS)
+        if settings_icon.isNull(): print(f"Warning: Failed to load icon: {ICON_SETTINGS}")
+        self.settings_button.setIcon(settings_icon)
+        self.settings_button.setIconSize(icon_size)
+        self.settings_button.setFixedSize(button_size)
         self.settings_button.setObjectName("settingsNavButton")
         self.settings_button.setToolTip("Open Settings")
-        self.settings_button.clicked.connect(self.go_to_settings) # Connect to method below
+        self.settings_button.clicked.connect(self.go_to_settings)
         bottom_bar_layout.addWidget(self.settings_button)
 
         bottom_bar_layout.addStretch(1) # Center volume
 
         # --- Volume Control ---
-        bottom_bar_layout.addWidget(QLabel("Volume:"))
+        self.volume_icon_button = QPushButton() # Visually acts like a label
+        volume_icon = QIcon(ICON_VOLUME)
+        if volume_icon.isNull(): print(f"Warning: Failed to load icon: {ICON_VOLUME}")
+        self.volume_icon_button.setIcon(volume_icon)
+        self.volume_icon_button.setIconSize(icon_size)
+        self.volume_icon_button.setFixedSize(button_size)
+        self.volume_icon_button.setObjectName("volumeIcon")
+        self.volume_icon_button.setToolTip("Volume") # Tooltip instead of label
+        self.volume_icon_button.setEnabled(False) # Make it non-interactive like a label
+        # Optional: Style differently in QSS to look less like a button
+        # self.volume_icon_button.setStyleSheet("QPushButton#volumeIcon { border: none; background: transparent; }")
+        bottom_bar_layout.addWidget(self.volume_icon_button)
+
+        # --- Volume Slider ---
         self.volume_slider = QSlider(Qt.Orientation.Horizontal)
         self.volume_slider.setRange(0, 100)
         initial_volume = 50 # Placeholder
@@ -94,24 +127,33 @@ class MainWindow(QMainWindow):
         bottom_bar_layout.addStretch(1) # Push buttons to the right
 
         # --- Restart Button ---
-        self.restart_button_bar = QPushButton("🔄") # Use a different variable name if needed
-        self.restart_button_bar.setFixedSize(40, 40)
+        self.restart_button_bar = QPushButton() # Create empty button
+        restart_icon = QIcon(ICON_RESTART)
+        if restart_icon.isNull(): print(f"Warning: Failed to load icon: {ICON_RESTART}")
+        self.restart_button_bar.setIcon(restart_icon)
+        self.restart_button_bar.setIconSize(icon_size)
+        self.restart_button_bar.setFixedSize(button_size)
         self.restart_button_bar.setObjectName("restartNavButton")
         self.restart_button_bar.setToolTip("Restart Application")
-        self.restart_button_bar.clicked.connect(self.restart_application) # Connect to existing method
-        bottom_bar_layout.addWidget(self.restart_button_bar) # Add before power
+        self.restart_button_bar.clicked.connect(self.restart_application)
+        bottom_bar_layout.addWidget(self.restart_button_bar)
       
         # --- Power Button ---
-        self.power_button = QPushButton("🔌")
-        self.power_button.setFixedSize(40, 40)
+        self.power_button = QPushButton() # Create empty button
+        power_icon = QIcon(ICON_POWER)
+        if power_icon.isNull(): print(f"Warning: Failed to load icon: {ICON_POWER}")
+        self.power_button.setIcon(power_icon)
+        self.power_button.setIconSize(icon_size)
+        self.power_button.setFixedSize(button_size)
+        self.power_bottom.setObjectName("powerNavButton") # Typo fixed: power_button
         self.power_button.setToolTip("Exit Application")
-        self.power_button.clicked.connect(self.close) # Connect directly to close event
+        self.power_button.clicked.connect(self.close)
         bottom_bar_layout.addWidget(self.power_button)
 
-        # Add the bottom bar widget to the main layout (BELOW the stacked widget)
+      
+        # Add bottom bar widget
         self.main_layout.addWidget(self.bottom_bar_widget)
-        # Optionally set a fixed height for the bar
-        self.bottom_bar_widget.setFixedHeight(60)
+        self.bottom_bar_widget.setFixedHeight(60) # Adjust height if needed based on button size
         # --- END PERSISTENT BOTTOM BAR ---
 
 
