@@ -4,7 +4,7 @@ import os
 import sys
 
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-                             QPushButton, QStackedWidget, QApplication, QLabel, QStatusBar, QMessageBox,
+                             QPushButton, QStackedWidget, QApplication, QLabel, QMessageBox,
                              QSlider) # Keep QPushButton if used elsewhere
 from PyQt6.QtCore import pyqtSlot, Qt, QTimer, QDateTime, QSize
 
@@ -67,16 +67,23 @@ class MainWindow(QMainWindow):
         self.main_layout.addWidget(self.stacked_widget, 1) # Takes up main space
 
 
+
+        # --- Keep Status Labels (but don't put in status bar) ---
+        self.obd_status_label = QLabel("OBD: Disconnected")
+        self.obd_status_label.setObjectName("statusBarObdLabel") # For styling
+        self.radio_status_label = QLabel("Radio: Idle")
+        self.radio_status_label.setObjectName("statusBarRadioLabel") # For styling
+        # ---
       
         # --- PERSISTENT BOTTOM BAR ---
         self.bottom_bar_widget = QWidget()
         self.bottom_bar_widget.setObjectName("persistentBottomBar") # For styling
         bottom_bar_layout = QHBoxLayout(self.bottom_bar_widget)
-        bottom_bar_layout.setContentsMargins(5, 5, 50, 5)
-        bottom_bar_layout.setSpacing(15)
+        bottom_bar_layout.setContentsMargins(5, 5, 5, 5)
+        bottom_bar_layout.setSpacing(10)
 
-        icon_size = QSize(30, 30) # Define a size for the icons
-        button_size = QSize(35, 35) # Slightly larger button size for padding
+        icon_size = QSize(32, 32) # Define a size for the icons
+        button_size = QSize(45, 45) # Slightly larger button size for padding
       
         # --- Home Button ---
         self.home_button_bar = QPushButton() # Create empty button
@@ -102,6 +109,15 @@ class MainWindow(QMainWindow):
         self.settings_button.setToolTip("Open Settings")
         self.settings_button.clicked.connect(self.go_to_settings)
         bottom_bar_layout.addWidget(self.settings_button)
+
+        # --- ADD Status Labels HERE ---
+        bottom_bar_layout.addWidget(self.obd_status_label)
+        # Optional separator - use a styled QLabel or just spacing
+        separator_label = QLabel("|")
+        separator_label.setStyleSheet("color: #888;") # Example style
+        bottom_bar_layout.addWidget(separator_label)
+        bottom_bar_layout.addWidget(self.radio_status_label)
+        # --- END ADD Status Labels ---
 
         bottom_bar_layout.addStretch(1) # Center volume
 
@@ -159,16 +175,6 @@ class MainWindow(QMainWindow):
         self.bottom_bar_widget.setFixedHeight(30) # Adjust height if needed based on button size
         # --- END PERSISTENT BOTTOM BAR ---
 
-
-      
-        # --- Status Bar (Keep This) ---
-        self.status_bar = QStatusBar()
-        self.setStatusBar(self.status_bar)
-        self.obd_status_label = QLabel("OBD: Disconnected")
-        self.radio_status_label = QLabel("Radio: Idle")
-        self.status_bar.addPermanentWidget(self.obd_status_label)
-        self.status_bar.addPermanentWidget(QLabel("|")) # Separator
-        self.status_bar.addPermanentWidget(self.radio_status_label)
 
         # --- Initialize Backend Managers (Keep This) ---
         self.obd_manager = OBDManager(
