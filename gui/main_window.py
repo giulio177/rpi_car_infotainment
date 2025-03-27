@@ -75,8 +75,8 @@ class MainWindow(QMainWindow):
         bottom_bar_layout.setContentsMargins(5, 5, 5, 5)
         bottom_bar_layout.setSpacing(15)
 
-        icon_size = QSize(60, 60) # Define a size for the icons
-        button_size = QSize(65, 65) # Slightly larger button size for padding
+        icon_size = QSize(30, 30) # Define a size for the icons
+        button_size = QSize(35, 35) # Slightly larger button size for padding
       
         # --- Home Button ---
         self.home_button_bar = QPushButton() # Create empty button
@@ -156,7 +156,7 @@ class MainWindow(QMainWindow):
       
         # Add bottom bar widget
         self.main_layout.addWidget(self.bottom_bar_widget)
-        self.bottom_bar_widget.setFixedHeight(80) # Adjust height if needed based on button size
+        self.bottom_bar_widget.setFixedHeight(50) # Adjust height if needed based on button size
         # --- END PERSISTENT BOTTOM BAR ---
 
 
