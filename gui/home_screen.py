@@ -49,7 +49,7 @@ class HomeScreen(QWidget):
         self._update_clock() # Initial update
         
         # --- ADD Header Layout to Main Layout (at the TOP) ---
-        self.layout.addLayout(header_layout)
+        self.main_layout.addLayout(header_layout)
 
 
         # --- Top Section Layout (Grid + Media Player) ---
