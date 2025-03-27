@@ -72,7 +72,7 @@ class MainWindow(QMainWindow):
         self.bottom_bar_widget = QWidget()
         self.bottom_bar_widget.setObjectName("persistentBottomBar") # For styling
         bottom_bar_layout = QHBoxLayout(self.bottom_bar_widget)
-        bottom_bar_layout.setContentsMargins(5, 5, 5, 50)
+        bottom_bar_layout.setContentsMargins(5, 5, 50, 5)
         bottom_bar_layout.setSpacing(15)
 
         icon_size = QSize(30, 30) # Define a size for the icons
