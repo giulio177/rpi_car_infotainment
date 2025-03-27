@@ -155,7 +155,7 @@ class HomeScreen(QWidget):
         self.main_layout.addWidget(bottom_bar_widget)
         bottom_bar_widget.setFixedHeight(60) # Example fixed height
 
-
+    
     def on_home_button_clicked(self, button_name):
         """Handle clicks on the main grid buttons and navigate."""
         print(f"Home button clicked: {button_name}")
@@ -190,3 +190,17 @@ class HomeScreen(QWidget):
                 print("Reason: self.main_window is None.")
             elif not hasattr(self.main_window, 'navigate_to'):
                 print(f"Reason: Main window object {type(self.main_window)} does not have 'navigate_to' method.")
+
+    def go_to_settings(self):
+        """Navigate to the SettingsScreen."""
+        print("Settings icon clicked, navigating to settings...")
+        if self.main_window is not None and hasattr(self.main_window, 'navigate_to') and hasattr(self.main_window, 'settings_screen'):
+            self.main_window.navigate_to(self.main_window.settings_screen)
+        else:
+            print("Error: Cannot navigate to settings. Main window reference invalid or missing required attributes.")
+            if self.main_window is None:
+                print("Reason: self.main_window is None.")
+            elif not hasattr(self.main_window, 'navigate_to'):
+                print(f"Reason: Main window object {type(self.main_window)} does not have 'navigate_to' method.")
+            elif not hasattr(self.main_window, 'settings_screen'):
+                 print(f"Reason: Main window object {type(self.main_window)} does not have 'settings_screen' attribute.")
