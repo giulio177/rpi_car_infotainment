@@ -54,14 +54,25 @@ class MainWindow(QMainWindow):
         self.stacked_widget = QStackedWidget()
         self.main_layout.addWidget(self.stacked_widget, 1) # Takes up main space
 
-        # --- ADD PERSISTENT BOTTOM BAR ---
+
+      
+        # --- PERSISTENT BOTTOM BAR ---
         self.bottom_bar_widget = QWidget()
         self.bottom_bar_widget.setObjectName("persistentBottomBar") # For styling
         bottom_bar_layout = QHBoxLayout(self.bottom_bar_widget)
         bottom_bar_layout.setContentsMargins(5, 5, 5, 5)
         bottom_bar_layout.setSpacing(15)
 
-        # Settings Button (Moved from HomeScreen)
+        # --- Home Button ---
+        self.home_button_bar = QPushButton("🏠") # Use a different variable name if needed
+        self.home_button_bar.setFixedSize(40, 40)
+        self.home_button_bar.setObjectName("homeNavButton")
+        self.home_button_bar.setToolTip("Go to Home Screen")
+        self.home_button_bar.clicked.connect(self.go_to_home) # Connect to method below
+        bottom_bar_layout.addWidget(self.home_button_bar) # Add to the far left
+        
+      
+        # --- Settings Button ---
         self.settings_button = QPushButton("⚙️")
         self.settings_button.setFixedSize(40, 40)
         self.settings_button.setObjectName("settingsNavButton")
@@ -71,20 +82,26 @@ class MainWindow(QMainWindow):
 
         bottom_bar_layout.addStretch(1) # Center volume
 
+        # --- Volume Control ---
         bottom_bar_layout.addWidget(QLabel("Volume:"))
         self.volume_slider = QSlider(Qt.Orientation.Horizontal)
         self.volume_slider.setRange(0, 100)
-        # TODO: Load initial volume from SettingsManager
         initial_volume = 50 # Placeholder
         self.volume_slider.setValue(initial_volume)
         self.volume_slider.setFixedWidth(150)
-        # TODO: Connect volume slider valueChanged signal to an AudioManager method
-        # self.volume_slider.valueChanged.connect(self.audio_manager.set_volume)
         bottom_bar_layout.addWidget(self.volume_slider)
 
-        bottom_bar_layout.addStretch(1) # Space before power button
+        bottom_bar_layout.addStretch(1) # Push buttons to the right
 
-        # Power Button
+        # --- Restart Button ---
+        self.restart_button_bar = QPushButton("🔄") # Use a different variable name if needed
+        self.restart_button_bar.setFixedSize(40, 40)
+        self.restart_button_bar.setObjectName("restartNavButton")
+        self.restart_button_bar.setToolTip("Restart Application")
+        self.restart_button_bar.clicked.connect(self.restart_application) # Connect to existing method
+        bottom_bar_layout.addWidget(self.restart_button_bar) # Add before power
+      
+        # --- Power Button ---
         self.power_button = QPushButton("🔌")
         self.power_button.setFixedSize(40, 40)
         self.power_button.setToolTip("Exit Application")
@@ -97,6 +114,8 @@ class MainWindow(QMainWindow):
         self.bottom_bar_widget.setFixedHeight(60)
         # --- END PERSISTENT BOTTOM BAR ---
 
+
+      
         # --- Status Bar (Keep This) ---
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
@@ -264,7 +283,15 @@ class MainWindow(QMainWindow):
             self.settings_manager.set("last_fm_station", self.radio_manager.current_frequency)
         print("Threads stopped. Exiting.")
         event.accept()
+  
+    # --- ADD THIS METHOD TO MainWindow ---
+    def go_to_home(self):
+        """Navigates to the home screen."""
+        print("Home button clicked, navigating...")
+        self.navigate_to(self.home_screen)
+    # --- END ADD METHOD ---
 
+  
     # --- ADD THIS METHOD TO MainWindow ---
     def go_to_settings(self):
         """Navigates to the settings screen."""
