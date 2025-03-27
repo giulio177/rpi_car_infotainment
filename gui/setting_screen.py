@@ -100,7 +100,7 @@ class SettingsScreen(QWidget):
         resolution_layout.addWidget(self.resolution_combo)
         resolution_layout.addWidget(QLabel("(Restart required)"))
         general_layout.addRow("Resolution:", resolution_layout)
-        self.layout.addWidget(general_group)
+        self.main_layout.addWidget(general_group)
 
         # --- OBD Settings ---
         obd_group = QGroupBox("OBD-II")
@@ -115,7 +115,7 @@ class SettingsScreen(QWidget):
         obd_baud = self.settings_manager.get("obd_baudrate")
         self.obd_baud_edit.setText(str(obd_baud) if obd_baud else "")
         obd_layout.addRow("Baudrate:", self.obd_baud_edit)
-        self.layout.addWidget(obd_group)
+        self.main_layout.addWidget(obd_group)
 
         # --- Radio Settings ---
         radio_group = QGroupBox("Radio")
@@ -130,12 +130,12 @@ class SettingsScreen(QWidget):
         i2c_addr = self.settings_manager.get("radio_i2c_address")
         self.radio_i2c_addr_edit.setText(hex(i2c_addr) if i2c_addr is not None else "")
         radio_layout.addRow("I2C Address:", self.radio_i2c_addr_edit)
-        self.layout.addWidget(radio_group)
+        self.main_layout.addWidget(radio_group)
 
         # --- Save Button ---
         self.save_button = QPushButton("Apply Settings")
         self.save_button.clicked.connect(self.apply_settings)
-        self.layout.addWidget(self.save_button)
+        self.main_layout.addWidget(self.save_button)
 
         self.main_layout.addStretch(1) # Push content towards the top (below home button)
 
