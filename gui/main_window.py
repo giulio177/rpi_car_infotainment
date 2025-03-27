@@ -18,9 +18,24 @@ class MainWindow(QMainWindow):
         self.settings_manager = settings_manager
 
         self.setWindowTitle("RPi Car Infotainment")
+
+        # --- Apply Resolution from Settings ---
+        try:
+            resolution = self.settings_manager.get("window_resolution")
+            if isinstance(resolution, list) and len(resolution) == 2:
+                 self.resize(resolution[0], resolution[1])
+                 print(f"Window resized to: {resolution[0]}x{resolution[1]}")
+            else:
+                 print("Warning: Invalid resolution setting found, using default 1024x600.")
+                 # Fallback to default if setting is invalid
+                 default_res = self.settings_manager.defaults.get("window_resolution", [1024, 600])
+                 self.resize(default_res[0], default_res[1])
+        except Exception as e:
+            print(f"Error applying resolution setting: {e}. Using default 1024x600.")
+            self.resize(1024, 600) # Hardcoded fallback
+
         # Consider setting flags for kiosk mode if needed:
         # self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
-        self.resize(800, 480) # Adjust to your screen resolution
 
         self.current_theme = self.settings_manager.get("theme")
         apply_theme(QApplication.instance(), self.current_theme)
