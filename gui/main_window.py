@@ -1,7 +1,10 @@
 # gui/main_window.py
 
+import os
+import sys
+
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-                             QPushButton, QStackedWidget, QApplication, QLabel, QStatusBar) # Keep QPushButton if used elsewhere
+                             QPushButton, QStackedWidget, QApplication, QLabel, QStatusBar, QMessageBox) # Keep QPushButton if used elsewhere
 from PyQt6.QtCore import pyqtSlot, Qt
 
 # Keep these imports
@@ -182,6 +185,45 @@ class MainWindow(QMainWindow):
         else:
              self.update_radio_status("Disabled")
 
+    def restart_application(self):
+        """Gracefully stops threads and restarts the current Python application."""
+        print("Attempting to restart application...")
+        confirm = QMessageBox.warning(self, "Restart Confirmation",
+                                      "Are you sure you want to restart the application?",
+                                      QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                                      QMessageBox.StandardButton.No)
+
+        if confirm == QMessageBox.StandardButton.Yes:
+            try:
+                # Cleanly stop threads before restarting
+                print("Stopping background threads before restart...")
+                if hasattr(self, 'radio_manager') and self.radio_manager.isRunning():
+                    self.radio_manager.stop()
+                    self.radio_manager.wait(1500) # Wait max 1.5s
+                if hasattr(self, 'obd_manager') and self.obd_manager.isRunning():
+                    self.obd_manager.stop()
+                    self.obd_manager.wait(1500) # Wait max 1.5s
+                print("Threads stopped.")
+
+                # Get executable and script arguments
+                python_executable = sys.executable
+                script_args = sys.argv
+                print(f"Restarting with: {python_executable} {' '.join(script_args)}")
+
+                # Flush outputs
+                sys.stdout.flush()
+                sys.stderr.flush()
+
+                # Replace the current process
+                os.execv(python_executable, [python_executable] + script_args)
+
+            except Exception as e:
+                print(f"Error attempting to restart application: {e}")
+                QMessageBox.critical(self, "Restart Error", f"Could not restart application:\n{e}")
+                # Fallback: Just exit if restart fails critically
+                QApplication.quit()
+        else:
+            print("Restart cancelled by user.")
 
     def closeEvent(self, event):
         # ... (implementation remains the same) ...
