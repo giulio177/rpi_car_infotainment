@@ -75,8 +75,8 @@ class MainWindow(QMainWindow):
         bottom_bar_layout.setContentsMargins(5, 5, 5, 5)
         bottom_bar_layout.setSpacing(15)
 
-        icon_size = QSize(32, 32) # Define a size for the icons
-        button_size = QSize(35, 35) # Slightly larger button size for padding
+        icon_size = QSize(60, 60) # Define a size for the icons
+        button_size = QSize(65, 65) # Slightly larger button size for padding
       
         # --- Home Button ---
         self.home_button_bar = QPushButton() # Create empty button
