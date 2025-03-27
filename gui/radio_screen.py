@@ -1,23 +1,23 @@
 # gui/radio_screen.py
 
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-                             QPushButton, QSlider, QProgressBar) # Added QPushButton, QHBoxLayout
+                             QPushButton, QSlider, QProgressBar)
 from PyQt6.QtCore import pyqtSlot, Qt
 
-# Try importing MainWindow for type hinting
-try:
-    from .main_window import MainWindow
-except ImportError:
-    MainWindow = None
+# It's generally okay to import MainWindow here for clarity if it doesn't cause
+# immediate circular import errors during initial load. The runtime check below avoids issues.
+# If you DO get circular import errors on startup, remove this import.
+from .main_window import MainWindow
+
 
 class RadioScreen(QWidget):
     def __init__(self, radio_manager, parent=None): # parent is likely MainWindow
         super().__init__(parent)
         self.radio_manager = radio_manager
-        self.main_window = parent # Store reference
+        # Store the parent (which should be the MainWindow instance)
+        self.main_window = parent
 
         self.layout = QVBoxLayout(self)
-        # self.layout.setAlignment(Qt.AlignmentFlag.AlignTop) # Keep or remove alignment
         self.layout.setSpacing(10) # Add some spacing
 
         # --- Add Top Bar with Home Button ---
@@ -77,6 +77,7 @@ class RadioScreen(QWidget):
         self.preset_buttons = []
         for i in range(5):
             btn = QPushButton(f"P{i+1}")
+            # TODO: Load/Save preset frequencies from settings
             btn.clicked.connect(lambda checked, freq=90.0+i*2: self.radio_manager.tune_frequency(freq)) # Dummy frequencies
             self.presets_layout.addWidget(btn)
             self.preset_buttons.append(btn)
@@ -85,31 +86,45 @@ class RadioScreen(QWidget):
         self.layout.addStretch(1) # Push content towards the top (below home button)
 
         # --- Connect Buttons to Radio Manager ---
-        tune_step = 0.1
+        tune_step = 0.1 # FM tune step
         self.btn_tune_down.clicked.connect(lambda: self.radio_manager.tune_frequency(self.radio_manager.current_frequency - tune_step))
         self.btn_tune_up.clicked.connect(lambda: self.radio_manager.tune_frequency(self.radio_manager.current_frequency + tune_step))
         self.btn_seek_down.clicked.connect(lambda: self.radio_manager.seek("down"))
         self.btn_seek_up.clicked.connect(lambda: self.radio_manager.seek("up"))
+        # self.btn_scan.clicked.connect(self.radio_manager.start_scan)
 
 
     @pyqtSlot(float)
     def update_frequency(self, frequency_mhz):
-        # ... (implementation remains the same) ...
         self.freq_display.setText(f"{frequency_mhz:.1f} MHz")
 
     @pyqtSlot(int)
     def update_signal_strength(self, strength):
-        # ... (implementation remains the same) ...
+        # Basic scaling for progress bar
         self.signal_bar.setValue(strength)
 
     @pyqtSlot(str)
     def update_status_display(self, status):
-        # ... (implementation remains the same) ...
         self.status_display.setText(f"Status: {status}")
+
+    # @pyqtSlot(dict) # Or str, depending on how you format RDS
+    # def update_rds(self, rds_data):
+    #     # TODO: Display RDS info (Program Service, Radio Text)
+    #     ps = rds_data.get('ps', '')
+    #     rt = rds_data.get('rt', '')
+    #     self.status_display.setText(f"{ps} - {rt}") # Example
 
     def go_home(self):
         """Navigate back to the HomeScreen."""
-        if self.main_window and isinstance(self.main_window, MainWindow):
+        # --- CORRECTED CHECK ---
+        if self.main_window is not None and hasattr(self.main_window, 'navigate_to') and hasattr(self.main_window, 'home_screen'):
             self.main_window.navigate_to(self.main_window.home_screen)
         else:
-            print("Error: Cannot navigate home. MainWindow not found.")
+            print("Error: Cannot navigate home. Main window reference is invalid or missing required attributes.")
+            if self.main_window is None:
+                print("Reason: self.main_window is None.")
+            elif not hasattr(self.main_window, 'navigate_to'):
+                print(f"Reason: Main window object {type(self.main_window)} does not have 'navigate_to' method.")
+            elif not hasattr(self.main_window, 'home_screen'):
+                 print(f"Reason: Main window object {type(self.main_window)} does not have 'home_screen' attribute.")
+              
