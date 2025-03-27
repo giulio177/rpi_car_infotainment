@@ -5,7 +5,7 @@ from PyQt6.QtCore import pyqtSlot, Qt
 from .home_screen import HomeScreen
 from .radio_screen import RadioScreen
 from .obd_screen import OBDScreen
-from .settings_screen import SettingsScreen
+from .setting_screen import SettingsScreen
 from .styling import apply_theme
 
 from backend.obd_manager import OBDManager
@@ -79,19 +79,19 @@ class MainWindow(QMainWindow):
         self.home_screen = HomeScreen()
         self.radio_screen = RadioScreen(self.radio_manager)
         self.obd_screen = OBDScreen()
-        self.settings_screen = SettingsScreen(self.settings_manager, self) # Pass self to allow theme changes
+        self.setting_screen = SettingsScreen(self.settings_manager, self) # Pass self to allow theme changes
 
         # --- Add Screens to Stack ---
         self.stacked_widget.addWidget(self.home_screen)
         self.stacked_widget.addWidget(self.radio_screen)
         self.stacked_widget.addWidget(self.obd_screen)
-        self.stacked_widget.addWidget(self.settings_screen)
+        self.stacked_widget.addWidget(self.setting_screen)
 
         # --- Connect Navigation Buttons ---
         self.btn_home.clicked.connect(lambda: self.stacked_widget.setCurrentWidget(self.home_screen))
         self.btn_radio.clicked.connect(lambda: self.stacked_widget.setCurrentWidget(self.radio_screen))
         self.btn_obd.clicked.connect(lambda: self.stacked_widget.setCurrentWidget(self.obd_screen))
-        self.btn_settings.clicked.connect(lambda: self.stacked_widget.setCurrentWidget(self.settings_screen))
+        self.btn_settings.clicked.connect(lambda: self.stacked_widget.setCurrentWidget(self.setting_screen))
 
         # --- Connect Backend Signals to GUI Slots ---
         # OBD Connections
