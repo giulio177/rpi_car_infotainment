@@ -4,10 +4,8 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QLabel, QGridLayout,
                              QPushButton, QHBoxLayout)
 from PyQt6.QtCore import pyqtSlot, Qt
 
-# It's generally okay to import MainWindow here for clarity if it doesn't cause
-# immediate circular import errors during initial load. The runtime check below avoids issues.
-# If you DO get circular import errors on startup, remove this import.
-from .main_window import MainWindow
+# REMOVE OR COMMENT OUT THIS LINE:
+# from .main_window import MainWindow
 
 
 class OBDScreen(QWidget):
@@ -82,20 +80,14 @@ class OBDScreen(QWidget):
     @pyqtSlot(dict)
     def update_data(self, data_dict):
         """Slot to receive data updates from OBDManager."""
-        # Update labels based on the keys in the dictionary
         speed = data_dict.get('SPEED')
         self.speed_value.setText(f"{speed} km/h" if speed is not None else "---")
-
         rpm = data_dict.get('RPM')
         self.rpm_value.setText(f"{int(rpm)}" if rpm is not None else "---")
-
         coolant_temp = data_dict.get('COOLANT_TEMP')
         self.coolant_value.setText(f"{coolant_temp} °C" if coolant_temp is not None else "---")
-
         fuel_level = data_dict.get('FUEL_LEVEL')
-        self.fuel_value.setText(f"{fuel_level} %" if fuel_level is not None else "---") # Often not supported
-
-        # Update other labels...
+        self.fuel_value.setText(f"{fuel_level} %" if fuel_level is not None else "---")
 
     @pyqtSlot(str)
     def update_connection_status(self, status_text):
@@ -103,7 +95,7 @@ class OBDScreen(QWidget):
 
     def go_home(self):
         """Navigate back to the HomeScreen."""
-        # --- CORRECTED CHECK ---
+        # Check if self.main_window exists AND has the 'navigate_to' and 'home_screen' methods/attributes
         if self.main_window is not None and hasattr(self.main_window, 'navigate_to') and hasattr(self.main_window, 'home_screen'):
             self.main_window.navigate_to(self.main_window.home_screen)
         else:
