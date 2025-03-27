@@ -15,8 +15,8 @@ class RadioScreen(QWidget):
         # Store the parent (which should be the MainWindow instance)
         self.main_window = parent
 
-        self.layout = QVBoxLayout(self)
-        self.layout.setSpacing(10) # Add some spacing
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setSpacing(10) # Add some spacing
 
 
         # --- NEW: Create Header Layout ---
@@ -65,14 +65,14 @@ class RadioScreen(QWidget):
         self._update_clock() # Initial update
         
         # --- ADD Header Layout to Main Layout (at the TOP) ---
-        self.layout.addLayout(header_layout)
+        self.main_layout.addLayout(header_layout)
 
 
         # --- Existing Radio Screen Content ---
         self.title_label = QLabel("FM Radio")
         self.title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.title_label.setStyleSheet("font-size: 24pt; font-weight: bold; margin-bottom: 15px;")
-        self.layout.addWidget(self.title_label)
+        self.main_layout.addWidget(self.title_label)
 
         # Frequency Display
         self.freq_display = QLabel("--- MHz")
@@ -115,7 +115,7 @@ class RadioScreen(QWidget):
             self.preset_buttons.append(btn)
         self.layout.addLayout(self.presets_layout)
 
-        self.layout.addStretch(1) # Push content towards the top (below home button)
+        self.main_layout.addStretch(1) # Push content towards the top (below home button)
 
         # --- Connect Buttons to Radio Manager ---
         tune_step = 0.1 # FM tune step
