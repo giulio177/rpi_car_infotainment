@@ -157,34 +157,7 @@ class HomeScreen(QWidget):
         # --- Add Top Section to Main Layout ---
         self.main_layout.addLayout(top_section_layout, 1) # Give it stretch factor
 
-        # --- 3. Bottom Control Bar (Optional) ---
-        bottom_bar_widget = QWidget()
-        bottom_bar_layout = QHBoxLayout(bottom_bar_widget)
-        bottom_bar_layout.setContentsMargins(5, 5, 5, 5)
-        bottom_bar_layout.setSpacing(15)
-
-        self.settings_button = QPushButton("⚙️") # Settings Icon
-        self.settings_button.setFixedSize(40, 40) # Consistent small size
-        self.settings_button.setObjectName("settingsNavButton") # For styling
-        self.settings_button.setToolTip("Open Settings")
-        self.settings_button.clicked.connect(self.go_to_settings) # Connect to handler
-        bottom_bar_layout.addWidget(self.settings_button) # Add to the left
-
-        btn_power = QPushButton("🔌")    # Power Icon/Button (Placeholder)
-        volume_slider = QSlider(Qt.Orientation.Horizontal)
-        volume_slider.setRange(0, 100)
-        volume_slider.setValue(50)
-        volume_slider.setFixedWidth(150) # Adjust size
-
-        bottom_bar_layout.addStretch(1) # Push volume slider to center/right
-        bottom_bar_layout.addWidget(QLabel("Volume:"))
-        bottom_bar_layout.addWidget(volume_slider)
-        bottom_bar_layout.addStretch(1)
-        bottom_bar_layout.addWidget(btn_power)
-
-        # --- Add Bottom Bar to Main Layout ---
-        self.main_layout.addWidget(bottom_bar_widget)
-        bottom_bar_widget.setFixedHeight(60) # Example fixed height
+      
 
     
     def on_home_button_clicked(self, button_name):
