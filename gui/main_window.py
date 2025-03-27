@@ -4,8 +4,9 @@ import os
 import sys
 
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-                             QPushButton, QStackedWidget, QApplication, QLabel, QStatusBar, QMessageBox) # Keep QPushButton if used elsewhere
-from PyQt6.QtCore import pyqtSlot, Qt
+                             QPushButton, QStackedWidget, QApplication, QLabel, QStatusBar, QMessageBox,
+                             QSlider) # Keep QPushButton if used elsewhere
+from PyQt6.QtCore import pyqtSlot, Qt, QTimer, QDateTime
 
 # Keep these imports
 from .home_screen import HomeScreen
@@ -53,21 +54,48 @@ class MainWindow(QMainWindow):
         self.stacked_widget = QStackedWidget()
         self.main_layout.addWidget(self.stacked_widget, 1) # Takes up main space
 
-        # --- Navigation Bar (REMOVE THIS SECTION) ---
-        # self.nav_bar = QWidget()
-        # self.nav_layout = QHBoxLayout(self.nav_bar)
-        # self.nav_layout.setContentsMargins(5, 5, 5, 5)
-        # self.nav_layout.addStretch(1)
-        # self.btn_home = QPushButton("Home") # Remove
-        # self.btn_radio = QPushButton("Radio") # Remove
-        # self.btn_obd = QPushButton("OBD") # Remove
-        # self.btn_settings = QPushButton("Settings") # Remove
-        # self.nav_layout.addWidget(self.btn_home) # Remove
-        # self.nav_layout.addWidget(self.btn_radio) # Remove
-        # self.nav_layout.addWidget(self.btn_obd) # Remove
-        # self.nav_layout.addWidget(self.btn_settings) # Remove
-        # self.nav_layout.addStretch(1)
-        # self.main_layout.addWidget(self.nav_bar) # Remove this line
+        # --- ADD PERSISTENT BOTTOM BAR ---
+        self.bottom_bar_widget = QWidget()
+        self.bottom_bar_widget.setObjectName("persistentBottomBar") # For styling
+        bottom_bar_layout = QHBoxLayout(self.bottom_bar_widget)
+        bottom_bar_layout.setContentsMargins(5, 5, 5, 5)
+        bottom_bar_layout.setSpacing(15)
+
+        # Settings Button (Moved from HomeScreen)
+        self.settings_button = QPushButton("⚙️")
+        self.settings_button.setFixedSize(40, 40)
+        self.settings_button.setObjectName("settingsNavButton")
+        self.settings_button.setToolTip("Open Settings")
+        self.settings_button.clicked.connect(self.go_to_settings) # Connect to method below
+        bottom_bar_layout.addWidget(self.settings_button)
+
+        bottom_bar_layout.addStretch(1) # Center volume
+
+        bottom_bar_layout.addWidget(QLabel("Volume:"))
+        self.volume_slider = QSlider(Qt.Orientation.Horizontal)
+        self.volume_slider.setRange(0, 100)
+        # TODO: Load initial volume from SettingsManager
+        initial_volume = 50 # Placeholder
+        self.volume_slider.setValue(initial_volume)
+        self.volume_slider.setFixedWidth(150)
+        # TODO: Connect volume slider valueChanged signal to an AudioManager method
+        # self.volume_slider.valueChanged.connect(self.audio_manager.set_volume)
+        bottom_bar_layout.addWidget(self.volume_slider)
+
+        bottom_bar_layout.addStretch(1) # Space before power button
+
+        # Power Button
+        self.power_button = QPushButton("🔌")
+        self.power_button.setFixedSize(40, 40)
+        self.power_button.setToolTip("Exit Application")
+        self.power_button.clicked.connect(self.close) # Connect directly to close event
+        bottom_bar_layout.addWidget(self.power_button)
+
+        # Add the bottom bar widget to the main layout (BELOW the stacked widget)
+        self.main_layout.addWidget(self.bottom_bar_widget)
+        # Optionally set a fixed height for the bar
+        self.bottom_bar_widget.setFixedHeight(60)
+        # --- END PERSISTENT BOTTOM BAR ---
 
         # --- Status Bar (Keep This) ---
         self.status_bar = QStatusBar()
@@ -237,6 +265,13 @@ class MainWindow(QMainWindow):
         print("Threads stopped. Exiting.")
         event.accept()
 
+    # --- ADD THIS METHOD TO MainWindow ---
+    def go_to_settings(self):
+        """Navigates to the settings screen."""
+        print("Settings button clicked, navigating...")
+        self.navigate_to(self.settings_screen)
+    # --- END ADD METHOD ---
+  
     # --- Add a helper method for navigation if desired ---
     def navigate_to(self, screen_widget):
         """Sets the current screen in the stacked widget."""
