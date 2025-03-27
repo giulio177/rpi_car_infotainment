@@ -20,8 +20,14 @@ if __name__ == "__main__":
     main_win = MainWindow(settings_manager)
     main_win.show() # Or main_win.showFullScreen() for kiosk mode
 
-    # Create a timer to allow Python's signal handler to run
-    timer = app.timerEvent # Workaround for PyQt signal handling
-    timer.start(500) # Check every 500 ms
+    # --- Correct Timer for Signal Handling ---
+    # Create a QTimer instance
+    signal_timer = QTimer()
+    # You don't strictly need to connect the timeout signal for this workaround,
+    # but connecting it to a no-op lambda is harmless and explicit.
+    signal_timer.timeout.connect(lambda: None)
+    # Start the timer to fire every 500ms
+    signal_timer.start(500)
+    # --- End Timer Correction ---
 
     sys.exit(app.exec())
