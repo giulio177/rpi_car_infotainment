@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                              QPushButton, QStackedWidget, QApplication, QLabel, QStatusBar, QMessageBox,
                              QSlider) # Keep QPushButton if used elsewhere
 from PyQt6.QtCore import pyqtSlot, Qt, QTimer, QDateTime, QSize
-
+from PyQt6 import QtSvg
 from PyQt6.QtGui import QIcon # Added QIcon
 
 
@@ -116,7 +116,7 @@ class MainWindow(QMainWindow):
         self.volume_icon_button.setToolTip("Volume") # Tooltip instead of label
         self.volume_icon_button.setEnabled(False) # Make it non-interactive like a label
         # Optional: Style differently in QSS to look less like a button
-         self.volume_icon_button.setStyleSheet("QPushButton#volumeIcon { border: none; background: transparent; }")
+        #self.volume_icon_button.setStyleSheet("QPushButton#volumeIcon { border: none; background: transparent; }")
         bottom_bar_layout.addWidget(self.volume_icon_button)
 
         # --- Volume Slider ---
