@@ -4,20 +4,18 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QPushButton, QComboBox, QLineEdit, QFormLayout, QGroupBox)
 from PyQt6.QtCore import pyqtSlot, Qt
 
-# It's generally okay to import MainWindow here for clarity if it doesn't cause
-# immediate circular import errors during initial load. The runtime check below avoids issues.
-# If you DO get circular import errors on startup, remove this import.
-from .main_window import MainWindow
+# REMOVE OR COMMENT OUT THIS LINE:
+# from .main_window import MainWindow
 
 
 class SettingsScreen(QWidget):
     AVAILABLE_RESOLUTIONS = ["800x480", "1024x600", "1280x720", "1920x1080"]
 
-    def __init__(self, settings_manager, main_window_ref, parent=None): # Renamed main_window arg
+    # Note: __init__ signature was already correct, accepting main_window_ref
+    def __init__(self, settings_manager, main_window_ref, parent=None):
         super().__init__(parent)
         self.settings_manager = settings_manager
-        # Ensure self.main_window gets assigned the correct MainWindow instance
-        # Use the passed reference, fallback to parent if needed, but explicit is better
+        # Store the explicitly passed main window reference
         self.main_window = main_window_ref
 
         self.layout = QVBoxLayout(self)
@@ -61,11 +59,9 @@ class SettingsScreen(QWidget):
         if current_res_str in self.AVAILABLE_RESOLUTIONS:
              self.resolution_combo.setCurrentText(current_res_str)
         else:
-             # Handle case where saved resolution is not in the standard list
              print(f"Warning: Current resolution {current_res_str} not in predefined list.")
-             self.resolution_combo.addItem(current_res_str) # Add it dynamically
-             self.resolution_combo.setCurrentText(current_res_str) # Select it
-
+             self.resolution_combo.addItem(current_res_str)
+             self.resolution_combo.setCurrentText(current_res_str)
         resolution_layout = QHBoxLayout()
         resolution_layout.addWidget(self.resolution_combo)
         resolution_layout.addWidget(QLabel("(Restart required)"))
@@ -92,13 +88,13 @@ class SettingsScreen(QWidget):
         radio_layout = QFormLayout()
         radio_group.setLayout(radio_layout)
         self.radio_type_combo = QComboBox()
-        self.radio_type_combo.addItems(["none", "sdr", "si4703", "si4735"]) # Add relevant types
+        self.radio_type_combo.addItems(["none", "sdr", "si4703", "si4735"])
         self.radio_type_combo.setCurrentText(self.settings_manager.get("radio_type"))
         radio_layout.addRow("Radio Type:", self.radio_type_combo)
         self.radio_i2c_addr_edit = QLineEdit()
         self.radio_i2c_addr_edit.setPlaceholderText("e.g., 0x10 (for I2C type)")
         i2c_addr = self.settings_manager.get("radio_i2c_address")
-        self.radio_i2c_addr_edit.setText(hex(i2c_addr) if i2c_addr is not None else "") # Handle None case
+        self.radio_i2c_addr_edit.setText(hex(i2c_addr) if i2c_addr is not None else "")
         radio_layout.addRow("I2C Address:", self.radio_i2c_addr_edit)
         self.layout.addWidget(radio_group)
 
@@ -113,19 +109,16 @@ class SettingsScreen(QWidget):
     def apply_settings(self):
         """Apply and save all settings."""
         print("Applying settings...")
-        settings_changed = False # Flag to track if restart needed msg is relevant
+        settings_changed = False
 
         # --- Apply General Settings ---
         new_theme = self.theme_combo.currentText()
         if new_theme != self.settings_manager.get("theme"):
-            # Check main_window validity before calling method
             if self.main_window is not None and hasattr(self.main_window, 'switch_theme'):
                  self.main_window.switch_theme(new_theme)
-            else:
-                 print("Warning: Could not apply theme - main window reference invalid.")
-            settings_changed = True
+                 settings_changed = True # Theme changes immediately
+            else: print("Warning: Could not apply theme - main window reference invalid.")
 
-        # Apply Resolution Setting
         selected_res_str = self.resolution_combo.currentText()
         try:
             width_str, height_str = selected_res_str.split('x')
@@ -134,14 +127,11 @@ class SettingsScreen(QWidget):
                  self.settings_manager.set("window_resolution", new_resolution)
                  print(f"Resolution set to {new_resolution}. Restart required.")
                  settings_changed = True # Indicate restart needed
-        except ValueError:
-            print(f"Error parsing selected resolution: {selected_res_str}")
-        except Exception as e:
-             print(f"Error saving resolution setting: {e}")
-
+        except ValueError: print(f"Error parsing selected resolution: {selected_res_str}")
+        except Exception as e: print(f"Error saving resolution setting: {e}")
 
         # --- Apply OBD Settings ---
-        obd_port = self.obd_port_edit.text().strip() or None # Store None if empty
+        obd_port = self.obd_port_edit.text().strip() or None
         obd_baud_str = self.obd_baud_edit.text().strip(); obd_baud = None
         try:
              if obd_baud_str: obd_baud = int(obd_baud_str)
@@ -154,15 +144,13 @@ class SettingsScreen(QWidget):
             if self.main_window is not None and hasattr(self.main_window, 'update_obd_config'):
                  self.main_window.update_obd_config()
                  settings_changed = True
-            else:
-                 print("Warning: Could not update OBD config - main window reference invalid.")
-
+            else: print("Warning: Could not update OBD config - main window reference invalid.")
 
         # --- Apply Radio Settings ---
         radio_type = self.radio_type_combo.currentText()
         i2c_addr_str = self.radio_i2c_addr_edit.text().strip(); i2c_addr = None
         try:
-            if i2c_addr_str: i2c_addr = int(i2c_addr_str, 0) # Auto-detect base (0x for hex)
+            if i2c_addr_str: i2c_addr = int(i2c_addr_str, 0)
         except ValueError: print("Invalid I2C address entered. Ignoring.")
         radio_changed = (self.settings_manager.get("radio_type") != radio_type or
                          self.settings_manager.get("radio_i2c_address") != i2c_addr)
@@ -172,19 +160,17 @@ class SettingsScreen(QWidget):
             if self.main_window is not None and hasattr(self.main_window, 'update_radio_config'):
                  self.main_window.update_radio_config()
                  settings_changed = True
-            else:
-                 print("Warning: Could not update Radio config - main window reference invalid.")
+            else: print("Warning: Could not update Radio config - main window reference invalid.")
 
         if settings_changed:
             print("Settings applied. Restart may be required for some changes.")
         else:
-            print("Settings applied (No changes requiring restart or manager updates detected).")
-        # Optionally show a confirmation message pop-up
+            print("Settings applied (No changes detected that require action now).")
 
 
     def go_home(self):
         """Navigate back to the HomeScreen."""
-        # --- CORRECTED CHECK ---
+        # Check if self.main_window exists AND has the 'navigate_to' and 'home_screen' methods/attributes
         if self.main_window is not None and hasattr(self.main_window, 'navigate_to') and hasattr(self.main_window, 'home_screen'):
             self.main_window.navigate_to(self.main_window.home_screen)
         else:
