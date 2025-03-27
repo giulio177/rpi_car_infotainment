@@ -1,23 +1,22 @@
 # gui/obd_screen.py
 
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QLabel, QGridLayout,
-                             QPushButton, QHBoxLayout) # Added QPushButton, QHBoxLayout
+                             QPushButton, QHBoxLayout)
 from PyQt6.QtCore import pyqtSlot, Qt
 
-# Try importing MainWindow for type hinting
-try:
-    from .main_window import MainWindow
-except ImportError:
-    MainWindow = None
+# It's generally okay to import MainWindow here for clarity if it doesn't cause
+# immediate circular import errors during initial load. The runtime check below avoids issues.
+# If you DO get circular import errors on startup, remove this import.
+from .main_window import MainWindow
+
 
 class OBDScreen(QWidget):
     def __init__(self, parent=None): # parent is likely MainWindow
         super().__init__(parent)
-        self.main_window = parent # Store reference
+        # Store the parent (which should be the MainWindow instance)
+        self.main_window = parent
 
         self.layout = QVBoxLayout(self)
-        # Remove AlignTop if you want the home button strictly at the top edge
-        # self.layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.layout.setSpacing(10) # Add some spacing
 
         # --- Add Top Bar with Home Button ---
@@ -53,28 +52,24 @@ class OBDScreen(QWidget):
         # --- Labels for specific data points ---
         self.speed_label = QLabel("Speed:")
         self.speed_value = QLabel("---")
-        # ... (rest of the labels: rpm, coolant, fuel) ...
         self.rpm_label = QLabel("RPM:")
         self.rpm_value = QLabel("---")
         self.coolant_label = QLabel("Coolant Temp:")
         self.coolant_value = QLabel("---")
         self.fuel_label = QLabel("Fuel Level:")
         self.fuel_value = QLabel("---")
-
+        # Add more labels/values as needed
 
         # Style value labels
-        value_style = "font-size: 22pt; font-weight: bold; color: #007bff;"
+        value_style = "font-size: 22pt; font-weight: bold; color: #007bff;" # Example blue color
         self.speed_value.setStyleSheet(value_style)
-        # ... (style other value labels) ...
         self.rpm_value.setStyleSheet(value_style)
         self.coolant_value.setStyleSheet(value_style)
         self.fuel_value.setStyleSheet(value_style)
 
-
-        # Add widgets to grid
+        # Add widgets to grid (Row, Column, RowSpan, ColSpan)
         self.grid_layout.addWidget(self.speed_label, 0, 0)
         self.grid_layout.addWidget(self.speed_value, 0, 1)
-        # ... (add other labels/values to grid) ...
         self.grid_layout.addWidget(self.rpm_label, 1, 0)
         self.grid_layout.addWidget(self.rpm_value, 1, 1)
         self.grid_layout.addWidget(self.coolant_label, 0, 2)
@@ -82,26 +77,41 @@ class OBDScreen(QWidget):
         self.grid_layout.addWidget(self.fuel_label, 1, 2)
         self.grid_layout.addWidget(self.fuel_value, 1, 3)
 
-
         self.layout.addStretch(1) # Push content towards the top (below home button)
 
     @pyqtSlot(dict)
     def update_data(self, data_dict):
-        # ... (implementation remains the same) ...
-        speed = data_dict.get('SPEED'); self.speed_value.setText(f"{speed} km/h" if speed is not None else "---")
-        rpm = data_dict.get('RPM'); self.rpm_value.setText(f"{int(rpm)}" if rpm is not None else "---")
-        coolant_temp = data_dict.get('COOLANT_TEMP'); self.coolant_value.setText(f"{coolant_temp} °C" if coolant_temp is not None else "---")
-        fuel_level = data_dict.get('FUEL_LEVEL'); self.fuel_value.setText(f"{fuel_level} %" if fuel_level is not None else "---")
+        """Slot to receive data updates from OBDManager."""
+        # Update labels based on the keys in the dictionary
+        speed = data_dict.get('SPEED')
+        self.speed_value.setText(f"{speed} km/h" if speed is not None else "---")
 
+        rpm = data_dict.get('RPM')
+        self.rpm_value.setText(f"{int(rpm)}" if rpm is not None else "---")
+
+        coolant_temp = data_dict.get('COOLANT_TEMP')
+        self.coolant_value.setText(f"{coolant_temp} °C" if coolant_temp is not None else "---")
+
+        fuel_level = data_dict.get('FUEL_LEVEL')
+        self.fuel_value.setText(f"{fuel_level} %" if fuel_level is not None else "---") # Often not supported
+
+        # Update other labels...
 
     @pyqtSlot(str)
     def update_connection_status(self, status_text):
-        # ... (implementation remains the same) ...
         self.status_label.setText(f"Status: {status_text.replace('OBD: ', '')}")
 
     def go_home(self):
         """Navigate back to the HomeScreen."""
-        if self.main_window and isinstance(self.main_window, MainWindow):
+        # --- CORRECTED CHECK ---
+        if self.main_window is not None and hasattr(self.main_window, 'navigate_to') and hasattr(self.main_window, 'home_screen'):
             self.main_window.navigate_to(self.main_window.home_screen)
         else:
-            print("Error: Cannot navigate home. MainWindow not found.")
+            print("Error: Cannot navigate home. Main window reference is invalid or missing required attributes.")
+            if self.main_window is None:
+                print("Reason: self.main_window is None.")
+            elif not hasattr(self.main_window, 'navigate_to'):
+                print(f"Reason: Main window object {type(self.main_window)} does not have 'navigate_to' method.")
+            elif not hasattr(self.main_window, 'home_screen'):
+                 print(f"Reason: Main window object {type(self.main_window)} does not have 'home_screen' attribute.")
+              
