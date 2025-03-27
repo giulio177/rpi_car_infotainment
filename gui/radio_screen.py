@@ -4,10 +4,8 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QPushButton, QSlider, QProgressBar)
 from PyQt6.QtCore import pyqtSlot, Qt
 
-# It's generally okay to import MainWindow here for clarity if it doesn't cause
-# immediate circular import errors during initial load. The runtime check below avoids issues.
-# If you DO get circular import errors on startup, remove this import.
-from .main_window import MainWindow
+# REMOVE OR COMMENT OUT THIS LINE:
+# from .main_window import MainWindow
 
 
 class RadioScreen(QWidget):
@@ -100,23 +98,20 @@ class RadioScreen(QWidget):
 
     @pyqtSlot(int)
     def update_signal_strength(self, strength):
-        # Basic scaling for progress bar
         self.signal_bar.setValue(strength)
 
     @pyqtSlot(str)
     def update_status_display(self, status):
         self.status_display.setText(f"Status: {status}")
 
-    # @pyqtSlot(dict) # Or str, depending on how you format RDS
+    # @pyqtSlot(dict)
     # def update_rds(self, rds_data):
-    #     # TODO: Display RDS info (Program Service, Radio Text)
-    #     ps = rds_data.get('ps', '')
-    #     rt = rds_data.get('rt', '')
-    #     self.status_display.setText(f"{ps} - {rt}") # Example
+    #     # TODO: Display RDS info
+    #     pass
 
     def go_home(self):
         """Navigate back to the HomeScreen."""
-        # --- CORRECTED CHECK ---
+        # Check if self.main_window exists AND has the 'navigate_to' and 'home_screen' methods/attributes
         if self.main_window is not None and hasattr(self.main_window, 'navigate_to') and hasattr(self.main_window, 'home_screen'):
             self.main_window.navigate_to(self.main_window.home_screen)
         else:
@@ -127,4 +122,3 @@ class RadioScreen(QWidget):
                 print(f"Reason: Main window object {type(self.main_window)} does not have 'navigate_to' method.")
             elif not hasattr(self.main_window, 'home_screen'):
                  print(f"Reason: Main window object {type(self.main_window)} does not have 'home_screen' attribute.")
-              
