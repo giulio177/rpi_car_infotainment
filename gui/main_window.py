@@ -116,7 +116,7 @@ class MainWindow(QMainWindow):
         self.volume_icon_button.setToolTip("Volume") # Tooltip instead of label
         self.volume_icon_button.setEnabled(False) # Make it non-interactive like a label
         # Optional: Style differently in QSS to look less like a button
-        # self.volume_icon_button.setStyleSheet("QPushButton#volumeIcon { border: none; background: transparent; }")
+         self.volume_icon_button.setStyleSheet("QPushButton#volumeIcon { border: none; background: transparent; }")
         bottom_bar_layout.addWidget(self.volume_icon_button)
 
         # --- Volume Slider ---
