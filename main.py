@@ -1,14 +1,27 @@
 import sys
-from PyQt6.QtWidgets import QApplication, QLabel, QWidget
+import signal
+from PyQt6.QtWidgets import QApplication
+from gui.main_window import MainWindow
+from backend.settings_manager import SettingsManager
 
-print("App starting on target!") # Test message
+def sigint_handler(*args):
+    """Handler for the SIGINT signal."""
+    print("\nCtrl+C pressed. Exiting gracefully...")
+    QApplication.quit()
 
-app = QApplication(sys.argv)
-window = QWidget()
-window.setWindowTitle("Test App")
-label = QLabel("Hello from RPi!", parent=window)
-window.resize(300, 100)
-window.show() # Or window.showFullScreen()
+if __name__ == "__main__":
+    # Handle Ctrl+C gracefully
+    signal.signal(signal.SIGINT, sigint_handler)
 
-print("Showing window...")
-sys.exit(app.exec())
+    app = QApplication(sys.argv)
+
+    settings_manager = SettingsManager('config.json')
+
+    main_win = MainWindow(settings_manager)
+    main_win.show() # Or main_win.showFullScreen() for kiosk mode
+
+    # Create a timer to allow Python's signal handler to run
+    timer = app.timerEvent # Workaround for PyQt signal handling
+    timer.start(500) # Check every 500 ms
+
+    sys.exit(app.exec())
