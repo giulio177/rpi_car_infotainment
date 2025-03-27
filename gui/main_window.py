@@ -172,7 +172,7 @@ class MainWindow(QMainWindow):
       
         # Add bottom bar widget
         self.main_layout.addWidget(self.bottom_bar_widget)
-        self.bottom_bar_widget.setFixedHeight(30) # Adjust height if needed based on button size
+        self.bottom_bar_widget.setFixedHeight(70) # Adjust height if needed based on button size
         # --- END PERSISTENT BOTTOM BAR ---
 
 
