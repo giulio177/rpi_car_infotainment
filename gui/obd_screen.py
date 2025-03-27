@@ -102,13 +102,13 @@ class OBDScreen(QWidget):
         self.status_label.setText(f"Status: {status_text.replace('OBD: ', '')}")
 
     def on_restart_clicked(self):
-    """Triggers the application restart via MainWindow."""
-    print(f"Restart requested from {self.__class__.__name__}")
-    # Use self.main_window which should hold the MainWindow instance
-    if self.main_window is not None and hasattr(self.main_window, 'restart_application'):
-        self.main_window.restart_application()
-    else:
-        print("Error: Cannot trigger restart. Main window reference is invalid or missing 'restart_application' method.")
+        """Triggers the application restart via MainWindow."""
+        print(f"Restart requested from {self.__class__.__name__}")
+        # Use self.main_window which should hold the MainWindow instance
+        if self.main_window is not None and hasattr(self.main_window, 'restart_application'):
+            self.main_window.restart_application()
+        else:
+            print("Error: Cannot trigger restart. Main window reference is invalid or missing 'restart_application' method.")
     
     def go_home(self):
         """Navigate back to the HomeScreen."""
