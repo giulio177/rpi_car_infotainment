@@ -100,7 +100,7 @@ class HomeScreen(QWidget):
                     #     pass # Keep text on error
 
                     # Basic Styling (can be moved to QSS later)
-                    button.setMinimumHeight(80) # Make buttons reasonably sized
+                    button.setMinimumHeight(30) # Make buttons reasonably sized
                     button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
                     # button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon) # If using icons+text
 
