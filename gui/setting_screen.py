@@ -18,8 +18,8 @@ class SettingsScreen(QWidget):
         # Store the explicitly passed main window reference
         self.main_window = main_window_ref
 
-        self.layout = QVBoxLayout(self)
-        self.layout.setSpacing(10) # Add some spacing
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setSpacing(10) # Add some spacing
 
 
         # --- NEW: Create Header Layout ---
@@ -68,13 +68,13 @@ class SettingsScreen(QWidget):
         self._update_clock() # Initial update
         
         # --- ADD Header Layout to Main Layout (at the TOP) ---
-        self.layout.addLayout(header_layout)
+        self.main_layout.addLayout(header_layout)
 
 
         # --- Existing Settings Screen Content ---
         self.title_label = QLabel("Settings")
         self.title_label.setStyleSheet("font-size: 24pt; font-weight: bold; margin-bottom: 15px;")
-        self.layout.addWidget(self.title_label)
+        self.main_layout.addWidget(self.title_label)
 
         # --- General Settings ---
         general_group = QGroupBox("General")
@@ -137,7 +137,7 @@ class SettingsScreen(QWidget):
         self.save_button.clicked.connect(self.apply_settings)
         self.layout.addWidget(self.save_button)
 
-        self.layout.addStretch(1) # Push content towards the top (below home button)
+        self.main_layout.addStretch(1) # Push content towards the top (below home button)
 
 
     def apply_settings(self):
