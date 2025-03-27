@@ -1,8 +1,8 @@
 # gui/radio_screen.py
 
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-                             QPushButton, QSlider, QProgressBar)
-from PyQt6.QtCore import pyqtSlot, Qt
+                             QPushButton, QSlider, QProgressBar, QSpacerItem, QSizePolicy)
+from PyQt6.QtCore import QTimer, QDateTime, pyqtSlot, Qt
 
 # REMOVE OR COMMENT OUT THIS LINE:
 # from .main_window import MainWindow
@@ -18,29 +18,55 @@ class RadioScreen(QWidget):
         self.layout = QVBoxLayout(self)
         self.layout.setSpacing(10) # Add some spacing
 
-        # --- Add Top Bar with Home Button ---
-        top_bar_layout = QHBoxLayout()
-        top_bar_layout.setContentsMargins(0, 0, 0, 0)
 
-        self.home_button = QPushButton("🏠") # Home symbol
+        # --- NEW: Create Header Layout ---
+        header_layout = QHBoxLayout()
+        header_layout.setContentsMargins(5, 5, 5, 5) # Adjust margins as needed
+        header_layout.setSpacing(10)
+        
+        # --- NEW: Header Title Label ---
+        # CHANGE "Screen Title" for each screen
+        self.header_title_label = QLabel("FM Radio") # e.g., "Home", "OBD-II Data", "FM Radio", "Settings"
+        self.header_title_label.setObjectName("headerTitle")
+        self.header_title_label.setStyleSheet("font-size: 16pt; font-weight: bold;") # Basic style
+        header_layout.addWidget(self.header_title_label)
+        
+        # --- NEW: Spacer to push elements right ---
+        spacer = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        header_layout.addItem(spacer)
+        
+        # --- MOVE Home Button Here ---
+        # (Copy the existing home_button creation logic here)
+        self.home_button = QPushButton("🏠")
         self.home_button.setFixedSize(40, 40)
         self.home_button.setObjectName("homeNavButton")
-        self.home_button.clicked.connect(self.go_home)
-
-        top_bar_layout.addWidget(self.home_button)
-        top_bar_layout.addStretch(1) # Push button to the left
-
-        self.restart_button = QPushButton("🔄") # Restart symbol (Or use text "Restart")
+        self.home_button.clicked.connect(self.go_home) # Assumes go_home exists
+        header_layout.addWidget(self.home_button) # Add to header
+        
+        # --- MOVE Restart Button Here ---
+        # (Copy the existing restart_button creation logic here)
+        self.restart_button = QPushButton("🔄")
         self.restart_button.setFixedSize(40, 40)
         self.restart_button.setObjectName("restartNavButton")
-        self.restart_button.setToolTip("Restart Application") # Optional tooltip
-        self.restart_button.clicked.connect(self.on_restart_clicked)
+        self.restart_button.setToolTip("Restart Application")
+        self.restart_button.clicked.connect(self.on_restart_clicked) # Assumes on_restart_clicked exists
+        header_layout.addWidget(self.restart_button) # Add to header
+        
+        # --- NEW: Clock Label ---
+        self.clock_label = QLabel("00:00")
+        self.clock_label.setObjectName("headerClock")
+        self.clock_label.setStyleSheet("font-size: 16pt;") # Basic style
+        header_layout.addWidget(self.clock_label)
+        
+        # --- NEW: Clock Timer Setup ---
+        self.clock_timer = QTimer(self)
+        self.clock_timer.timeout.connect(self._update_clock)
+        self.clock_timer.start(10000) # Update every 10 seconds (1000ms = 1 sec) - adjust as needed
+        self._update_clock() # Initial update
+        
+        # --- ADD Header Layout to Main Layout (at the TOP) ---
+        self.layout.addLayout(header_layout)
 
-        top_bar_layout.addWidget(self.restart_button) # Add to the right
-
-        # Add top bar to the main layout first
-        self.layout.addLayout(top_bar_layout)
-        # --- End Top Bar ---
 
         # --- Existing Radio Screen Content ---
         self.title_label = QLabel("FM Radio")
@@ -139,3 +165,9 @@ class RadioScreen(QWidget):
                 print(f"Reason: Main window object {type(self.main_window)} does not have 'navigate_to' method.")
             elif not hasattr(self.main_window, 'home_screen'):
                  print(f"Reason: Main window object {type(self.main_window)} does not have 'home_screen' attribute.")
+
+    def _update_clock(self):
+        """Updates the clock label with the current time."""
+        current_time = QDateTime.currentDateTime()
+        time_str = current_time.toString("HH:mm") # Format as Hour:Minute
+        self.clock_label.setText(time_str)
