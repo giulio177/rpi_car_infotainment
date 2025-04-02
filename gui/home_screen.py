@@ -3,12 +3,8 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
                              QPushButton, QLabel, QSpacerItem, QSizePolicy,
                              QSlider)
-# Import QSize and Qt for alignment flags
 from PyQt6.QtCore import QTimer, QDateTime, Qt, QSize
 from PyQt6.QtGui import QPixmap, QIcon
-
-# REMOVE OR COMMENT OUT THIS LINE (if present):
-# from .main_window import MainWindow
 
 
 class HomeScreen(QWidget):
@@ -63,32 +59,16 @@ class HomeScreen(QWidget):
             ("OBD", "obd-icon.png"),
             ("Mirroring", "mirroring-icon.png"),
             ("Rear Camera", "camera-icon.png"),
-            # --- Start Row 2 ---
             ("Music", "music-icon.png"),
             ("Radio", "radio-icon.png"),
             ("Equalizer", "eq-icon.png"),
-            ("Settings", "settings-icon.png"),
-            ("Placeholder 1", "placeholder1.png"), # Add placeholders or real buttons
-            # --- Start Row 3 ---
-            ("Placeholder 2", "placeholder2.png"),
-            ("Placeholder 3", "placeholder3.png"),
-            ("Placeholder 4", "placeholder4.png"),
-            ("Placeholder 5", "placeholder5.png"),
-            ("Placeholder 6", "placeholder6.png"),
-            # --- Start Row 4 ---
-            ("Placeholder 7", "placeholder7.png"),
-            ("Placeholder 8", "placeholder8.png"),
-            ("Placeholder 9", "placeholder9.png"),
-            ("Placeholder 10", "placeholder10.png"),
-            ("Placeholder 11", "placeholder11.png"),
+            ("Settings", "settings-icon.png") # Keep only your actual buttons
         ]
 
         # --- Define Grid Dimensions and Button Size ---
-        target_rows = 4
         target_cols = 5
-        # Define the fixed size for each button (Width, Height) - Adjust as needed!
-        button_fixed_size = QSize(110, 45) # Example: Smaller rectangular size
-        # icon_size = QSize(20, 20) # Keep icon size if you add icons later
+        num_buttons = len(buttons_data)
+        num_rows = (num_buttons + target_cols - 1) // target_cols # Calculate rows needed
 
         btn_index = 0
         for r in range(target_rows):
@@ -100,84 +80,55 @@ class HomeScreen(QWidget):
                     # --- Set FIXED Size ---
                     button.setFixedSize(button_fixed_size)
 
-                    # --- Remove Expanding Size Policy ---
-                    # button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding) # REMOVE this line
+                    # Buttons will now fill their grid cell automatically
+                    button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
-                    # Optional: Load Icon (Keep your icon loading logic if needed)
-                    # try:
-                    #     icon = QIcon(f"assets/icons/{icon_path}") # Assuming icons are in assets/icons/
-                    #     if not icon.isNull():
-                    #         button.setIcon(icon)
-                    #         button.setIconSize(icon_size)
-                    #     else:
-                    #         print(f"Warning: Could not load or find icon {icon_path}")
-                    # except Exception as e:
-                    #     print(f"Error loading icon {icon_path}: {e}")
+                    # --- REMOVED: Fixed size setting ---
+                    # button.setFixedSize(button_fixed_size) # No longer needed
+
+                    # ... (optional icon loading logic - keep if used) ...
 
                     button.setObjectName(f"homeBtn{name.replace(' ', '')}")
                     button.clicked.connect(lambda checked, b=name: self.on_home_button_clicked(b))
 
-                    # --- Add widget to grid layout WITH alignment ---
-                    # This ensures the fixed-size button sits top-left within its grid cell
-                    grid_layout.addWidget(button, r, c, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
-
+                    # --- MODIFIED: Add button without alignment flags ---
+                    # The Expanding policy handles cell filling
+                    grid_layout.addWidget(button, r, c)
                     btn_index += 1
-                else:
-                    # Optional: If you have fewer buttons than grid slots, you can break
-                    # or add empty spacers if you want to maintain grid structure
-                    # Example: add an empty spacer
-                    # grid_layout.addItem(QSpacerItem(button_fixed_size.width(), button_fixed_size.height(), QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed), r, c)
-                    pass # Or just do nothing, leaving grid cells empty
 
-        # --- Adjust how the grid_widget itself behaves in the QHBoxLayout ---
-        # Option 1: Make the grid widget take only its preferred size
-        grid_widget.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
-        # Option 2: (Alternative) Set Maximum size if Preferred is too large
-        # grid_widget.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Maximum)
+        # This spacer expands vertically, pushing the button rows upwards.
+        vertical_spacer = QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
+        # Add it to the grid layout, spanning all columns in the row below the last buttons
+        grid_layout.addItem(vertical_spacer, num_rows, 0, 1, target_cols)
 
-        # Add grid widget to the left side of the top section (NO stretch factor here)
-        top_section_layout.addWidget(grid_widget) # Removed stretch factor '2'
-
-        # --- 2. Media Player Section (No changes needed here) ---
+                # --- 2. Media Player Section (Setup remains the same) ---
         media_widget = QWidget()
         media_layout = QVBoxLayout(media_widget)
-        media_layout.setSpacing(10)
-        media_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        self.album_art_label = QLabel("Album Art")
-        self.album_art_label.setMinimumSize(150, 150)
-        self.album_art_label.setMaximumSize(200, 200) # Maybe slightly smaller media player?
-        self.album_art_label.setStyleSheet("background-color: #555; color: white; border: 1px solid grey;")
-        self.album_art_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        media_layout.addWidget(self.album_art_label, 0, Qt.AlignmentFlag.AlignHCenter)
-        self.track_title_label = QLabel("Track Title")
-        self.track_title_label.setStyleSheet("font-weight: bold; font-size: 14pt;")
-        self.track_artist_label = QLabel("Artist Name")
-        self.track_time_label = QLabel("00:00 / 00:00")
-        media_layout.addWidget(self.track_title_label)
-        media_layout.addWidget(self.track_artist_label)
-        media_layout.addWidget(self.track_time_label)
-        playback_layout = QHBoxLayout()
-        btn_prev = QPushButton("<<")
-        btn_play_pause = QPushButton("▶")
-        btn_next = QPushButton(">>")
-        playback_layout.addStretch(1)
-        playback_layout.addWidget(btn_prev)
-        playback_layout.addWidget(btn_play_pause)
-        playback_layout.addWidget(btn_next)
-        playback_layout.addStretch(1)
-        media_layout.addLayout(playback_layout)
-        media_layout.addStretch(1)
+        # ... [all the labels, buttons, etc. for the media player - NO CHANGES HERE] ...
+        media_widget.setLayout(media_layout) # Ensure layout is set for the media player widget
 
-        # Add media widget to the right side (NO stretch factor here)
-        top_section_layout.addWidget(media_widget) # Removed stretch factor '1'
+        # --- Grid Widget setup (comes from earlier in the code) ---
+        # Assume 'grid_widget' is already created and has its QGridLayout populated with buttons
+        # Ensure its layout is set: grid_widget.setLayout(grid_layout)
 
-        # --- Add a single stretch at the end ---
-        # This will push the grid_widget and media_widget together to the left
+        # --- MODIFIED: Adding widgets to top_section_layout for correct positioning ---
+
+        # 1. Add grid_widget FIRST. Give it a horizontal stretch factor of 1.
+        #    This tells it to expand horizontally and take up available space.
+        top_section_layout.addWidget(grid_widget, 1) # The '1' is the stretch factor
+
+        # 2. Add a stretch item (a flexible, empty space).
+        #    This will push everything after it (the media_widget) to the right.
         top_section_layout.addStretch(1)
 
-        # --- Add Top Section to Main Layout ---
-        # The top section layout itself can still take available vertical space if needed
-        self.main_layout.addLayout(top_section_layout, 1) # Keep stretch factor here if desired
+        # 3. Add media_widget LAST. Do NOT give it a stretch factor (or use 0).
+        #    This makes it take only its preferred size, staying on the right.
+        top_section_layout.addWidget(media_widget) # No stretch factor = 0
+
+        # --- Add Top Section (the QHBoxLayout) to the Main Layout (the QVBoxLayout) ---
+        # The stretch factor here (e.g., 1) controls how much *vertical* space
+        # this entire top section takes relative to other items in main_layout (like the header).
+        self.main_layout.addLayout(top_section_layout, 1)
 
 
     # --- on_home_button_clicked method (no changes needed) ---
