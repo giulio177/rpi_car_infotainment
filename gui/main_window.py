@@ -37,11 +37,15 @@ class MainWindow(QMainWindow):
         super().__init__(parent)
         self.settings_manager = settings_manager
 
-        # --- ADD State Variables ---
+        # ---  Volume Mute Variables ---
         self.is_muted = False
         # Initialize last_volume_level with a sensible default or load from settings
         self.last_volume_level = 50 # Use the same default as the slider
         # TODO: Consider loading self.last_volume_level from settings_manager if you save volume
+        # ---
+
+        # --- Borderless Window ---
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
         # ---
       
         self.setWindowTitle("RPi Car Infotainment")
@@ -60,6 +64,8 @@ class MainWindow(QMainWindow):
             print(f"Error applying resolution setting: {e}. Using default 1024x600.")
             self.resize(1024, 600)
 
+
+        # --- Apply Theme ---
         self.current_theme = self.settings_manager.get("theme")
         apply_theme(QApplication.instance(), self.current_theme)
 
