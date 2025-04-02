@@ -77,16 +77,11 @@ class HomeScreen(QWidget):
                     name, icon_path = buttons_data[btn_index]
                     button = QPushButton(name)
 
-                    # --- Set FIXED Size ---
-                    button.setFixedSize(button_fixed_size)
+                  
 
                     # Buttons will now fill their grid cell automatically
                     button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
-                    # --- REMOVED: Fixed size setting ---
-                    # button.setFixedSize(button_fixed_size) # No longer needed
-
-                    # ... (optional icon loading logic - keep if used) ...
 
                     button.setObjectName(f"homeBtn{name.replace(' ', '')}")
                     button.clicked.connect(lambda checked, b=name: self.on_home_button_clicked(b))
