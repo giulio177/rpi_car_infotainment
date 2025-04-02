@@ -71,7 +71,7 @@ class HomeScreen(QWidget):
         num_rows = (num_buttons + target_cols - 1) // target_cols # Calculate rows needed
 
         btn_index = 0
-        for r in range(target_rows):
+        for r in range(num_rows):
             for c in range(target_cols):
                 if btn_index < len(buttons_data):
                     name, icon_path = buttons_data[btn_index]
