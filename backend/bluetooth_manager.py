@@ -68,22 +68,28 @@ class BluetoothManager(QThread):
         # QDBusMetaType.registerStructure( ... ) # If complex structures are used
 
     def find_adapter(self):
-        """Finds the first available Bluetooth adapter."""
-        om = QDBusInterface(BLUEZ_SERVICE, '/', DBUS_OM_IFACE, self.bus)
-        managed_objects = om.call('GetManagedObjects')
-        if not managed_objects.isValid():
-            print("BT Manager: Error getting managed objects:", managed_objects.error().message())
-            return None
-
-        # QDBusMessage returns arguments as a list, GetManagedObjects returns one dict arg
-        objects_dict = managed_objects.arguments()[0]
-
-        for path, interfaces in objects_dict.items():
-            if 'org.bluez.Adapter1' in interfaces:
-                print(f"BT Manager: Found adapter at {path}")
-                return path
-        print("BT Manager: No Bluetooth adapter found.")
+    """Finds the first available Bluetooth adapter."""
+    om = QDBusInterface(BLUEZ_SERVICE, '/', DBUS_OM_IFACE, self.bus)
+    # --- MODIFIED: Check message type instead of isValid() ---
+    reply_message = om.call('GetManagedObjects') # Returns QDBusMessage
+    if reply_message.type() == QDBusMessage.MessageType.ErrorMessage:
+        print("BT Manager: Error getting managed objects:", reply_message.errorMessage())
         return None
+    # If it's not an error, assume it's a reply and check for arguments
+    if not reply_message.arguments():
+         print("BT Manager: GetManagedObjects reply has no arguments.")
+         return None
+    # --- END MODIFICATION ---
+
+    # QDBusMessage returns arguments as a list, GetManagedObjects returns one dict arg
+    objects_dict = reply_message.arguments()[0]
+
+    for path, interfaces in objects_dict.items():
+        if 'org.bluez.Adapter1' in interfaces:
+            print(f"BT Manager: Found adapter at {path}")
+            return path
+    print("BT Manager: No Bluetooth adapter found.")
+    return None
 
     def process_device_properties(self, path, properties):
         """Checks device properties for connection and battery."""
@@ -168,22 +174,26 @@ class BluetoothManager(QThread):
     def monitor_media_player(self, player_path):
         """Connects signals for a specific media player."""
         if not player_path: return
-
+    
         # Monitor PropertiesChanged for the media player
         prop_iface_mp = QDBusInterface(BLUEZ_SERVICE, player_path, DBUS_PROP_IFACE, self.bus)
         self.bus.connect(
             BLUEZ_SERVICE, player_path, DBUS_PROP_IFACE, 'PropertiesChanged',
             self.on_media_properties_changed
         )
-
+    
         # Get initial properties
         media_player_iface = QDBusInterface(BLUEZ_SERVICE, player_path, MEDIA_PLAYER_IFACE, self.bus)
-        reply = media_player_iface.call("GetAll", MEDIA_PLAYER_IFACE) # Correct way to get all props for an iface
-        if reply.isValid():
-             initial_props = reply.arguments()[0] # It returns a dict[str, QVariant]
+        # --- MODIFIED: Check message type instead of isValid() ---
+        reply_message = media_player_iface.call("GetAll", MEDIA_PLAYER_IFACE)
+        if reply_message.type() == QDBusMessage.MessageType.ErrorMessage:
+            print(f"BT Manager: Failed to get initial media props from {player_path}: {reply_message.errorMessage()}")
+        elif reply_message.arguments():
+             initial_props = reply_message.arguments()[0] # It returns a dict[str, QVariant]
              self.update_media_state(initial_props)
         else:
-            print(f"BT Manager: Failed to get initial media props from {player_path}: {reply.error().message()}")
+             print(f"BT Manager: Got reply for GetAll media props, but no arguments found for {player_path}.")
+        # --- END MODIFICATION ---
 
 
     @pyqtSlot(str, dict, "QStringList")
@@ -252,31 +262,25 @@ class BluetoothManager(QThread):
 
     @pyqtSlot(str, dict, "QStringList")
     def on_device_properties_changed(self, interface_name, changed_properties, invalidated_properties):
-        """Handles D-Bus PropertiesChanged signal for Device1."""
-        # This slot needs context (the object path) which isn't provided by the signal directly.
-        # We need to get the sender's path.
-        sender_path = self.sender().path() # Get path from the QDBusAbstractInterface sender
-        if not sender_path:
-            # Fallback: try getting path from message (less reliable)
-            message = self.sender().message()
-            sender_path = message.path() if message else None
-
+        # ... (get sender_path logic remains the same) ...
+        sender_path = self.sender().path()
+        # ... (Fallback for sender_path) ...
+    
         if interface_name == DEVICE_IFACE and sender_path:
              print(f"BT Manager: Device properties changed for {sender_path}: {changed_properties}")
-             props = qvariant_dict_to_python(changed_properties)
-             # We need the full properties to correctly determine connection status/name
-             # Let's re-fetch all properties for the device when something changes
+             # Re-fetch all properties for the device
              device_iface = QDBusInterface(BLUEZ_SERVICE, sender_path, DEVICE_IFACE, self.bus)
-             reply = device_iface.call("GetAll", DEVICE_IFACE)
-             if reply.isValid():
-                  all_props = qvariant_dict_to_python(reply.arguments()[0])
+             # --- MODIFIED: Check message type instead of isValid() ---
+             reply_message = device_iface.call("GetAll", DEVICE_IFACE)
+             if reply_message.type() == QDBusMessage.MessageType.ErrorMessage:
+                  print(f"BT Manager: Failed to get all props for {sender_path} on change: {reply_message.errorMessage()}")
+             elif reply_message.arguments():
+                  all_props = qvariant_dict_to_python(reply_message.arguments()[0])
                   self.process_device_properties(sender_path, all_props)
              else:
-                 print(f"BT Manager: Failed to get all props for {sender_path} on change.")
-                 # Fallback: try using only changed props (might miss context)
-                 # self.process_device_properties(sender_path, props)
+                  print(f"BT Manager: Got reply for GetAll device props {sender_path}, but no arguments.")
+             # --- END MODIFICATION ---
         else:
-            # print(f"Ignoring property change for {interface_name} on {sender_path}")
             pass
 
 
@@ -296,18 +300,20 @@ class BluetoothManager(QThread):
         # Use ObjectManager to get initial state and monitor added/removed interfaces
         om = QDBusInterface(BLUEZ_SERVICE, '/', DBUS_OM_IFACE, self.bus)
         managed_objects_reply = om.call('GetManagedObjects')
-        if managed_objects_reply.isValid():
+        if managed_objects_reply.type() == QDBusMessage.MessageType.ErrorMessage:
+            print("BT Manager: Failed to get initial managed objects:", managed_objects_reply.errorMessage())
+            # Consider if the thread should exit here
+        elif managed_objects_reply.arguments():
              objects_dict = managed_objects_reply.arguments()[0]
              # Process initial devices
              for path, interfaces in objects_dict.items():
                  if DEVICE_IFACE in interfaces:
-                      # Get initial props for devices
                       dev_props = qvariant_dict_to_python(interfaces.get(DEVICE_IFACE, {}))
                       self.process_device_properties(path, dev_props)
              # Check for initially active media player
              self.find_media_player(self.connected_device_path)
         else:
-            print("BT Manager: Failed to get initial managed objects.")
+             print("BT Manager: Got reply for initial GetManagedObjects, but no arguments.")
 
 
         # Connect signals using ObjectManager (preferred over connecting for each device)
