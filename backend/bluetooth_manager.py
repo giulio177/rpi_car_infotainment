@@ -24,15 +24,13 @@ MEDIA_CONTROL_IFACE = 'org.bluez.MediaControl1' # Might be needed for play/pause
 # Helper to convert QVariant dictionary to Python dict
 def qvariant_dict_to_python(qvariant_dict):
     py_dict = {}
-    if isinstance(qvariant_dict, QVariant):
-        # Unwrap the QVariant first if necessary
-        qvariant_dict = qvariant_dict.value()
+    actual_dict = qvariant_dict.value() if isinstance(qvariant_dict, QVariant) else qvariant_dict
 
-    if isinstance(qvariant_dict, dict):
-         # QDBus sends dicts as QVariantMap which behaves like python dict
-        for key, value in qvariant_dict.items():
+    if isinstance(actual_dict, dict):
+        for key, value in actual_dict.items():
+            # Check if the VALUE is a QVariant and unwrap it
             if isinstance(value, QVariant):
-                py_dict[key] = value.value() # Extract value from QVariant
+                py_dict[key] = value.value()
             else:
                 py_dict[key] = value # Assume basic type if not QVariant
     return py_dict
@@ -93,11 +91,12 @@ class BluetoothManager(QThread):
 
     def process_device_properties(self, path, properties):
         """Checks device properties for connection and battery."""
-        is_connected = properties.get('Connected', QVariant(False)).value()
-        device_name = properties.get('Name', QVariant("Unknown Device")).value()
-        alias = properties.get('Alias', QVariant(device_name)).value() # Prefer Alias if set
-        # Battery property is often missing or unreliable via Device1
-        battery = properties.get('Battery', QVariant(None)).value() # Default to None QVariant
+        is_connected = properties.get('Connected', False) # Default to False (bool)
+        device_name = properties.get('Name', "Unknown Device") # Default to "Unknown Device" (str)
+        # Get Alias, default to the device_name we just retrieved
+        alias = properties.get('Alias', device_name)
+        # Battery property - Default to None (Python None)
+        battery = properties.get('Battery', None)
 
         if is_connected:
             if self.connected_device_path != path:
@@ -221,7 +220,7 @@ class BluetoothManager(QThread):
                 self.media_properties_changed.emit(self.media_properties) # Emit full properties dict
 
         if 'Status' in properties:
-            status = properties['Status']
+            status = properties.get('Status', 'stopped')
             if status != self.playback_status:
                 new_status = status
                 print(f"BT Manager: Playback Status Updated: {new_status}")
@@ -230,8 +229,12 @@ class BluetoothManager(QThread):
 
         # Update position if needed (example)
         if 'Position' in properties:
-             position = properties['Position']
+             position = properties.get('Position', 0)
              self.media_properties['Position'] = position # Store position if you need it
+
+        # --- Emit media_properties_changed only if track info actually changed ---
+        if new_track_info is not None:
+             self.media_properties_changed.emit(self.media_properties)
 
     @pyqtSlot(QDBusMessage)
     def on_interfaces_added(self, path, interfaces_and_properties):
