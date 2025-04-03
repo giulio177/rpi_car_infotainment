@@ -110,7 +110,7 @@ class MainWindow(QMainWindow):
         self.radio_status_label = QLabel("Radio: Idle")
         self.radio_status_label.setObjectName("statusBarRadioLabel")
 
-       self.separator_label = QLabel("|")
+        self.separator_label = QLabel("|")
         self.separator_label.setObjectName("statusBarSeparator")
 
         # --- ADDED: Bluetooth Status Labels ---
