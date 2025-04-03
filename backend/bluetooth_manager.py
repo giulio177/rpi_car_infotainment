@@ -213,6 +213,7 @@ class BluetoothManager(QThread):
     def on_media_properties_changed(self, interface_name, changed_properties, invalidated_properties):
         """Handles D-Bus PropertiesChanged signal for MediaPlayer1."""
         try:
+            changed_properties = changed_properties_variant.value() if isinstance(changed_properties_variant, QVariant) else changed_properties_variant
             print(f"DEBUG: on_media_properties_changed triggered: Iface={interface_name}, Changed={changed_properties}") # DEBUG
             if interface_name == MEDIA_PLAYER_IFACE:
                 print("BT Manager: Media properties changed (in slot):", changed_properties)
@@ -267,16 +268,20 @@ class BluetoothManager(QThread):
     @pyqtSlot(str, dict) # path (str), interfaces_and_properties (dict mapping str -> dict)
     def on_interfaces_added(self, path, interfaces_and_properties):
         try:
+            interfaces_and_properties = interfaces_and_properties_variant.value() if isinstance(interfaces_and_properties_variant, QVariant) else interfaces_and_properties_variant
             print(f"DEBUG: on_interfaces_added triggered for path: {path}") # DEBUG
             # interfaces_and_properties is Dict[str, Dict[str, QVariant]]
-            if DEVICE_IFACE in interfaces_and_properties:
-                print(f"BT Manager: Interface added for Device: {path}")
-                props_variant = interfaces_and_properties.get(DEVICE_IFACE, {})
-                props = qvariant_dict_to_python(props_variant)
-                self.process_device_properties(path, props)
-            elif MEDIA_PLAYER_IFACE in interfaces_and_properties:
-                 print(f"BT Manager: Interface added for Media Player: {path}")
-                 self.find_media_player() # Re-evaluate active player
+            if isinstance(interfaces_and_properties, dict): # Check it's actually a dict after unwrapping
+                if DEVICE_IFACE in interfaces_and_properties:
+                    print(f"BT Manager: Interface added for Device: {path}")
+                    props_variant = interfaces_and_properties.get(DEVICE_IFACE, {})
+                    props = qvariant_dict_to_python(props_variant) # Unwraps inner QVariants
+                    self.process_device_properties(path, props)
+                elif MEDIA_PLAYER_IFACE in interfaces_and_properties:
+                     print(f"BT Manager: Interface added for Media Player: {path}")
+                     self.find_media_player()
+            else:
+                 print(f"DEBUG: on_interfaces_added - Expected dict for interfaces_and_properties, got {type(interfaces_and_properties)}")
         except Exception as e:
             print(f"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
             print(f"ERROR in on_interfaces_added for path {path}: {e}")
@@ -292,7 +297,7 @@ class BluetoothManager(QThread):
             if DEVICE_IFACE in interfaces:
                  print(f"BT Manager: Interface removed for Device: {path}")
                  if path == self.connected_device_path:
-                     self.process_device_properties(path, {'Connected': QVariant(False)}) # Trigger disconnect
+                     self.process_device_properties(path, {'Connected': False}) # Trigger disconnect
             elif MEDIA_PLAYER_IFACE in interfaces:
                  print(f"BT Manager: Interface removed for Media Player: {path}")
                  if path == self.media_player_path:
@@ -315,32 +320,25 @@ class BluetoothManager(QThread):
             # Let's assume for now changed_properties might give clues, or we refetch all if ambiguous.
             # This part is tricky without sender context.
 
+            changed_properties = changed_properties_variant.value() if isinstance(changed_properties_variant, QVariant) else changed_properties_variant
             # TEMPORARY: Just log, this might not be reliable for path identification
             print(f"DEBUG: on_device_properties_changed triggered: Iface={interface_name}, Changed={changed_properties}")
 
             # If we know the connected device path, only process changes for that one
-            if interface_name == DEVICE_IFACE and self.connected_device_path:
-                # Quick check if changed_properties contains connection status or battery for our device
-                props_py = qvariant_dict_to_python(changed_properties)
-                needs_update = False
-                if 'Connected' in props_py and not props_py['Connected']: # Check for disconnect specifically
-                    needs_update = True
-                elif 'Battery' in props_py:
-                     needs_update = True # Battery level might have changed
-
-                if needs_update:
-                     print(f"DEBUG: Potential property change for connected device {self.connected_device_path}. Refetching all props.")
-                     device_iface = QDBusInterface(BLUEZ_SERVICE, self.connected_device_path, DEVICE_IFACE, self.bus)
-                     reply_message = device_iface.call("GetAll", DEVICE_IFACE)
-                     if reply_message.type() == QDBusMessage.MessageType.ErrorMessage:
-                          print(f"BT Manager: Failed to get all props for {self.connected_device_path} on change: {reply_message.errorMessage()}")
-                     elif reply_message.arguments():
-                          all_props = qvariant_dict_to_python(reply_message.arguments()[0])
-                          self.process_device_properties(self.connected_device_path, all_props)
-                     else:
-                          print(f"BT Manager: Got reply for GetAll device props {self.connected_device_path}, but no arguments.")
-            # else:
-            #     print(f"DEBUG: Ignoring device properties changed for {interface_name} or no connected device path.")
+            if interface_name == DEVICE_IFACE and self.connected_device_path and isinstance(changed_properties, dict):
+                # Check if the change affects our connected device - this requires getting sender path if possible
+                # Or, simply re-fetch if ANY device property changes (less efficient)
+                # Let's just re-fetch for the connected device for now if the signal arrives
+                print(f"DEBUG: Device property change detected. Refetching all props for connected device {self.connected_device_path}.")
+                device_iface = QDBusInterface(BLUEZ_SERVICE, self.connected_device_path, DEVICE_IFACE, self.bus)
+                reply_message = device_iface.call("GetAll", DEVICE_IFACE)
+                if reply_message.type() == QDBusMessage.MessageType.ErrorMessage:
+                      print(f"BT Manager: Failed to get all props for {self.connected_device_path} on change: {reply_message.errorMessage()}")
+                elif reply_message.arguments():
+                      all_props = qvariant_dict_to_python(reply_message.arguments()[0])
+                      self.process_device_properties(self.connected_device_path, all_props)
+                else:
+                      print(f"BT Manager: Got reply for GetAll device props {self.connected_device_path}, but no arguments.")
 
         except Exception as e:
             print(f"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
@@ -388,10 +386,15 @@ class BluetoothManager(QThread):
         print("DEBUG: BluetoothManager.run - Connecting D-Bus signals...") # DEBUG
         sig1_ok = self.bus.connect(BLUEZ_SERVICE, '/', DBUS_OM_IFACE, 'InterfacesAdded', self.on_interfaces_added)
         sig2_ok = self.bus.connect(BLUEZ_SERVICE, '/', DBUS_OM_IFACE, 'InterfacesRemoved', self.on_interfaces_removed)
-        # PropertiesChanged for devices (Generic connection - path identified in slot if possible)
-        sig3_ok = self.bus.connect(BLUEZ_SERVICE, '', DBUS_PROP_IFACE, 'PropertiesChanged', self.on_device_properties_changed)
+        sig3_ok = self.bus.connect(BLUEZ_SERVICE, '', DBUS_PROP_IFACE, 'PropertiesChanged', self.on_device_properties_changed) # Generic device properties
         print(f"DEBUG: Signal connection status: InterfacesAdded={sig1_ok}, InterfacesRemoved={sig2_ok}, PropertiesChanged(Device)={sig3_ok}") # DEBUG
 
+        if not sig1_ok or not sig3_ok:
+            print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+            print("CRITICAL ERROR: Failed to connect essential D-Bus signals (InterfacesAdded or PropertiesChanged). Bluetooth monitoring will not work correctly.")
+            print("Check slot signatures (@pyqtSlot) and D-Bus permissions.")
+            print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+            # Optionally, set self._is_running = False here if this is fatal
 
         print("BT Manager: D-Bus signals connected. Entering wait loop.")
         loop_count = 0
