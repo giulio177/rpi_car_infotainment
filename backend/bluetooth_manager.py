@@ -144,11 +144,11 @@ class BluetoothManager(QThread):
         for path, interfaces in objects_dict.items():
             if MEDIA_PLAYER_IFACE in interfaces:
                  # Check if this player belongs to our connected device (if known)
-                player_props = interfaces.get(MEDIA_PLAYER_IFACE, {})
-                player_device = player_props.get('Device', QVariant("")).value()
-
+                player_props_variant = interfaces.get(MEDIA_PLAYER_IFACE, {})
+                player_props = qvariant_dict_to_python(player_props_variant) # Use helper here
+                
                 player_device = player_props.get('Device', "")
-
+                
                 if device_path_hint and player_device == device_path_hint:
                     found_player_path = path
                     print(f"BT Manager: Found media player for connected device at {path}")
