@@ -104,10 +104,17 @@ class MainWindow(QMainWindow):
 
         # --- Status Labels ---
         self.obd_status_label = QLabel("OBD: Disconnected")
-        self.obd_status_label.setObjectName("statusBarObdLabel") # For styling
+        self.obd_status_label.setObjectName("statusBarObdLabel")
         self.radio_status_label = QLabel("Radio: Idle")
-        self.radio_status_label.setObjectName("statusBarRadioLabel") # For styling
-        # ---
+        self.radio_status_label.setObjectName("statusBarRadioLabel")
+
+        # --- ADD THIS LINE ---
+        self.separator_label = QLabel("|")
+        # Optional: Add object name if you want to style it via QSS
+        self.separator_label.setObjectName("statusBarSeparator")
+        # Optional: Basic styling here if not using QSS extensively for it
+        # self.separator_label.setStyleSheet("color: #888; padding-left: 5px; padding-right: 5px;")
+        # --------------------
       
         # --- PERSISTENT BOTTOM BAR ---
         self.bottom_bar_widget = QWidget()
