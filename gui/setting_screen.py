@@ -187,6 +187,7 @@ class SettingsScreen(QWidget):
         scaled_scroll_content_spacing = scale_value(self.base_scroll_content_spacing, scale_factor)
         scaled_form_h_spacing = scale_value(self.base_form_h_spacing, scale_factor)
         scaled_form_v_spacing = scale_value(self.base_form_v_spacing, scale_factor)
+        scaled_button_layout_spacing = scale_value(self.base_button_layout_spacing, scale_factor)
 
         # Apply to MAIN layouts
         self.main_layout.setContentsMargins(scaled_main_margin, scaled_main_margin, scaled_main_margin, scaled_main_margin)
