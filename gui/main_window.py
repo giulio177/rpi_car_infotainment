@@ -6,7 +6,7 @@ import sys
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                              QPushButton, QStackedWidget, QApplication, QLabel, QMessageBox,
                              QSlider) # Keep QPushButton if used elsewhere
-from PyQt6.QtCore import pyqtSlot, Qt, QTimer, QDateTime, QSize
+from PyQt6.QtCore import pyqtSlot, Qt, QTimer, QDateTime, QSize, QMargins
 
 from PyQt6.QtGui import QIcon # Added QIcon
 
@@ -16,7 +16,7 @@ from .home_screen import HomeScreen
 from .radio_screen import RadioScreen
 from .obd_screen import OBDScreen
 from .setting_screen import SettingsScreen # Corrected import name
-from .styling import apply_theme
+from .styling import apply_theme, scale_value
 
 from backend.obd_manager import OBDManager
 from backend.radio_manager import RadioManager
@@ -33,13 +33,21 @@ ICON_POWER = os.path.join(ICON_PATH, "power.png")
 # ---
 
 class MainWindow(QMainWindow):
+    BASE_RESOLUTION = QSize(1024, 600) # Design resolution
+
     def __init__(self, settings_manager, parent=None):
         super().__init__(parent)
         self.settings_manager = settings_manager
-
-
-        # --- Instantiate AudioManager ---
         self.audio_manager = AudioManager()
+
+        # --- Define Base Sizes used in code (not just QSS) ---
+        self.base_icon_size = QSize(32, 32)
+        self.base_bottom_bar_button_size = QSize(45, 45)
+        self.base_bottom_bar_height = 70 # Base height for the bottom bar
+        self.base_volume_slider_width = 150
+        self.base_layout_spacing = 10
+        self.base_layout_margin = 5 # For bottom bar contents margin
+        self.base_main_margin = 10 # For main window content margins (used in child screens too)
 
         # ---  Volume Mute Variables ---
         # Get initial system mute status if possible, otherwise assume not muted
@@ -56,43 +64,45 @@ class MainWindow(QMainWindow):
 
         # --- Borderless Window ---
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
-        # ---
-      
         self.setWindowTitle("RPi Car Infotainment")
 
         # --- Apply Resolution from Settings ---
         try:
             resolution = self.settings_manager.get("window_resolution")
             if isinstance(resolution, list) and len(resolution) == 2:
-                 self.resize(resolution[0], resolution[1])
-                 print(f"Window resized to: {resolution[0]}x{resolution[1]}")
+                 # self.resize(resolution[0], resolution[1]) # DEFER RESIZE until after UI setup
+                 self._initial_width = resolution[0]
+                 self._initial_height = resolution[1]
+                 print(f"Target resolution set to: {resolution[0]}x{resolution[1]}")
             else:
-                 print("Warning: Invalid resolution setting found, using default 1024x600.")
+                 print("Warning: Invalid resolution setting found, using default.")
                  default_res = self.settings_manager.defaults.get("window_resolution", [1024, 600])
-                 self.resize(default_res[0], default_res[1])
+                 # self.resize(default_res[0], default_res[1]) # DEFER RESIZE
+                 self._initial_width = default_res[0]
+                 self._initial_height = default_res[1]
         except Exception as e:
-            print(f"Error applying resolution setting: {e}. Using default 1024x600.")
-            self.resize(1024, 600)
+            print(f"Error applying resolution setting: {e}. Using default.")
+            # self.resize(1024, 600) # DEFER RESIZE
+            self._initial_width = 1024
+            self._initial_height = 600
 
 
         # --- Apply Theme ---
         self.current_theme = self.settings_manager.get("theme")
-        apply_theme(QApplication.instance(), self.current_theme)
+        # apply_theme(QApplication.instance(), self.current_theme) # Moved lower
 
         # --- Central Widget Area ---
         self.central_widget = QWidget()
         self.main_layout = QVBoxLayout(self.central_widget)
-        self.main_layout.setContentsMargins(0, 0, 0, 0)
-        self.main_layout.setSpacing(0)
+        # self.main_layout.setContentsMargins(0, 0, 0, 0) # Margins set by scaling
+        # self.main_layout.setSpacing(0) # Spacing set by scaling
         self.setCentralWidget(self.central_widget)
 
         # --- Stacked Widget for Screens (Keep This) ---
         self.stacked_widget = QStackedWidget()
         self.main_layout.addWidget(self.stacked_widget, 1) # Takes up main space
 
-
-
-        # --- Keep Status Labels (but don't put in status bar) ---
+        # --- Status Labels ---
         self.obd_status_label = QLabel("OBD: Disconnected")
         self.obd_status_label.setObjectName("statusBarObdLabel") # For styling
         self.radio_status_label = QLabel("Radio: Idle")
@@ -103,128 +113,71 @@ class MainWindow(QMainWindow):
         self.bottom_bar_widget = QWidget()
         self.bottom_bar_widget.setObjectName("persistentBottomBar") # For styling
         bottom_bar_layout = QHBoxLayout(self.bottom_bar_widget)
-        bottom_bar_layout.setContentsMargins(5, 5, 5, 5)
-        bottom_bar_layout.setSpacing(10)
+        # self.bottom_bar_layout.setContentsMargins(5, 5, 5, 5) # Set by scaling
+        # self.bottom_bar_layout.setSpacing(10) # Set by scaling
 
-        icon_size = QSize(32, 32) # Define a size for the icons
-        button_size = QSize(45, 45) # Slightly larger button size for padding
-      
-        # --- Home Button ---
-        self.home_button_bar = QPushButton() # Create empty button
-        home_icon = QIcon(ICON_HOME)
-        if home_icon.isNull(): print(f"Warning: Failed to load icon: {ICON_HOME}")
-        self.home_button_bar.setIcon(home_icon)
-        self.home_button_bar.setIconSize(icon_size)
-        self.home_button_bar.setFixedSize(button_size) # Use QSize
+        # --- Create bottom bar buttons (sizes set by scaling) ---
+        self.home_button_bar = QPushButton()
+        self.home_icon = QIcon(ICON_HOME) # Store icon ref
+        self.home_button_bar.setIcon(self.home_icon)
         self.home_button_bar.setObjectName("homeNavButton")
         self.home_button_bar.setToolTip("Go to Home Screen")
         self.home_button_bar.clicked.connect(self.go_to_home)
-        bottom_bar_layout.addWidget(self.home_button_bar)
-        
-      
-        # --- Settings Button ---
-        self.settings_button = QPushButton() # Create empty button
-        settings_icon = QIcon(ICON_SETTINGS)
-        if settings_icon.isNull(): print(f"Warning: Failed to load icon: {ICON_SETTINGS}")
-        self.settings_button.setIcon(settings_icon)
-        self.settings_button.setIconSize(icon_size)
-        self.settings_button.setFixedSize(button_size)
+
+        self.settings_button = QPushButton()
+        self.settings_icon = QIcon(ICON_SETTINGS) # Store icon ref
+        self.settings_button.setIcon(self.settings_icon)
         self.settings_button.setObjectName("settingsNavButton")
         self.settings_button.setToolTip("Open Settings")
         self.settings_button.clicked.connect(self.go_to_settings)
-        bottom_bar_layout.addWidget(self.settings_button)
 
-        # --- ADD Status Labels HERE ---
-        bottom_bar_layout.addWidget(self.obd_status_label)
-        # Optional separator - use a styled QLabel or just spacing
-        separator_label = QLabel("|")
-        separator_label.setStyleSheet("color: #888;") # Example style
-        bottom_bar_layout.addWidget(separator_label)
-        bottom_bar_layout.addWidget(self.radio_status_label)
-        # --- END ADD Status Labels ---
-
-        bottom_bar_layout.addStretch(1) # Center volume
-
-        # --- Volume Icon ---
         self.volume_icon_button = QPushButton()
         self.volume_normal_icon = QIcon(ICON_VOLUME)
         self.volume_muted_icon = QIcon(ICON_VOLUME_MUTED)
-        # --- Set initial icon based on loaded/detected mute state ---
-        initial_icon = self.volume_muted_icon if self.is_muted else self.volume_normal_icon
-        self.volume_icon_button.setIcon(initial_icon)
-   
-        self.volume_icon_button.setIconSize(icon_size)
-        self.volume_icon_button.setFixedSize(button_size)
+        self.volume_icon_button.setIcon(self.volume_normal_icon) # Initial set later
         self.volume_icon_button.setObjectName("volumeIcon")
         self.volume_icon_button.setToolTip("Mute / Unmute Volume")
         self.volume_icon_button.setCheckable(True)
-        # --- Set initial checked state ---
-        self.volume_icon_button.setChecked(self.is_muted)
-      
         self.volume_icon_button.clicked.connect(self.toggle_mute)
-        bottom_bar_layout.addWidget(self.volume_icon_button)
 
-        # --- Volume Slider ---
         self.volume_slider = QSlider(Qt.Orientation.Horizontal)
         self.volume_slider.setRange(0, 100)
-        # --- MODIFIED: Set initial slider value based on system/saved state ---
-        # Get current system volume IF possible, otherwise use last_volume_level (non-zero)
-        initial_slider_value = self.audio_manager.get_volume()
-        if initial_slider_value is None:
-             # Fallback if amixer failed: Use last saved non-zero level if not muted, else 0
-            initial_slider_value = 0 if self.is_muted else self.last_volume_level
-        # --- Set the slider value ---
-        self.volume_slider.setValue(initial_slider_value)
-        # --- Set the actual system volume to match the slider's initial value ---
-        # (Unless system is initially muted - set_mute will handle that later if needed)
-        if not self.is_muted:
-             print(f"Setting initial system volume to: {initial_slider_value}%")
-             self.audio_manager.set_volume(initial_slider_value)
-        else:
-             # If muted, ensure system mute is set (in case get_mute_status failed earlier)
-             print("System is initially muted. Ensuring mute state.")
-             self.audio_manager.set_mute(True) # Ensure system reflects UI state
-        # ---
-
-        self.volume_slider.setFixedWidth(150)
         self.volume_slider.valueChanged.connect(self.volume_slider_changed)
-        bottom_bar_layout.addWidget(self.volume_slider)
 
-
-        bottom_bar_layout.addStretch(1) # Push buttons to the right
-
-        # --- Restart Button ---
-        self.restart_button_bar = QPushButton() # Create empty button
-        restart_icon = QIcon(ICON_RESTART)
-        if restart_icon.isNull(): print(f"Warning: Failed to load icon: {ICON_RESTART}")
-        self.restart_button_bar.setIcon(restart_icon)
-        self.restart_button_bar.setIconSize(icon_size)
-        self.restart_button_bar.setFixedSize(button_size)
+        self.restart_button_bar = QPushButton()
+        self.restart_icon = QIcon(ICON_RESTART) # Store icon ref
+        self.restart_button_bar.setIcon(self.restart_icon)
         self.restart_button_bar.setObjectName("restartNavButton")
         self.restart_button_bar.setToolTip("Restart Application")
         self.restart_button_bar.clicked.connect(self.restart_application)
-        bottom_bar_layout.addWidget(self.restart_button_bar)
-      
-        # --- Power Button ---
-        self.power_button = QPushButton() # Create empty button
-        power_icon = QIcon(ICON_POWER)
-        if power_icon.isNull(): print(f"Warning: Failed to load icon: {ICON_POWER}")
-        self.power_button.setIcon(power_icon)
-        self.power_button.setIconSize(icon_size)
-        self.power_button.setFixedSize(button_size)
-        self.power_button.setObjectName("powerNavButton") # Typo fixed: power_button
+
+        self.power_button = QPushButton()
+        self.power_icon = QIcon(ICON_POWER) # Store icon ref
+        self.power_button.setIcon(self.power_icon)
+        self.power_button.setObjectName("powerNavButton")
         self.power_button.setToolTip("Exit Application")
         self.power_button.clicked.connect(self.close)
-        bottom_bar_layout.addWidget(self.power_button)
 
-      
-        # Add bottom bar widget
+        # --- Add widgets to bottom bar layout ---
+        self.bottom_bar_layout.addWidget(self.home_button_bar)
+        self.bottom_bar_layout.addWidget(self.settings_button)
+        self.bottom_bar_layout.addStretch(1) # Push status labels towards center
+        self.bottom_bar_layout.addWidget(self.obd_status_label)
+        self.bottom_bar_layout.addWidget(self.separator_label)
+        self.bottom_bar_layout.addWidget(self.radio_status_label)
+        self.bottom_bar_layout.addStretch(2) # More stretch towards center
+        self.bottom_bar_layout.addWidget(self.volume_icon_button)
+        self.bottom_bar_layout.addWidget(self.volume_slider)
+        self.bottom_bar_layout.addStretch(2) # Push end buttons right
+        self.bottom_bar_layout.addWidget(self.restart_button_bar)
+        self.bottom_bar_layout.addWidget(self.power_button)
+
+        # Add bottom bar widget to main layout
         self.main_layout.addWidget(self.bottom_bar_widget)
-        self.bottom_bar_widget.setFixedHeight(70) # Adjust height if needed based on button size
-        # --- END PERSISTENT BOTTOM BAR ---
+        # self.bottom_bar_widget.setFixedHeight(70) # Height set by scaling
 
 
-        # --- Initialize Backend Managers (Keep This) ---
+        # --- Initialize Backend Managers ---
         self.obd_manager = OBDManager(
             port=self.settings_manager.get("obd_port"),
             baudrate=self.settings_manager.get("obd_baudrate")
@@ -234,13 +187,11 @@ class MainWindow(QMainWindow):
              i2c_address=self.settings_manager.get("radio_i2c_address"),
              initial_freq=self.settings_manager.get("last_fm_station") # Use corrected get()
         )
-        # self.audio_manager = AudioManager()
 
         # --- Initialize Screens (Keep This - Pass self for navigation) ---
-        self.home_screen = HomeScreen(parent=self) # Pass self or main_window reference if needed
+        self.home_screen = HomeScreen(parent=self)
         self.radio_screen = RadioScreen(self.radio_manager, parent=self)
         self.obd_screen = OBDScreen(parent=self)
-        # Pass self to settings screen to allow theme/config updates AND navigation back
         self.settings_screen = SettingsScreen(self.settings_manager, self)
 
         # --- Add Screens to Stack (Keep This) ---
@@ -249,18 +200,34 @@ class MainWindow(QMainWindow):
         self.stacked_widget.addWidget(self.obd_screen)
         self.stacked_widget.addWidget(self.settings_screen)
 
-        # --- Connect Navigation Buttons (REMOVE THIS SECTION) ---
-        # self.btn_home.clicked.connect(lambda: self.stacked_widget.setCurrentWidget(self.home_screen))
-        # self.btn_radio.clicked.connect(lambda: self.stacked_widget.setCurrentWidget(self.radio_screen))
-        # self.btn_obd.clicked.connect(lambda: self.stacked_widget.setCurrentWidget(self.obd_screen))
-        # self.btn_settings.clicked.connect(lambda: self.stacked_widget.setCurrentWidget(self.settings_screen))
-
         # --- Connect Backend Signals to GUI Slots (Keep This) ---
         self.obd_manager.connection_status.connect(self.update_obd_status)
         self.obd_manager.data_updated.connect(self.obd_screen.update_data)
         self.radio_manager.radio_status.connect(self.update_radio_status)
         self.radio_manager.frequency_updated.connect(self.radio_screen.update_frequency)
         self.radio_manager.signal_strength.connect(self.radio_screen.update_signal_strength)
+
+        # --- Initialize Volume/Mute States (Moved after widgets are created) ---
+        initial_system_mute = self.audio_manager.get_mute_status()
+        self.is_muted = initial_system_mute if initial_system_mute is not None else False
+        self.last_volume_level = self.settings_manager.get("volume") or 50
+        if not self.is_muted and self.last_volume_level == 0:
+            self.last_volume_level = 50
+
+        # Update volume button based on initial state
+        initial_icon = self.volume_muted_icon if self.is_muted else self.volume_normal_icon
+        self.volume_icon_button.setIcon(initial_icon)
+        self.volume_icon_button.setChecked(self.is_muted)
+
+        # Set initial slider value and sync system volume
+        initial_slider_value = self.audio_manager.get_volume()
+        if initial_slider_value is None:
+            initial_slider_value = 0 if self.is_muted else self.last_volume_level
+        self.volume_slider.setValue(initial_slider_value)
+        if not self.is_muted:
+             self.audio_manager.set_volume(initial_slider_value)
+        else:
+             self.audio_manager.set_mute(True)
 
         # --- Start Backend Threads (Keep This) ---
         self.obd_manager.start()
@@ -271,6 +238,15 @@ class MainWindow(QMainWindow):
 
         # Set initial screen
         self.stacked_widget.setCurrentWidget(self.home_screen)
+
+        # --- Apply initial scaling and resize ---
+        self._apply_scaling() # Apply scaling based on initial size
+        self.resize(self._initial_width, self._initial_height) # Now resize the window
+
+        # --- Apply Theme (Needs to happen AFTER scaling so QSS uses correct values) ---
+        # We need the scale factor for the theme application now
+        scale_factor = self.height() / self.BASE_RESOLUTION.height() if self.BASE_RESOLUTION.height() > 0 else 1.0
+        apply_theme(QApplication.instance(), self.current_theme, scale_factor)
 
 
     # --- Keep Methods like update_obd_status, update_radio_status, etc. ---
@@ -289,12 +265,85 @@ class MainWindow(QMainWindow):
         self.radio_status_label.setText(f"Radio: {status}")
         self.radio_screen.update_status_display(status)
 
+
+    # --- ADDED: resizeEvent handler ---
+    def resizeEvent(self, event):
+        """Override resizeEvent to apply scaling when window size changes."""
+        super().resizeEvent(event) # Call base class implementation
+        print(f"Window resized to: {event.size().width()}x{event.size().height()}")
+        self._apply_scaling()
+
+    # --- ADDED: Central scaling logic ---
+    def _apply_scaling(self):
+        """Applies scaling to UI elements based on current window height."""
+        current_height = self.height()
+        if self.BASE_RESOLUTION.height() <= 0 or current_height <= 0: # Prevent division by zero
+             scale_factor = 1.0
+        else:
+             scale_factor = current_height / self.BASE_RESOLUTION.height()
+
+        # --- Scale elements controlled directly ---
+        scaled_icon_size = QSize(
+            scale_value(self.base_icon_size.width(), scale_factor),
+            scale_value(self.base_icon_size.height(), scale_factor)
+        )
+        scaled_button_size = QSize(
+             scale_value(self.base_bottom_bar_button_size.width(), scale_factor),
+             scale_value(self.base_bottom_bar_button_size.height(), scale_factor)
+        )
+        scaled_bottom_bar_height = scale_value(self.base_bottom_bar_height, scale_factor)
+        scaled_slider_width = scale_value(self.base_volume_slider_width, scale_factor)
+        scaled_spacing = scale_value(self.base_layout_spacing, scale_factor)
+        scaled_margin = scale_value(self.base_layout_margin, scale_factor)
+        scaled_main_margin = scale_value(self.base_main_margin, scale_factor)
+
+        # Apply to bottom bar buttons
+        self.home_button_bar.setIconSize(scaled_icon_size)
+        self.home_button_bar.setFixedSize(scaled_button_size)
+        self.settings_button.setIconSize(scaled_icon_size)
+        self.settings_button.setFixedSize(scaled_button_size)
+        self.volume_icon_button.setIconSize(scaled_icon_size)
+        self.volume_icon_button.setFixedSize(scaled_button_size)
+        self.restart_button_bar.setIconSize(scaled_icon_size)
+        self.restart_button_bar.setFixedSize(scaled_button_size)
+        self.power_button.setIconSize(scaled_icon_size)
+        self.power_button.setFixedSize(scaled_button_size)
+
+        # Apply to volume slider and bottom bar itself
+        self.volume_slider.setFixedWidth(scaled_slider_width)
+        self.bottom_bar_widget.setFixedHeight(scaled_bottom_bar_height)
+
+        # Apply to layouts
+        self.bottom_bar_layout.setContentsMargins(scaled_margin, scaled_margin, scaled_margin, scaled_margin)
+        self.bottom_bar_layout.setSpacing(scaled_spacing)
+
+        # Main layout margins/spacing (can affect space available for children)
+        self.main_layout.setContentsMargins(0,0,0,0) # Usually main layout has no margins itself
+        self.main_layout.setSpacing(scale_value(5, scale_factor)) # Small spacing between stack and bottom bar
+
+        # --- Re-apply theme/stylesheet with new scale factor ---
+        # This handles font sizes and other QSS-controlled properties
+        apply_theme(QApplication.instance(), self.current_theme, scale_factor)
+
+        # --- Notify Child Screens (Optional but recommended for complex children) ---
+        # Children might need to adjust internal layouts/widgets not covered by QSS
+        if hasattr(self.home_screen, 'update_scaling'):
+            self.home_screen.update_scaling(scale_factor, scaled_main_margin)
+        if hasattr(self.radio_screen, 'update_scaling'):
+            self.radio_screen.update_scaling(scale_factor, scaled_main_margin)
+        if hasattr(self.obd_screen, 'update_scaling'):
+            self.obd_screen.update_scaling(scale_factor, scaled_main_margin)
+        if hasattr(self.settings_screen, 'update_scaling'):
+            self.settings_screen.update_scaling(scale_factor, scaled_main_margin)
+
     def switch_theme(self, theme_name):
-        # ... (implementation remains the same) ...
         if theme_name != self.current_theme:
             print(f"Switching theme to: {theme_name}")
             self.current_theme = theme_name
-            apply_theme(QApplication.instance(), self.current_theme)
+            # --- MODIFIED: Apply theme using current scale factor ---
+            scale_factor = self.height() / self.BASE_RESOLUTION.height() if self.BASE_RESOLUTION.height() > 0 else 1.0
+            apply_theme(QApplication.instance(), self.current_theme, scale_factor)
+            # ---
             self.settings_manager.set("theme", theme_name)
 
     def update_obd_config(self):
