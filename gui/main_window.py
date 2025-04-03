@@ -111,10 +111,10 @@ class MainWindow(QMainWindow):
       
         # --- PERSISTENT BOTTOM BAR ---
         self.bottom_bar_widget = QWidget()
-        self.bottom_bar_widget.setObjectName("persistentBottomBar") # For styling
-        bottom_bar_layout = QHBoxLayout(self.bottom_bar_widget)
-        # self.bottom_bar_layout.setContentsMargins(5, 5, 5, 5) # Set by scaling
-        # self.bottom_bar_layout.setSpacing(10) # Set by scaling
+        self.bottom_bar_widget.setObjectName("persistentBottomBar")
+
+        # --- MAKE SURE THIS LINE EXISTS AND IS HERE ---
+        self.bottom_bar_layout = QHBoxLayout(self.bottom_bar_widget)
 
         # --- Create bottom bar buttons (sizes set by scaling) ---
         self.home_button_bar = QPushButton()
