@@ -130,10 +130,13 @@ class BluetoothManager(QThread):
         """Finds the active media player, optionally prioritizing one on a specific device."""
         # MediaPlayer1 interface might be directly under the device or elsewhere
         om = QDBusInterface(BLUEZ_SERVICE, '/', DBUS_OM_IFACE, self.bus)
-        managed_objects = om.call('GetManagedObjects')
-        if not managed_objects.isValid():
-            print("BT Manager: Error getting managed objects for media player:", managed_objects.error().message())
+        reply_message = om.call('GetManagedObjects')
+        if reply_message.type() == QDBusMessage.MessageType.ErrorMessage:
+            print("BT Manager: Error getting managed objects for media player:", reply_message.errorMessage())
             return False
+        if not reply_message.arguments():
+             print("BT Manager: GetManagedObjects (media player search) reply has no arguments.")
+             return False
 
         objects_dict = managed_objects.arguments()[0]
         found_player_path = None
@@ -143,6 +146,8 @@ class BluetoothManager(QThread):
                  # Check if this player belongs to our connected device (if known)
                 player_props = interfaces.get(MEDIA_PLAYER_IFACE, {})
                 player_device = player_props.get('Device', QVariant("")).value()
+
+                player_device = player_props.get('Device', "")
 
                 if device_path_hint and player_device == device_path_hint:
                     found_player_path = path
