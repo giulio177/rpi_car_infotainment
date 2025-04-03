@@ -20,7 +20,7 @@ from .styling import apply_theme
 
 from backend.obd_manager import OBDManager
 from backend.radio_manager import RadioManager
-# from backend.audio_manager import AudioManager
+from backend.audio_manager import AudioManager
 
 # --- Define Icon Paths (adjust paths if your folder structure is different) ---
 ICON_PATH = "assets/icons/" # Base path for icons
@@ -37,11 +37,21 @@ class MainWindow(QMainWindow):
         super().__init__(parent)
         self.settings_manager = settings_manager
 
+
+        # --- Instantiate AudioManager ---
+        self.audio_manager = AudioManager()
+
         # ---  Volume Mute Variables ---
-        self.is_muted = False
-        # Initialize last_volume_level with a sensible default or load from settings
-        self.last_volume_level = 50 # Use the same default as the slider
-        # TODO: Consider loading self.last_volume_level from settings_manager if you save volume
+        # Get initial system mute status if possible, otherwise assume not muted
+        initial_system_mute = self.audio_manager.get_mute_status()
+        self.is_muted = initial_system_mute if initial_system_mute is not None else False
+
+        # Load last saved volume level from settings, default to 50
+        # This is the level we restore to when unmuting
+        self.last_volume_level = self.settings_manager.get("volume") or 50
+        # Ensure last_volume_level isn't 0 if we are not initially muted
+        if not self.is_muted and self.last_volume_level == 0:
+            self.last_volume_level = 50 # Default restore level if saved was 0
         # ---
 
         # --- Borderless Window ---
@@ -137,33 +147,49 @@ class MainWindow(QMainWindow):
 
         # --- Volume Icon ---
         self.volume_icon_button = QPushButton()
-        self.volume_normal_icon = QIcon(ICON_VOLUME) # Store normal icon
-        self.volume_muted_icon = QIcon(ICON_VOLUME_MUTED) # Store muted icon
-        if self.volume_normal_icon.isNull(): print(f"Warning: Failed to load icon: {ICON_VOLUME}")
-        if self.volume_muted_icon.isNull(): print(f"Warning: Failed to load icon: {ICON_VOLUME_MUTED}")
-
-        self.volume_icon_button.setIcon(self.volume_normal_icon) # Set initial icon
+        self.volume_normal_icon = QIcon(ICON_VOLUME)
+        self.volume_muted_icon = QIcon(ICON_VOLUME_MUTED)
+        # --- Set initial icon based on loaded/detected mute state ---
+        initial_icon = self.volume_muted_icon if self.is_muted else self.volume_normal_icon
+        self.volume_icon_button.setIcon(initial_icon)
+   
         self.volume_icon_button.setIconSize(icon_size)
         self.volume_icon_button.setFixedSize(button_size)
         self.volume_icon_button.setObjectName("volumeIcon")
         self.volume_icon_button.setToolTip("Mute / Unmute Volume")
-        # self.volume_icon_button.setEnabled(False) # REMOVE THIS LINE
-        self.volume_icon_button.setCheckable(True) # Make it act like a toggle visually (optional)
-        self.volume_icon_button.clicked.connect(self.toggle_mute) # Connect click signal
+        self.volume_icon_button.setCheckable(True)
+        # --- Set initial checked state ---
+        self.volume_icon_button.setChecked(self.is_muted)
+      
+        self.volume_icon_button.clicked.connect(self.toggle_mute)
         bottom_bar_layout.addWidget(self.volume_icon_button)
 
         # --- Volume Slider ---
         self.volume_slider = QSlider(Qt.Orientation.Horizontal)
         self.volume_slider.setRange(0, 100)
-        # TODO: Load initial volume from SettingsManager if saved
-        initial_volume = self.settings_manager.get("volume") or 50 # Example load with default
-        self.last_volume_level = initial_volume # Set last level based on loaded/default
-        self.volume_slider.setValue(initial_volume)
+        # --- MODIFIED: Set initial slider value based on system/saved state ---
+        # Get current system volume IF possible, otherwise use last_volume_level (non-zero)
+        initial_slider_value = self.audio_manager.get_volume()
+        if initial_slider_value is None:
+             # Fallback if amixer failed: Use last saved non-zero level if not muted, else 0
+            initial_slider_value = 0 if self.is_muted else self.last_volume_level
+        # --- Set the slider value ---
+        self.volume_slider.setValue(initial_slider_value)
+        # --- Set the actual system volume to match the slider's initial value ---
+        # (Unless system is initially muted - set_mute will handle that later if needed)
+        if not self.is_muted:
+             print(f"Setting initial system volume to: {initial_slider_value}%")
+             self.audio_manager.set_volume(initial_slider_value)
+        else:
+             # If muted, ensure system mute is set (in case get_mute_status failed earlier)
+             print("System is initially muted. Ensuring mute state.")
+             self.audio_manager.set_mute(True) # Ensure system reflects UI state
+        # ---
+
         self.volume_slider.setFixedWidth(150)
-        self.volume_slider.valueChanged.connect(self.volume_slider_changed) # Connect value changed signal
-        # TODO: Connect valueChanged also to AudioManager if applicable
-        # self.volume_slider.valueChanged.connect(self.audio_manager.set_volume)
+        self.volume_slider.valueChanged.connect(self.volume_slider_changed)
         bottom_bar_layout.addWidget(self.volume_slider)
+
 
         bottom_bar_layout.addStretch(1) # Push buttons to the right
 
@@ -346,13 +372,16 @@ class MainWindow(QMainWindow):
             print("Restart cancelled by user.")
 
     def closeEvent(self, event):
-        # Optional: Save the last NON-MUTED volume level
-        current_volume = self.volume_slider.value()
-        save_volume = self.last_volume_level if self.is_muted and self.last_volume_level > 0 else current_volume
-        if save_volume > 0: # Don't save 0 if muted, save last level instead
-             self.settings_manager.set("volume", save_volume)
-        elif current_volume == 0 and not self.is_muted: # If user manually set to 0
+        # Save the last NON-MUTED volume level before closing
+        # Use self.last_volume_level which is updated during interaction
+        if self.last_volume_level > 0:
+             print(f"Saving last non-muted volume: {self.last_volume_level}")
+             self.settings_manager.set("volume", self.last_volume_level)
+        # If user manually slid to 0 and it wasn't a mute action, save 0
+        elif self.volume_slider.value() == 0 and not self.is_muted:
+             print("Saving volume as 0 (manually set)")
              self.settings_manager.set("volume", 0)
+        # Don't save volume if muted (last_volume_level already holds the value to restore)
 
         print("Close event triggered. Stopping background threads...")
         # ... (rest of closeEvent: stop threads, accept event) ...
@@ -363,55 +392,74 @@ class MainWindow(QMainWindow):
         event.accept()
 
 
+    # --- toggle_mute to use AudioManager ---
     def toggle_mute(self):
-        """Toggles volume mute state."""
+        """Toggles volume mute state using AudioManager."""
         if self.is_muted:
             # --- Unmuting ---
-            # Restore slider to last known non-zero level (or a default if last was 0)
-            restore_level = self.last_volume_level if self.last_volume_level > 0 else 50 # Restore to 50 if last level was 0
-            self.volume_slider.setValue(restore_level)
+            restore_level = self.last_volume_level if self.last_volume_level > 0 else 50
+            # Update UI first
+            self.volume_slider.setValue(restore_level) # Update slider visually
             self.volume_icon_button.setIcon(self.volume_normal_icon)
+            self.volume_icon_button.setChecked(False)
             self.is_muted = False
-            self.volume_icon_button.setChecked(False) # Update toggle state
-            print(f"Volume Unmuted. Restored level to {restore_level}")
+            # Tell AudioManager to unmute the system
+            print(f"UI Unmuted. Restoring level to {restore_level}. Telling system...")
+            self.audio_manager.set_mute(False)
+            # Setting mute to false often restores previous volume, but let's set explicitly
+            self.audio_manager.set_volume(restore_level) # Ensure system matches slider
+
         else:
             # --- Muting ---
             current_volume = self.volume_slider.value()
             # Store the current level ONLY if it's not already 0
             if current_volume > 0:
                 self.last_volume_level = current_volume
-            # Set slider to 0
-            self.volume_slider.setValue(0)
-            self.volume_icon_button.setIcon(self.volume_muted_icon)
-            self.is_muted = True
-            self.volume_icon_button.setChecked(True) # Update toggle state
-            print(f"Volume Muted. Last level was {self.last_volume_level}")
-        # TODO: Tell AudioManager about the mute/unmute or new volume level (0 or restored)
-        # self.audio_manager.set_mute(self.is_muted)
-        # or self.audio_manager.set_volume(self.volume_slider.value())
 
-    # --- ADD THIS METHOD ---
+            # Update UI first
+            self.volume_slider.setValue(0) # Update slider visually
+            self.volume_icon_button.setIcon(self.volume_muted_icon)
+            self.volume_icon_button.setChecked(True)
+            self.is_muted = True
+            # Tell AudioManager to mute the system
+            print(f"UI Muted. Last level was {self.last_volume_level}. Telling system...")
+            self.audio_manager.set_mute(True)
+            # No need to call set_volume(0) as set_mute(True) handles it
+
+    # --- volume_slider_changed to use AudioManager ---
     @pyqtSlot(int)
     def volume_slider_changed(self, value):
-        """Handles manual slider changes, potentially unmuting."""
-        # If the slider is moved manually WHILE muted, unmute visually and functionally
+        """Handles manual slider changes, potentially unmuting, and sets system volume."""
+
+        # --- Update AudioManager ---
+        # Set the system volume regardless of mute state change here
+        # If user drags slider while muted, set_volume will apply the new level
+        # and might implicitly unmute depending on ALSA behavior, which is fine.
+        self.audio_manager.set_volume(value)
+        print(f"Slider changed to {value}. Set system volume.")
+
+        # --- Update UI based on slider value ---
         if self.is_muted and value > 0:
+            # If the slider is moved manually WHILE muted, unmute visually
             self.is_muted = False
             self.volume_icon_button.setIcon(self.volume_normal_icon)
             self.volume_icon_button.setChecked(False)
-            print("Unmuted due to slider movement.")
+            print("Unmuted UI due to slider movement.")
             # Update last_volume_level to the new user-set value
             self.last_volume_level = value
-        # If user slides TO 0 manually (not muted), update last level before it becomes 0
-        # But only if the previous value wasn't already 0
-        # This is tricky, maybe handle only the unmute case above is sufficient
-        # elif not self.is_muted and value > 0:
-        #     self.last_volume_level = value # Keep track of last non-zero setting
-
-        # TODO: Send the 'value' to the AudioManager
-        # self.audio_manager.set_volume(value)
-        # print(f"Volume set to {value}") # Debug
-
+            # Explicitly tell system it's not muted anymore (in case set_volume didn't)
+            self.audio_manager.set_mute(False)
+        elif not self.is_muted and value == 0:
+            # If user slides TO 0 manually (not via mute button), update icon visually
+            self.volume_icon_button.setIcon(self.volume_muted_icon)
+            # Don't set self.is_muted = True here, as it wasn't a mute *action*
+            # Don't set self.volume_icon_button.setChecked(True) either
+            print("Slider moved to 0 manually. Updated icon.")
+        elif not self.is_muted and value > 0:
+            # If slider moved above 0 and wasn't muted, ensure normal icon is shown
+            self.volume_icon_button.setIcon(self.volume_normal_icon)
+            # Store this new level as the potential restore level
+            self.last_volume_level = value
   
     # --- ADD THIS METHOD TO MainWindow ---
     def go_to_home(self):
