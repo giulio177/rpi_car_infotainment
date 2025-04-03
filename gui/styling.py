@@ -189,7 +189,7 @@ def get_light_theme(scale_factor=1.0):
         background-color: #05B8CC; /* Adjust color as needed */
         width: {scale_value(10, scale_factor)}px; /* Adjust chunk width for visual effect */
         margin: {scale_value(1, scale_factor)}px;
-        border-radius: {scale_value(base_border_radius // 3, scale_factor)}px;
+        border-radius: {scale_value(base_border_radius_px // 3, scale_factor)}px;
     }}
     QGroupBox {{
         font-size: {scale_value(base_font_size_pt + 1, scale_factor)}pt; /* Slightly larger group titles */
@@ -415,7 +415,7 @@ def get_dark_theme(scale_factor=1.0):
         background-color: #1db8cc; /* Adjust chunk color */
         width: {scale_value(10, scale_factor)}px;
         margin: {scale_value(1, scale_factor)}px;
-         border-radius: {scale_value(base_border_radius // 3, scale_factor)}px;
+        border-radius: {scale_value(base_border_radius_px // 3, scale_factor)}px;
     }}
      QGroupBox {{
         font-size: {scale_value(base_font_size_pt + 1, scale_factor)}pt;
