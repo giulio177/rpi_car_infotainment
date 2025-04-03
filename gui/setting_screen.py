@@ -1,11 +1,11 @@
 # gui/setting_screen.py
-# NOTE: Consider renaming file to settings_screen.py for consistency
 
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-                             QPushButton, QComboBox, QLineEdit, QFormLayout, QGroupBox, QSpacerItem, QSizePolicy)
+                             QPushButton, QComboBox, QLineEdit, QFormLayout,
+                             QGroupBox, QSpacerItem, QSizePolicy,
+                             QScrollArea) # <-- ADD QScrollArea
 from PyQt6.QtCore import QTimer, QDateTime, pyqtSlot, Qt
 
-# --- Import scale_value helper ---
 from .styling import scale_value
 
 class SettingsScreen(QWidget):
@@ -18,16 +18,16 @@ class SettingsScreen(QWidget):
 
         # --- Base sizes ---
         self.base_margin = 10
-        self.base_spacing = 15 # General vertical spacing
-        self.base_group_spacing = 10 # Spacing within group boxes (form layout)
+        self.base_spacing = 15 # General vertical spacing between header, button, scroll area
+        self.base_scroll_content_spacing = 10 # Vertical spacing BETWEEN group boxes inside scroll
         self.base_form_h_spacing = 8 # Horizontal spacing in form layout
         self.base_form_v_spacing = 8 # Vertical spacing in form layout
 
-        # --- Main Layout ---
+        # --- Main Layout (Vertical: Header, Button, ScrollArea) ---
         self.main_layout = QVBoxLayout(self)
         # Margins/Spacing set by update_scaling
 
-        # --- Header Layout ---
+        # --- Header Layout (Stays at the top) ---
         self.header_layout = QHBoxLayout() # Store reference
         # Spacing set by update_scaling
         self.header_title_label = QLabel("Settings")
@@ -42,18 +42,36 @@ class SettingsScreen(QWidget):
         self.clock_timer.timeout.connect(self._update_clock)
         self.clock_timer.start(10000)
         self._update_clock()
-        self.main_layout.addLayout(self.header_layout)
-        # --- END Header ---
+        self.main_layout.addLayout(self.header_layout) # Add header first
 
-        # Removed the extra "Settings" title label, header is sufficient
-        # self.title_label = QLabel("Settings")
-        # self.title_label.setStyleSheet(...) # REMOVE
-        # self.main_layout.addWidget(self.title_label) # REMOVE
+        # --- Apply Button (Moved UP, below header, above scroll area) ---
+        self.save_button = QPushButton("Apply Settings")
+        self.save_button.setObjectName("settingsSaveButton") # Use ID for styling
+        self.save_button.clicked.connect(self.apply_settings)
+        # Add button with alignment, stretch factor 0 (takes preferred height)
+        self.main_layout.addWidget(self.save_button, 0, Qt.AlignmentFlag.AlignCenter)
+
+        # --- SCROLL AREA SETUP ---
+        self.scroll_area = QScrollArea() # Create Scroll Area
+        self.scroll_area.setObjectName("settingsScrollArea") # ID for styling
+        self.scroll_area.setWidgetResizable(True) # CRUCIAL for vertical scrolling
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff) # Hide horizontal bar
+        self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded) # Show vertical only when needed
+
+        # Container widget THAT WILL HOLD the settings groups
+        self.scroll_content_widget = QWidget()
+        self.scroll_content_widget.setObjectName("settingsScrollContent") # ID for styling
+
+        # Layout FOR THE CONTAINER WIDGET (inside the scroll area)
+        self.scroll_layout = QVBoxLayout(self.scroll_content_widget)
+        # Spacing set by update_scaling
+
+        # --- Settings Groups (Now added to scroll_layout) ---
 
         # --- General Settings ---
-        self.general_group = QGroupBox("General") # Store reference to group
+        self.general_group = QGroupBox("General")
         self.general_group.setObjectName("settingsGeneralGroup")
-        self.general_layout = QFormLayout() # Store reference to layout
+        self.general_layout = QFormLayout() # Store ref
         # Spacing set by update_scaling
         self.general_group.setLayout(self.general_layout)
 
@@ -72,23 +90,23 @@ class SettingsScreen(QWidget):
              self.resolution_combo.setCurrentText(current_res_str)
         else:
              print(f"Warning: Current resolution {current_res_str} not in predefined list.")
-             # Optionally add it dynamically, or force selection from list
-             # self.resolution_combo.addItem(current_res_str) # If adding dynamically
-             self.resolution_combo.setCurrentIndex(0) # Default to first in list if not found
-             # self.resolution_combo.setCurrentText(current_res_str)
+             self.resolution_combo.setCurrentIndex(0) # Default to first
+
         self.resolution_note_label = QLabel("(Restart required)")
-        self.resolution_note_label.setObjectName("resolutionNoteLabel") # For styling (e.g., smaller font)
-        resolution_layout = QHBoxLayout() # Layout for combo + label
-        resolution_layout.addWidget(self.resolution_combo, 1) # Allow combo to stretch
-        resolution_layout.addWidget(self.resolution_note_label)
+        self.resolution_note_label.setObjectName("resolutionNoteLabel") # Style via QSS
+        resolution_layout = QHBoxLayout()
+        resolution_layout.addWidget(self.resolution_combo, 1) # Combo expands
+        resolution_layout.addWidget(self.resolution_note_label) # Label takes preferred size
+        resolution_layout.setSpacing(scale_value(5, 1.0)) # Initial small spacing for this layout
         self.general_layout.addRow("Resolution:", resolution_layout)
 
-        self.main_layout.addWidget(self.general_group)
+        # ADD Group Box to the SCROLL LAYOUT
+        self.scroll_layout.addWidget(self.general_group)
 
         # --- OBD Settings ---
         self.obd_group = QGroupBox("OBD-II")
         self.obd_group.setObjectName("settingsObdGroup")
-        self.obd_layout = QFormLayout() # Store reference
+        self.obd_layout = QFormLayout() # Store ref
         # Spacing set by update_scaling
         self.obd_group.setLayout(self.obd_layout)
 
@@ -105,18 +123,19 @@ class SettingsScreen(QWidget):
         self.obd_baud_edit.setText(str(obd_baud) if obd_baud else "")
         self.obd_layout.addRow("Baudrate:", self.obd_baud_edit)
 
-        self.main_layout.addWidget(self.obd_group)
+        # ADD Group Box to the SCROLL LAYOUT
+        self.scroll_layout.addWidget(self.obd_group)
 
         # --- Radio Settings ---
         self.radio_group = QGroupBox("Radio")
         self.radio_group.setObjectName("settingsRadioGroup")
-        self.radio_layout = QFormLayout() # Store reference
-        # Spacing set by update_scaling
+        self.radio_layout = QFormLayout() # Store ref
+         # Spacing set by update_scaling
         self.radio_group.setLayout(self.radio_layout)
 
         self.radio_type_combo = QComboBox()
         self.radio_type_combo.setObjectName("radioTypeCombo")
-        self.radio_type_combo.addItems(["none", "sdr", "si4703", "si4735"]) # Add more types if needed
+        self.radio_type_combo.addItems(["none", "sdr", "si4703", "si4735"])
         self.radio_type_combo.setCurrentText(self.settings_manager.get("radio_type"))
         self.radio_layout.addRow("Radio Type:", self.radio_type_combo)
 
@@ -127,40 +146,50 @@ class SettingsScreen(QWidget):
         self.radio_i2c_addr_edit.setText(hex(i2c_addr) if i2c_addr is not None else "")
         self.radio_layout.addRow("I2C Address:", self.radio_i2c_addr_edit)
 
-        self.main_layout.addWidget(self.radio_group)
+        # ADD Group Box to the SCROLL LAYOUT
+        self.scroll_layout.addWidget(self.radio_group)
 
-        # --- Save Button ---
-        self.save_button = QPushButton("Apply Settings")
-        self.save_button.setObjectName("settingsSaveButton")
-        self.save_button.clicked.connect(self.apply_settings)
-        self.main_layout.addWidget(self.save_button, 0, Qt.AlignmentFlag.AlignCenter) # Center button
+        # Add a stretch at the END of the scroll layout to push groups up
+        self.scroll_layout.addStretch(1)
 
-        self.main_layout.addStretch(1) # Push content towards the top
+        # Set the container widget as the widget for the scroll area
+        self.scroll_area.setWidget(self.scroll_content_widget)
+
+        # Add the Scroll Area to the MAIN layout
+        # Give it stretch factor 1 so it expands vertically to fill space
+        self.main_layout.addWidget(self.scroll_area, 1)
 
 
     def update_scaling(self, scale_factor, scaled_main_margin):
         """Applies scaling to internal layouts."""
         scaled_spacing = scale_value(self.base_spacing, scale_factor)
+        scaled_scroll_content_spacing = scale_value(self.base_scroll_content_spacing, scale_factor)
         scaled_form_h_spacing = scale_value(self.base_form_h_spacing, scale_factor)
         scaled_form_v_spacing = scale_value(self.base_form_v_spacing, scale_factor)
-        # Group box margins are tricky, often better handled by QSS margin-top and padding
-        # scaled_group_spacing = scale_value(self.base_group_spacing, scale_factor)
 
-        # Apply to layouts
+        # Apply to MAIN layouts
         self.main_layout.setContentsMargins(scaled_main_margin, scaled_main_margin, scaled_main_margin, scaled_main_margin)
         self.main_layout.setSpacing(scaled_spacing)
-        self.header_layout.setSpacing(scaled_spacing) # Use general spacing or define base_header_spacing
+        self.header_layout.setSpacing(scaled_spacing)
+
+        # Apply to the layout INSIDE the scroll area
+        # Use smaller margin inside scroll area, maybe handled by groupbox padding in QSS?
+        # self.scroll_layout.setContentsMargins(scaled_main_margin // 2, scaled_main_margin // 2, scaled_main_margin // 2, scaled_main_margin // 2)
+        self.scroll_layout.setContentsMargins(0, 0, 0, 0) # Let group box margins handle it
+        self.scroll_layout.setSpacing(scaled_scroll_content_spacing)
 
         # Apply spacing to form layouts within group boxes
         self.general_layout.setHorizontalSpacing(scaled_form_h_spacing)
         self.general_layout.setVerticalSpacing(scaled_form_v_spacing)
-        # self.general_layout.setContentsMargins(...) # Usually not needed for FormLayout
-
         self.obd_layout.setHorizontalSpacing(scaled_form_h_spacing)
         self.obd_layout.setVerticalSpacing(scaled_form_v_spacing)
-
         self.radio_layout.setHorizontalSpacing(scaled_form_h_spacing)
         self.radio_layout.setVerticalSpacing(scaled_form_v_spacing)
+
+        # Also scale the spacing in the specific resolution layout
+        resolution_layout = self.general_layout.itemAt(1, QFormLayout.ItemRole.FieldRole).layout()
+        if resolution_layout:
+            resolution_layout.setSpacing(scale_value(5, scale_factor))
 
 
     def apply_settings(self):
@@ -224,16 +253,19 @@ class SettingsScreen(QWidget):
         if settings_changed:
             status_message = "Settings applied."
             if restart_required:
-                status_message += " Please restart the application for all changes to take effect."
-            # TODO: Show a status message to the user (e.g., using a temporary label or dialog)
+                status_message += " Please restart the application for changes to take effect."
             print(status_message)
-            # Could briefly change save button text:
-            # self.save_button.setText("Applied!")
-            # QTimer.singleShot(2000, lambda: self.save_button.setText("Apply Settings"))
+            # Give feedback on button
+            original_text = self.save_button.text()
+            self.save_button.setText("Applied!")
+            self.save_button.setEnabled(False) # Optional: disable briefly
+            QTimer.singleShot(2000, lambda: (self.save_button.setText(original_text), self.save_button.setEnabled(True)))
         else:
             print("Settings applied (No changes detected).")
-            # self.save_button.setText("No Changes")
-            # QTimer.singleShot(1500, lambda: self.save_button.setText("Apply Settings"))
+            original_text = self.save_button.text()
+            self.save_button.setText("No Changes")
+            self.save_button.setEnabled(False)
+            QTimer.singleShot(1500, lambda: (self.save_button.setText(original_text), self.save_button.setEnabled(True)))
 
 
     def _update_clock(self):
