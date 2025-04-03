@@ -1,7 +1,7 @@
 # backend/bluetooth_manager.py
 
 import time
-from PyQt6.QtCore import QThread, pyqtSignal, QVariant, QObject, pyqtSlot, QVariantMap
+from PyQt6.QtCore import QThread, pyqtSignal, QVariant, QObject, pyqtSlot
 from PyQt6.QtDBus import QDBusConnection, QDBusInterface
 
 # Constants for BlueZ D-Bus
@@ -186,7 +186,7 @@ class BluetoothManager(QThread):
             print(f"BT Manager: Failed to get initial media props from {player_path}: {reply.error().message()}")
 
 
-    @pyqtSlot(str, QVariantMap, "QStringList")
+    @pyqtSlot(str, dict, "QStringList")
     def on_media_properties_changed(self, interface_name, changed_properties, invalidated_properties):
         """Handles D-Bus PropertiesChanged signal for MediaPlayer1."""
         if interface_name == MEDIA_PLAYER_IFACE:
@@ -250,7 +250,7 @@ class BluetoothManager(QThread):
                  self.find_media_player() # Re-evaluate active player (likely gone)
 
 
-    @pyqtSlot(str, QVariantMap, "QStringList")
+    @pyqtSlot(str, dict, "QStringList")
     def on_device_properties_changed(self, interface_name, changed_properties, invalidated_properties):
         """Handles D-Bus PropertiesChanged signal for Device1."""
         # This slot needs context (the object path) which isn't provided by the signal directly.
