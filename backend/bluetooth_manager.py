@@ -1,7 +1,7 @@
 # backend/bluetooth_manager.py
 
 import time
-from PyQt6.QtCore import QThread, pyqtSignal, QVariant, QObject, pyqtSlot
+from PyQt6.QtCore import QThread, pyqtSignal, QVariant, QObject, pyqtSlot, QVariantMap
 from PyQt6.QtDBus import QDBusConnection, QDBusInterface
 
 # Constants for BlueZ D-Bus
