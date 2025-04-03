@@ -194,22 +194,25 @@ class BluetoothManager(QThread):
         print(f"DEBUG: Connection status for media properties: {connection_success}") # DEBUG
 
         # Get initial properties
-        media_player_iface = QDBusInterface(BLUEZ_SERVICE, player_path, MEDIA_PLAYER_IFACE, self.bus)
-        print("DEBUG: BluetoothManager.monitor_media_player - Calling GetAll...") # DEBUG
-        reply_message = media_player_iface.call("GetAll", MEDIA_PLAYER_IFACE)
-        print(f"DEBUG: BluetoothManager.monitor_media_player - GetAll returned type: {reply_message.type()}") # DEBUG
+        print("DEBUG: BluetoothManager.monitor_media_player - Getting initial props...")
+        # --- MODIFIED: Use DBUS_PROP_IFACE for GetAll ---
+        props_iface = QDBusInterface(BLUEZ_SERVICE, player_path, DBUS_PROP_IFACE, self.bus)
+        reply_message = props_iface.call("GetAll", MEDIA_PLAYER_IFACE) # Pass MediaPlayer1 IFACE as argument
+        # --- END MODIFICATION ---
+        print(f"DEBUG: BluetoothManager.monitor_media_player - GetAll returned type: {reply_message.type()}")
         if reply_message.type() == QDBusMessage.MessageType.ErrorMessage:
             print(f"BT Manager: Failed to get initial media props from {player_path}: {reply_message.errorMessage()}")
         elif reply_message.arguments():
+             # GetAll returns a{sv} which is Dict[str, QVariant]
              initial_props = reply_message.arguments()[0]
-             print(f"DEBUG: Initial media props: {initial_props}") # DEBUG
-             self.update_media_state(initial_props)
+             print(f"DEBUG: Initial media props: {initial_props}")
+             self.update_media_state(initial_props) # Pass the dict to update_media_state
         else:
              print(f"BT Manager: Got reply for GetAll media props, but no arguments found for {player_path}.")
 
 
     # --- Wrap slots in try/except ---
-    @pyqtSlot(str, dict, "QStringList") # Using dict based on previous fixes
+    # @pyqtSlot(str, dict, "QStringList") # Using dict based on previous fixes
     def on_media_properties_changed(self, interface_name, changed_properties, invalidated_properties):
         """Handles D-Bus PropertiesChanged signal for MediaPlayer1."""
         try:
@@ -265,7 +268,7 @@ class BluetoothManager(QThread):
 
     # --- Wrap slots in try/except ---
     # Use signature based on actual D-Bus signal arguments for InterfacesAdded
-    @pyqtSlot(str, dict) # path (str), interfaces_and_properties (dict mapping str -> dict)
+    # @pyqtSlot(str, dict) # path (str), interfaces_and_properties (dict mapping str -> dict)
     def on_interfaces_added(self, path, interfaces_and_properties):
         try:
             interfaces_and_properties = interfaces_and_properties_variant.value() if isinstance(interfaces_and_properties_variant, QVariant) else interfaces_and_properties_variant
@@ -310,7 +313,7 @@ class BluetoothManager(QThread):
 
 
     # --- Wrap slots in try/except ---
-    @pyqtSlot(str, dict, "QStringList") # Using dict based on previous fixes
+    # @pyqtSlot(str, dict, "QStringList") # Using dict based on previous fixes
     def on_device_properties_changed(self, interface_name, changed_properties, invalidated_properties):
         try:
             # --- Get sender path (IMPORTANT) ---
