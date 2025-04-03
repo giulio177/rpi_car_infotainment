@@ -18,10 +18,11 @@ class SettingsScreen(QWidget):
 
         # --- Base sizes ---
         self.base_margin = 10
-        self.base_spacing = 15 # General vertical spacing between header, button, scroll area
-        self.base_scroll_content_spacing = 10 # Vertical spacing BETWEEN group boxes inside scroll
-        self.base_form_h_spacing = 8 # Horizontal spacing in form layout
-        self.base_form_v_spacing = 8 # Vertical spacing in form layout
+        self.base_spacing = 15
+        self.base_scroll_content_spacing = 10
+        self.base_form_h_spacing = 8
+        self.base_form_v_spacing = 8
+        self.base_button_layout_spacing = 10 # Spacing between the two buttons
 
         # --- Main Layout (Vertical: Header, Button, ScrollArea) ---
         self.main_layout = QVBoxLayout(self)
@@ -44,13 +45,33 @@ class SettingsScreen(QWidget):
         self._update_clock()
         self.main_layout.addLayout(self.header_layout) # Add header first
 
-        # --- Apply Button (Moved UP, below header, above scroll area) ---
-        self.save_button = QPushButton("Apply Settings")
-        self.save_button.setObjectName("settingsSaveButton") # Use ID for styling
-        self.save_button.clicked.connect(self.apply_settings)
-        # Add button with alignment, stretch factor 0 (takes preferred height)
-        self.main_layout.addWidget(self.save_button, 0, Qt.AlignmentFlag.AlignCenter)
+        # --- MODIFIED: Button Layout ---
+        # Create a horizontal layout to hold the buttons
+        self.button_layout = QHBoxLayout()
+        # Spacing set by update_scaling
 
+        # Apply Settings Button (Existing)
+        self.save_button = QPushButton("Apply Settings")
+        self.save_button.setObjectName("settingsSaveButton")
+        self.save_button.clicked.connect(self.apply_settings)
+
+        # ADDED: Apply and Restart Button
+        self.restart_button = QPushButton("Apply and Restart")
+        self.restart_button.setObjectName("settingsRestartButton") # ID for styling
+        self.restart_button.clicked.connect(self.apply_and_restart) # Connect to new method
+
+        # Add buttons to the horizontal layout, centered
+        self.button_layout.addStretch(1) # Push buttons to center
+        self.button_layout.addWidget(self.save_button)
+        self.button_layout.addWidget(self.restart_button)
+        self.button_layout.addStretch(1) # Push buttons to center
+
+        # Add the button layout to the main vertical layout
+        self.main_layout.addLayout(self.button_layout)
+        # --- End Button Layout ---
+
+
+      
         # --- SCROLL AREA SETUP ---
         self.scroll_area = QScrollArea() # Create Scroll Area
         self.scroll_area.setObjectName("settingsScrollArea") # ID for styling
@@ -172,10 +193,11 @@ class SettingsScreen(QWidget):
         self.main_layout.setSpacing(scaled_spacing)
         self.header_layout.setSpacing(scaled_spacing)
 
+        # --- Scale button layout spacing ---
+        self.button_layout.setSpacing(scaled_button_layout_spacing)
+
         # Apply to the layout INSIDE the scroll area
-        # Use smaller margin inside scroll area, maybe handled by groupbox padding in QSS?
-        # self.scroll_layout.setContentsMargins(scaled_main_margin // 2, scaled_main_margin // 2, scaled_main_margin // 2, scaled_main_margin // 2)
-        self.scroll_layout.setContentsMargins(0, 0, 0, 0) # Let group box margins handle it
+        self.scroll_layout.setContentsMargins(0, 0, 0, 0)
         self.scroll_layout.setSpacing(scaled_scroll_content_spacing)
 
         # Apply spacing to form layouts within group boxes
@@ -192,8 +214,8 @@ class SettingsScreen(QWidget):
             resolution_layout.setSpacing(scale_value(5, scale_factor))
 
 
-    def apply_settings(self):
-        """Apply and save all settings."""
+    def apply_settings(self, show_feedback=True): # Added optional feedback flag
+        """Apply and save all settings. Returns True if a restart-requiring change was made."""
         print("Applying settings...")
         settings_changed = False
         restart_required = False
@@ -204,7 +226,7 @@ class SettingsScreen(QWidget):
             if self.main_window is not None and hasattr(self.main_window, 'switch_theme'):
                  self.main_window.switch_theme(new_theme)
                  settings_changed = True
-            else: print("Warning: Could not apply theme - main window reference invalid.")
+            # Theme change doesn't require app restart itself
 
         selected_res_str = self.resolution_combo.currentText()
         try:
@@ -248,25 +270,50 @@ class SettingsScreen(QWidget):
             if self.main_window is not None and hasattr(self.main_window, 'update_radio_config'):
                  self.main_window.update_radio_config()
                  settings_changed = True
-            else: print("Warning: Could not update Radio config - main window reference invalid.")
 
-        if settings_changed:
-            status_message = "Settings applied."
-            if restart_required:
-                status_message += " Please restart the application for changes to take effect."
-            print(status_message)
-            # Give feedback on button
-            original_text = self.save_button.text()
-            self.save_button.setText("Applied!")
-            self.save_button.setEnabled(False) # Optional: disable briefly
-            QTimer.singleShot(2000, lambda: (self.save_button.setText(original_text), self.save_button.setEnabled(True)))
+        # --- Optional Feedback ---
+        if show_feedback:
+            if settings_changed:
+                status_message = "Settings applied."
+                if restart_required:
+                    status_message += " Restart required."
+                print(status_message)
+                # Give feedback on button
+                original_text = self.save_button.text()
+                self.save_button.setText("Applied!")
+                self.save_button.setEnabled(False); self.restart_button.setEnabled(False) # Disable both
+                QTimer.singleShot(2000, lambda: (
+                    self.save_button.setText(original_text),
+                    self.save_button.setEnabled(True),
+                    self.restart_button.setEnabled(True) # Re-enable both
+                ))
+            else:
+                print("Settings applied (No changes detected).")
+                original_text = self.save_button.text()
+                self.save_button.setText("No Changes")
+                self.save_button.setEnabled(False); self.restart_button.setEnabled(False)
+                QTimer.singleShot(1500, lambda: (
+                    self.save_button.setText(original_text),
+                    self.save_button.setEnabled(True),
+                    self.restart_button.setEnabled(True)
+                ))
+
+        return restart_required # Return the flag
+
+    # --- ADDED: Method for the new button ---
+    def apply_and_restart(self):
+        """Applies settings and then initiates the application restart sequence."""
+        print("Apply and Restart requested.")
+        # Apply settings first (suppress the normal feedback message)
+        self.apply_settings(show_feedback=False)
+
+        # Now trigger the restart process in MainWindow
+        if self.main_window and hasattr(self.main_window, 'restart_application'):
+            # The restart_application method already includes a confirmation dialog
+            self.main_window.restart_application()
         else:
-            print("Settings applied (No changes detected).")
-            original_text = self.save_button.text()
-            self.save_button.setText("No Changes")
-            self.save_button.setEnabled(False)
-            QTimer.singleShot(1500, lambda: (self.save_button.setText(original_text), self.save_button.setEnabled(True)))
-
+            print("ERROR: Cannot restart. MainWindow reference is invalid or missing 'restart_application' method.")
+            # Optionally show an error message box here
 
     def _update_clock(self):
         """Updates the clock label with the current time."""
