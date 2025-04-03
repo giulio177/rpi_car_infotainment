@@ -21,6 +21,7 @@ from .styling import apply_theme, scale_value
 from backend.obd_manager import OBDManager
 from backend.radio_manager import RadioManager
 from backend.audio_manager import AudioManager
+from backend.bluetooth_manager import BluetoothManager
 
 # --- Define Icon Paths (adjust paths if your folder structure is different) ---
 ICON_PATH = "assets/icons/" # Base path for icons
@@ -39,6 +40,7 @@ class MainWindow(QMainWindow):
         super().__init__(parent)
         self.settings_manager = settings_manager
         self.audio_manager = AudioManager()
+        self.bluetooth_manager = BluetoothManager()
 
         # --- Define Base Sizes used in code (not just QSS) ---
         self.base_icon_size = QSize(32, 32)
@@ -108,13 +110,21 @@ class MainWindow(QMainWindow):
         self.radio_status_label = QLabel("Radio: Idle")
         self.radio_status_label.setObjectName("statusBarRadioLabel")
 
-        # --- ADD THIS LINE ---
-        self.separator_label = QLabel("|")
-        # Optional: Add object name if you want to style it via QSS
+       self.separator_label = QLabel("|")
         self.separator_label.setObjectName("statusBarSeparator")
-        # Optional: Basic styling here if not using QSS extensively for it
-        # self.separator_label.setStyleSheet("color: #888; padding-left: 5px; padding-right: 5px;")
-        # --------------------
+
+        # --- ADDED: Bluetooth Status Labels ---
+        self.bt_name_label = QLabel("BT: -")
+        self.bt_name_label.setObjectName("statusBarBtNameLabel")
+        self.bt_battery_label = QLabel("") # Initially empty battery label
+        self.bt_battery_label.setObjectName("statusBarBtBatteryLabel")
+        self.bt_separator_label = QLabel("|") # Separator for BT section
+        self.bt_separator_label.setObjectName("statusBarSeparator")
+        # Hide BT labels initially
+        self.bt_name_label.hide()
+        self.bt_battery_label.hide()
+        self.bt_separator_label.hide()
+        # ---
       
         # --- PERSISTENT BOTTOM BAR ---
         self.bottom_bar_widget = QWidget()
@@ -172,6 +182,9 @@ class MainWindow(QMainWindow):
         self.bottom_bar_layout.addWidget(self.obd_status_label)
         self.bottom_bar_layout.addWidget(self.separator_label)
         self.bottom_bar_layout.addWidget(self.radio_status_label)
+        self.bottom_bar_layout.addWidget(self.bt_separator_label)
+        self.bottom_bar_layout.addWidget(self.bt_name_label)
+        self.bottom_bar_layout.addWidget(self.bt_battery_label)
         self.bottom_bar_layout.addStretch(2) # More stretch towards center
         self.bottom_bar_layout.addWidget(self.volume_icon_button)
         self.bottom_bar_layout.addWidget(self.volume_slider)
@@ -213,6 +226,11 @@ class MainWindow(QMainWindow):
         self.radio_manager.radio_status.connect(self.update_radio_status)
         self.radio_manager.frequency_updated.connect(self.radio_screen.update_frequency)
         self.radio_manager.signal_strength.connect(self.radio_screen.update_signal_strength)
+        self.bluetooth_manager.connection_changed.connect(self.update_bluetooth_status)
+        self.bluetooth_manager.battery_updated.connect(self.update_bluetooth_battery)
+        # Connect media signals directly to HomeScreen slots
+        self.bluetooth_manager.media_properties_changed.connect(self.home_screen.update_media_info)
+        self.bluetooth_manager.playback_status_changed.connect(self.home_screen.update_playback_status)
 
         # --- Initialize Volume/Mute States (Moved after widgets are created) ---
         initial_system_mute = self.audio_manager.get_mute_status()
@@ -238,6 +256,7 @@ class MainWindow(QMainWindow):
 
         # --- Start Backend Threads (Keep This) ---
         self.obd_manager.start()
+        self.bluetooth_manager.start()
         if self.radio_manager.radio_type != "none":
             self.radio_manager.start()
         else:
@@ -254,6 +273,46 @@ class MainWindow(QMainWindow):
         # We need the scale factor for the theme application now
         scale_factor = self.height() / self.BASE_RESOLUTION.height() if self.BASE_RESOLUTION.height() > 0 else 1.0
         apply_theme(QApplication.instance(), self.current_theme, scale_factor)
+
+
+    # --- ADDED: Slots for Bluetooth updates ---
+    @pyqtSlot(bool, str)
+    def update_bluetooth_status(self, connected, device_name):
+        print(f"MainWindow received BT status: Connected={connected}, Name='{device_name}'")
+        if connected:
+            # Truncate name if too long for the bar
+            max_len = 20 # Adjust as needed
+            display_name = (device_name[:max_len] + '...') if len(device_name) > max_len else device_name
+            self.bt_name_label.setText(f"BT: {display_name}")
+            self.bt_name_label.setToolTip(device_name) # Show full name on hover
+            self.bt_name_label.show()
+            self.bt_separator_label.show()
+            # Battery label visibility handled by update_bluetooth_battery
+        else:
+            self.bt_name_label.setText("BT: -")
+            self.bt_name_label.hide()
+            self.bt_battery_label.hide()
+            self.bt_separator_label.hide()
+            # Clear media info on home screen when BT disconnects
+            if hasattr(self.home_screen, 'clear_media_info'):
+                self.home_screen.clear_media_info()
+
+
+    @pyqtSlot(object) # Receiving int or None
+    def update_bluetooth_battery(self, level):
+        print(f"MainWindow received BT battery: Level={level}")
+        if level is not None and isinstance(level, int) and self.bt_name_label.isVisible():
+             # Use a battery icon font or emoji if available, otherwise text
+             # Example using text:
+             self.bt_battery_label.setText(f"({level}%)")
+             # Example using simple icons (requires adding icons to assets):
+             # icon_name = "battery_full.png" # Implement logic for different levels
+             # icon = QIcon(os.path.join(ICON_PATH, icon_name))
+             # self.bt_battery_label.setPixmap(icon.pixmap(QSize(16, 16))) # Example size
+             self.bt_battery_label.show()
+        else:
+             self.bt_battery_label.setText("")
+             self.bt_battery_label.hide()
 
 
     # --- Keep Methods like update_obd_status, update_radio_status, etc. ---
@@ -443,6 +502,11 @@ class MainWindow(QMainWindow):
         # ... (rest of closeEvent: stop threads, accept event) ...
         if hasattr(self, 'radio_manager') and self.radio_manager.isRunning(): self.radio_manager.stop(); self.radio_manager.wait(1500)
         if hasattr(self, 'obd_manager') and self.obd_manager.isRunning(): self.obd_manager.stop(); self.obd_manager.wait(1500)
+        if hasattr(self, 'bluetooth_manager') and self.bluetooth_manager.isRunning():
+            print("Stopping Bluetooth Manager...")
+            self.bluetooth_manager.stop()
+            self.bluetooth_manager.wait(1500) # Wait up to 1.5s
+            print("Bluetooth Manager stopped.")
         if hasattr(self, 'radio_manager') and self.radio_manager.radio_type != "none": self.settings_manager.set("last_fm_station", self.radio_manager.current_frequency)
         print("Threads stopped. Exiting.")
         event.accept()
