@@ -68,28 +68,28 @@ class BluetoothManager(QThread):
         # QDBusMetaType.registerStructure( ... ) # If complex structures are used
 
     def find_adapter(self):
-    """Finds the first available Bluetooth adapter."""
-    om = QDBusInterface(BLUEZ_SERVICE, '/', DBUS_OM_IFACE, self.bus)
-    # --- MODIFIED: Check message type instead of isValid() ---
-    reply_message = om.call('GetManagedObjects') # Returns QDBusMessage
-    if reply_message.type() == QDBusMessage.MessageType.ErrorMessage:
-        print("BT Manager: Error getting managed objects:", reply_message.errorMessage())
+        """Finds the first available Bluetooth adapter."""
+        om = QDBusInterface(BLUEZ_SERVICE, '/', DBUS_OM_IFACE, self.bus)
+        # --- MODIFIED: Check message type instead of isValid() ---
+        reply_message = om.call('GetManagedObjects') # Returns QDBusMessage
+        if reply_message.type() == QDBusMessage.MessageType.ErrorMessage:
+            print("BT Manager: Error getting managed objects:", reply_message.errorMessage())
+            return None
+        # If it's not an error, assume it's a reply and check for arguments
+        if not reply_message.arguments():
+             print("BT Manager: GetManagedObjects reply has no arguments.")
+             return None
+        # --- END MODIFICATION ---
+    
+        # QDBusMessage returns arguments as a list, GetManagedObjects returns one dict arg
+        objects_dict = reply_message.arguments()[0]
+    
+        for path, interfaces in objects_dict.items():
+            if 'org.bluez.Adapter1' in interfaces:
+                print(f"BT Manager: Found adapter at {path}")
+                return path
+        print("BT Manager: No Bluetooth adapter found.")
         return None
-    # If it's not an error, assume it's a reply and check for arguments
-    if not reply_message.arguments():
-         print("BT Manager: GetManagedObjects reply has no arguments.")
-         return None
-    # --- END MODIFICATION ---
-
-    # QDBusMessage returns arguments as a list, GetManagedObjects returns one dict arg
-    objects_dict = reply_message.arguments()[0]
-
-    for path, interfaces in objects_dict.items():
-        if 'org.bluez.Adapter1' in interfaces:
-            print(f"BT Manager: Found adapter at {path}")
-            return path
-    print("BT Manager: No Bluetooth adapter found.")
-    return None
 
     def process_device_properties(self, path, properties):
         """Checks device properties for connection and battery."""
