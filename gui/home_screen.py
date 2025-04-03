@@ -3,7 +3,7 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
                              QPushButton, QLabel, QSpacerItem, QSizePolicy,
                              QSlider) # Keep QSlider if used elsewhere, maybe not needed here
-from PyQt6.QtCore import QTimer, QDateTime, Qt, QSize
+from PyQt6.QtCore import QTimer, QDateTime, Qt, QSize, pyqtSlot
 from PyQt6.QtGui import QPixmap, QIcon
 
 # --- Import scale_value helper ---
@@ -150,6 +150,55 @@ class HomeScreen(QWidget):
         self.main_layout.addLayout(self.top_section_layout, 1) # Stretch factor 1 for vertical space
 
 
+    # --- ADDED: Slot to update media player info ---
+    @pyqtSlot(dict)
+    def update_media_info(self, properties):
+        """Updates the media player display based on BT properties."""
+        print("HomeScreen received media properties:", properties)
+        track_info = properties.get('Track', {})
+        duration_ms = track_info.get('Duration', QVariant(0)).value() # Duration in milliseconds
+        position_ms = properties.get('Position', QVariant(0)).value() # Position in milliseconds
+
+        title = track_info.get('Title', QVariant("Unknown Title")).value()
+        artist = track_info.get('Artist', QVariant("Unknown Artist")).value()
+        album = track_info.get('Album', QVariant("Unknown Album")).value() # Store if needed
+
+        self.track_title_label.setText(title)
+        self.track_artist_label.setText(artist)
+        self.album_art_label.setText(f"{album}\n(Art N/A)") # Update placeholder text, art not usually available
+
+        # Format time display (mm:ss / mm:ss)
+        pos_sec = position_ms // 1000
+        dur_sec = duration_ms // 1000
+        pos_str = f"{pos_sec // 60:02d}:{pos_sec % 60:02d}"
+        dur_str = f"{dur_sec // 60:02d}:{dur_sec % 60:02d}" if dur_sec > 0 else "??:??"
+        self.track_time_label.setText(f"{pos_str} / {dur_str}")
+
+    # --- ADDED: Slot to update playback status ---
+    @pyqtSlot(str)
+    def update_playback_status(self, status):
+        """Updates the play/pause button icon based on playback status."""
+        print(f"HomeScreen received playback status: {status}")
+        if status == "playing":
+            self.btn_play_pause.setText("⏸") # Use pause symbol
+            # Or use an icon: self.btn_play_pause.setIcon(QIcon("path/to/pause_icon.png"))
+        elif status == "paused":
+            self.btn_play_pause.setText("▶") # Use play symbol
+            # Or use an icon: self.btn_play_pause.setIcon(QIcon("path/to/play_icon.png"))
+        else: # stopped, forward-seek, reverse-seek etc.
+            self.btn_play_pause.setText("▶") # Default to play symbol
+            if status == "stopped":
+                 self.clear_media_info() # Clear info if stopped
+
+    # --- ADDED: Helper to clear media info ---
+    def clear_media_info(self):
+        """Resets media player display to default state."""
+        self.track_title_label.setText("---")
+        self.track_artist_label.setText("---")
+        self.track_time_label.setText("00:00 / 00:00")
+        self.album_art_label.setText("Album Art") # Reset placeholder
+        self.btn_play_pause.setText("▶") # Default to play symbol
+  
     def update_scaling(self, scale_factor, scaled_main_margin):
         """Applies scaling to internal layouts."""
         scaled_header_spacing = scale_value(self.base_header_spacing, scale_factor)
