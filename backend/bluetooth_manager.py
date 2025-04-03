@@ -2,7 +2,7 @@
 
 import time
 from PyQt6.QtCore import QThread, pyqtSignal, QVariant, QObject, pyqtSlot
-from PyQt6.QtDBus import QDBusConnection, QDBusInterface
+from PyQt6.QtDBus import QDBusConnection, QDBusInterface, QDBusMessage
 
 # Constants for BlueZ D-Bus
 BLUEZ_SERVICE = 'org.bluez'
