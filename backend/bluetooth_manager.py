@@ -138,7 +138,7 @@ class BluetoothManager(QThread):
              print("BT Manager: GetManagedObjects (media player search) reply has no arguments.")
              return False
 
-        objects_dict = managed_objects.arguments()[0]
+        objects_dict = reply_message.arguments()[0]
         found_player_path = None
 
         for path, interfaces in objects_dict.items():
