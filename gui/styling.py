@@ -232,11 +232,27 @@ def get_light_theme(scale_factor=1.0):
         subcontrol-position: top; subcontrol-origin: margin;
     }}
 
-    QLabel#trackTitleLabel, QLabel#trackArtistLabel {{ /* Targets ScrollingLabel too */
-        /* Font sizes set previously - ensure they are appropriate */
-        /* DO NOT set min-width or width here unless absolutely necessary */
-        /* Alignment set in code */
-        /* qproperty-alignment: 'AlignCenter'; */ /* Can be set here too */
+    /* --- Home Screen Media Player --- */
+    /* MODIFIED: Style for Scrolling Album Label */
+    QLabel#albumArtLabel {{ /* Targets ScrollingLabel too */
+        /* Remove background/border if just text */
+        background-color: transparent;
+        border: none;
+        /* Set font size, maybe smaller than track title? */
+        font-size: {scale_value(base_font_size_pt -1, scale_factor)}pt;
+        color: #666666; /* Light Theme Dim */
+        /* color: #aaaaaa; */ /* Dark Theme Dim */
+        /* Ensure min-height is sufficient if needed */
+        min-height: {scale_value(20, scale_factor)}px;
+        /* Width is ignored by ScrollingLabel's policy, don't set width/min-width */
+        qproperty-alignment: 'AlignCenter'; /* Alignment from code */
+        margin-bottom: {scaled_padding // 2}px; /* Keep margin */
+    }}
+    /* --- End Album Label Style --- */
+
+    QLabel#trackTitleLabel, QLabel#trackArtistLabel {{
+        /* Styles remain as before */
+        min-height: {scale_value(20, scale_factor)}px; /* Ensure min height */
     }}
     QLabel#trackTitleLabel {{
         font-size: {scale_value(base_font_size_pt + 2, scale_factor)}pt;
@@ -244,6 +260,16 @@ def get_light_theme(scale_factor=1.0):
     }}
      QLabel#trackArtistLabel {{
         font-size: {scale_value(base_font_size_pt, scale_factor)}pt;
+     }}
+     QLabel#trackTimeLabel {{
+         /* Style remains as before */
+        min-height: {scale_value(20, scale_factor)}px; /* Ensure min height */
+        font-size: {scale_value(base_font_size_pt - 1, scale_factor)}pt;
+        color: #666666; /* Light Theme Dim */
+        /* color: #aaaaaa; */ /* Dark Theme Dim */
+        qproperty-alignment: 'AlignCenter';
+        margin-top: {scaled_padding // 3}px;
+        margin-bottom: {scaled_padding // 2}px;
      }}
     /* Add other specific styles */
     """
@@ -472,11 +498,27 @@ def get_dark_theme(scale_factor=1.0):
     }}
 
 
-    QLabel#trackTitleLabel, QLabel#trackArtistLabel {{ /* Targets ScrollingLabel too */
-        /* Font sizes set previously - ensure they are appropriate */
-        /* DO NOT set min-width or width here unless absolutely necessary */
-        /* Alignment set in code */
-        /* qproperty-alignment: 'AlignCenter'; */ /* Can be set here too */
+    /* --- Home Screen Media Player --- */
+    /* MODIFIED: Style for Scrolling Album Label */
+    QLabel#albumArtLabel {{ /* Targets ScrollingLabel too */
+        /* Remove background/border if just text */
+        background-color: transparent;
+        border: none;
+        /* Set font size, maybe smaller than track title? */
+        font-size: {scale_value(base_font_size_pt -1, scale_factor)}pt;
+        color: #666666; /* Light Theme Dim */
+        /* color: #aaaaaa; */ /* Dark Theme Dim */
+        /* Ensure min-height is sufficient if needed */
+        min-height: {scale_value(20, scale_factor)}px;
+        /* Width is ignored by ScrollingLabel's policy, don't set width/min-width */
+        qproperty-alignment: 'AlignCenter'; /* Alignment from code */
+        margin-bottom: {scaled_padding // 2}px; /* Keep margin */
+    }}
+    /* --- End Album Label Style --- */
+
+    QLabel#trackTitleLabel, QLabel#trackArtistLabel {{
+        /* Styles remain as before */
+        min-height: {scale_value(20, scale_factor)}px; /* Ensure min height */
     }}
     QLabel#trackTitleLabel {{
         font-size: {scale_value(base_font_size_pt + 2, scale_factor)}pt;
@@ -484,6 +526,16 @@ def get_dark_theme(scale_factor=1.0):
     }}
      QLabel#trackArtistLabel {{
         font-size: {scale_value(base_font_size_pt, scale_factor)}pt;
+     }}
+     QLabel#trackTimeLabel {{
+         /* Style remains as before */
+        min-height: {scale_value(20, scale_factor)}px; /* Ensure min height */
+        font-size: {scale_value(base_font_size_pt - 1, scale_factor)}pt;
+        color: #666666; /* Light Theme Dim */
+        /* color: #aaaaaa; */ /* Dark Theme Dim */
+        qproperty-alignment: 'AlignCenter';
+        margin-top: {scaled_padding // 3}px;
+        margin-bottom: {scaled_padding // 2}px;
      }}
     /* Add other specific styles */
     """
