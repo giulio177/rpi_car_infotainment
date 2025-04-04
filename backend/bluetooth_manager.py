@@ -215,51 +215,35 @@ class BluetoothManager(QThread):
 
     def monitor_media_player(self, player_path):
         print(f"DEBUG: BluetoothManager.monitor_media_player - Path: {player_path}")
-        """Connects signals for a specific media player."""
+        """Gets initial state for a specific media player."""
         if not player_path: return
 
-        # Monitor PropertiesChanged using the @pyqtSlot decorator
-        print(f"DEBUG: Connecting media properties signal for {player_path} (using @pyqtSlot with object)")
-        connection_success = self.bus.connect(
-            BLUEZ_SERVICE, player_path, DBUS_PROP_IFACE, 'PropertiesChanged',
-            self.on_media_properties_changed # Target method decorated below
-        )
-        print(f"DEBUG: Connection status for media properties: {connection_success}")
+        # REMOVED signal connection attempt:
+        # connection_success = self.bus.connect(...)
+        # print(f"DEBUG: Connection status for media properties: {connection_success}") # REMOVED
 
-        # Get initial properties using the correct Properties interface
+        # Get initial properties using the CORRECT interface
         print("DEBUG: BluetoothManager.monitor_media_player - Getting initial props...")
         props_iface = QDBusInterface(BLUEZ_SERVICE, player_path, DBUS_PROP_IFACE, self.bus)
-        reply_message = props_iface.call("GetAll", MEDIA_PLAYER_IFACE) # Pass MediaPlayer1 IFACE name as argument
+        reply_message = props_iface.call("GetAll", MEDIA_PLAYER_IFACE)
         print(f"DEBUG: BluetoothManager.monitor_media_player - GetAll returned type: {reply_message.type()}")
-        if reply_message.type() == QDBusMessage.MessageType.ErrorMessage:
-            print(f"BT Manager: Failed to get initial media props from {player_path}: {reply_message.errorMessage()}")
-        elif reply_message.arguments():
+        if reply_message.type() != QDBusMessage.MessageType.ErrorMessage and reply_message.arguments():
              initial_props_variant = reply_message.arguments()[0]
-             initial_props = qvariant_dict_to_python(initial_props_variant) # Convert here
+             initial_props = qvariant_dict_to_python(initial_props_variant)
              print(f"DEBUG: Initial media props: {initial_props}")
-             self.update_media_state(initial_props) # Pass the Python dict
+             self.update_media_state(initial_props)
         else:
-             print(f"BT Manager: Got reply for GetAll media props, but no arguments found for {player_path}.")
+             print(f"BT Manager: Failed to get initial media props from {player_path}: {reply_message.errorMessage() if reply_message.type() == QDBusMessage.MessageType.ErrorMessage else 'No arguments'}")
 
 
     # --- Slots with @pyqtSlot decorator and 'object' hint for dictionaries ---
 
     # PropertiesChanged D-Bus signature: (string interface_name, a{sv} changed_properties, as invalidated_properties)
-    @pyqtSlot(str, object, "QStringList") # Use object for a{sv}
+    # @pyqtSlot(str, object, "QStringList") # Use object for a{sv}
     def on_media_properties_changed(self, interface_name, changed_properties_obj, invalidated_properties):
-        """Handles D-Bus PropertiesChanged signal for MediaPlayer1."""
-        try:
-            # Attempt conversion from the received object (might be QVariant or already dict)
-            changed_properties = qvariant_dict_to_python(changed_properties_obj)
-            print(f"DEBUG: on_media_properties_changed triggered: Iface={interface_name}, Changed={changed_properties}")
-            if interface_name == MEDIA_PLAYER_IFACE and isinstance(changed_properties, dict):
-                self.update_media_state(changed_properties) # Pass Python dict
-            # else: print(f"DEBUG: Ignoring media properties changed for {interface_name} or non-dict")
-        except Exception as e:
-            print(f"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-            print(f"ERROR in on_media_properties_changed: {e}")
-            traceback.print_exc()
-            print(f"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+       # This slot will not be called if connection failed
+       print("!!! on_media_properties_changed called unexpectedly !!!")
+       pass # Keep method for potential future use? Or remove entirely
 
 
     def update_media_state(self, properties):
@@ -268,60 +252,46 @@ class BluetoothManager(QThread):
         new_track_info = None
         new_status = None
         track_changed = False
+        status_changed = False
 
         if 'Track' in properties:
-            track_info = properties.get('Track', {}) # Should be Python dict from q_d_t_p
+            track_info = properties.get('Track', {})
             if isinstance(track_info, dict) and track_info != self.media_properties.get('Track', {}):
-                new_track_info = track_info
                 track_changed = True
-                print(f"BT Manager: Track Info Updated: {new_track_info}")
-                self.media_properties['Track'] = new_track_info # Store new track info
-            elif not isinstance(track_info, dict):
-                 print(f"DEBUG: Unexpected type for Track property in update_media_state: {type(track_info)}")
+                print(f"BT Manager: Track Info Updated (Poll): {track_info}")
+                self.media_properties['Track'] = track_info
 
         if 'Status' in properties:
             status = properties.get('Status', 'stopped')
             if status != self.playback_status:
-                new_status = status
-                print(f"BT Manager: Playback Status Updated: {new_status}")
-                self.playback_status = new_status
-                print(f"DEBUG: Emitting playback_status_changed({new_status})")
-                self.playback_status_changed.emit(new_status)
+                status_changed = True
+                print(f"BT Manager: Playback Status Updated (Poll): {status}")
+                self.playback_status = status
 
         if 'Position' in properties:
-             position = properties.get('Position', 0) # Should be int
-             self.media_properties['Position'] = position # Store position
+             position = properties.get('Position', 0)
+             # Only update position if track info exists, otherwise it's meaningless
+             if 'Track' in self.media_properties:
+                  self.media_properties['Position'] = position
 
-        # Emit media_properties_changed only if track info actually changed
+
+        # Emit signals AFTER checking all relevant properties
+        if status_changed:
+             print(f"DEBUG: Emitting playback_status_changed({self.playback_status})")
+             self.playback_status_changed.emit(self.playback_status)
         if track_changed:
+             # Update position in the emitted dict if it also changed or was present
+             if 'Position' in properties: self.media_properties['Position'] = properties['Position']
              print(f"DEBUG: Emitting media_properties_changed({self.media_properties})")
              self.media_properties_changed.emit(self.media_properties)
 
 
     # InterfacesAdded D-Bus signature: (ObjectPath object_path, a{sa{sv}} interfaces_and_properties)
-    @pyqtSlot(str, object) # Use object for the complex dict a{sa{sv}}
+    # @pyqtSlot(str, object) # Use object for the complex dict a{sa{sv}}
     def on_interfaces_added(self, path, interfaces_and_properties_obj):
-        """Handles D-Bus InterfacesAdded signal."""
-        try:
-            # Attempt conversion from the received object
-            interfaces_and_properties = qvariant_dict_to_python(interfaces_and_properties_obj)
-            print(f"DEBUG: on_interfaces_added triggered for path: {path}")
-            if isinstance(interfaces_and_properties, dict):
-                if DEVICE_IFACE in interfaces_and_properties:
-                    print(f"BT Manager: Interface added for Device: {path}")
-                    props = interfaces_and_properties.get(DEVICE_IFACE, {}) # Already Python dict
-                    self.process_device_properties(path, props)
-                elif MEDIA_PLAYER_IFACE in interfaces_and_properties:
-                     print(f"BT Manager: Interface added for Media Player: {path}")
-                     self.find_media_player() # Re-evaluate active player
-            else:
-                 print(f"DEBUG: on_interfaces_added - Expected dict for interfaces_and_properties, got {type(interfaces_and_properties)}")
-        except Exception as e:
-            print(f"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-            print(f"ERROR in on_interfaces_added for path {path}: {e}")
-            traceback.print_exc()
-            print(f"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-
+        # This slot will not be called if connection failed
+        print("!!! on_interfaces_added called unexpectedly !!!")
+        pass # Keep method for potential future use? Or remove entirely
 
     # InterfacesRemoved D-Bus signature: (ObjectPath object_path, as interfaces_removed)
     @pyqtSlot(str, "QStringList") # Keep this as it worked
@@ -332,12 +302,20 @@ class BluetoothManager(QThread):
             if DEVICE_IFACE in interfaces:
                  print(f"BT Manager: Interface removed for Device: {path}")
                  if path == self.connected_device_path:
-                     # Pass python bool directly to trigger disconnect logic
+                     # Trigger disconnect logic
                      self.process_device_properties(path, {'Connected': False})
             elif MEDIA_PLAYER_IFACE in interfaces:
                  print(f"BT Manager: Interface removed for Media Player: {path}")
                  if path == self.media_player_path:
-                     self.find_media_player() # Re-evaluate (media player likely gone)
+                     # Clear media player state manually since PropertiesChanged signal isn't working
+                     print("DEBUG: Clearing media player state due to InterfacesRemoved")
+                     self.media_player_path = None
+                     self.media_properties = {}
+                     self.playback_status = "stopped"
+                     self.media_properties_changed.emit({})
+                     self.playback_status_changed.emit("stopped")
+                     # Optionally call find_media_player() again if another might exist?
+
         except Exception as e:
             print(f"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
             print(f"ERROR in on_interfaces_removed for path {path}: {e}")
@@ -346,32 +324,11 @@ class BluetoothManager(QThread):
 
 
     # PropertiesChanged D-Bus signature: (string interface_name, a{sv} changed_properties, as invalidated_properties)
-    @pyqtSlot(str, object, "QStringList") # Use object for a{sv}
+    # @pyqtSlot(str, object, "QStringList") # DECORATOR REMOVED / METHOD NOT CALLED BY SIGNAL
     def on_device_properties_changed(self, interface_name, changed_properties_obj, invalidated_properties):
-        """Handles D-Bus PropertiesChanged signal (generic connection)."""
-        try:
-            # Attempt conversion from the received object
-            changed_properties = qvariant_dict_to_python(changed_properties_obj)
-            print(f"DEBUG: on_device_properties_changed triggered: Iface={interface_name}, Changed={changed_properties}")
-
-            # Re-fetch properties for the currently connected device if a Device1 property changed
-            if interface_name == DEVICE_IFACE and self.connected_device_path and isinstance(changed_properties, dict):
-                 print(f"DEBUG: Device property change detected. Refetching props for {self.connected_device_path}.")
-                 props_iface = QDBusInterface(BLUEZ_SERVICE, self.connected_device_path, DBUS_PROP_IFACE, self.bus)
-                 reply_message = props_iface.call("GetAll", DEVICE_IFACE) # Pass Device1 interface name
-                 if reply_message.type() != QDBusMessage.MessageType.ErrorMessage and reply_message.arguments():
-                     all_props_variant = reply_message.arguments()[0]
-                     all_props = qvariant_dict_to_python(all_props_variant) # Convert here
-                     self.process_device_properties(self.connected_device_path, all_props) # Pass Python dict
-                 else:
-                      print(f"BT Manager: Failed to GetAll props for {self.connected_device_path} on change: {reply_message.errorMessage() if reply_message.type() == QDBusMessage.MessageType.ErrorMessage else 'No arguments'}")
-            # else: print(f"DEBUG: Ignoring device properties changed (no connected device or wrong interface/type)")
-
-        except Exception as e:
-            print(f"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-            print(f"ERROR in on_device_properties_changed: {e}")
-            traceback.print_exc()
-            print(f"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        # This slot will not be called if connection failed
+        print("!!! on_device_properties_changed called unexpectedly !!!")
+        pass # Keep method for potential future use? Or remove entirely
 
 
     # --- run Method ---
@@ -389,56 +346,128 @@ class BluetoothManager(QThread):
             return
         print(f"DEBUG: BluetoothManager.run - Adapter found: {self.adapter_path}")
 
-        # Get initial state
+        # --- Get initial state (remains the same) ---
         om = QDBusInterface(BLUEZ_SERVICE, '/', DBUS_OM_IFACE, self.bus)
         print("DEBUG: BluetoothManager.run - Calling initial GetManagedObjects...")
         managed_objects_reply = om.call('GetManagedObjects')
         print(f"DEBUG: BluetoothManager.run - Initial GetManagedObjects type: {managed_objects_reply.type()}")
         if managed_objects_reply.type() != QDBusMessage.MessageType.ErrorMessage and managed_objects_reply.arguments():
              objects_dict_variant = managed_objects_reply.arguments()[0]
-             objects_dict = qvariant_dict_to_python(objects_dict_variant) # Convert here
+             objects_dict = qvariant_dict_to_python(objects_dict_variant)
              print(f"DEBUG: BluetoothManager.run - Processing {len(objects_dict)} initial objects...")
              for path, interfaces in objects_dict.items():
-                 # interfaces is Dict[str, Dict[str, Any]] after conversion
                  if DEVICE_IFACE in interfaces:
-                      dev_props = interfaces.get(DEVICE_IFACE, {}) # Already Python dict
-                      self.process_device_properties(path, dev_props)
+                      dev_props = interfaces.get(DEVICE_IFACE, {})
+                      self.process_device_properties(path, dev_props) # Finds initial connected device
              print("DEBUG: BluetoothManager.run - Initial object processing done.")
-             self.find_media_player(self.connected_device_path)
-             print("DEBUG: BluetoothManager.run - Initial media player check done.")
+             # find_media_player is called inside process_device_properties if device connects
+             print("DEBUG: BluetoothManager.run - Initial media player check done (implicitly).")
         else:
              print(f"BT Manager: Failed to get initial managed objects: {managed_objects_reply.errorMessage() if managed_objects_reply.type() == QDBusMessage.MessageType.ErrorMessage else 'No arguments'}")
 
 
-        # Connect signals using the @pyqtSlot decorators with 'object' where needed
-        print("DEBUG: BluetoothManager.run - Connecting D-Bus signals (using @pyqtSlot with object)...")
-        sig1_ok = self.bus.connect(BLUEZ_SERVICE, '/', DBUS_OM_IFACE, 'InterfacesAdded', self.on_interfaces_added)
+        # --- Connect ONLY working/needed signals ---
+        print("DEBUG: BluetoothManager.run - Connecting D-Bus signals (Polling approach)...")
+        # REMOVED: sig1_ok = self.bus.connect(..., self.on_interfaces_added)
         sig2_ok = self.bus.connect(BLUEZ_SERVICE, '/', DBUS_OM_IFACE, 'InterfacesRemoved', self.on_interfaces_removed) # Keep working one
-        sig3_ok = self.bus.connect(BLUEZ_SERVICE, '', DBUS_PROP_IFACE, 'PropertiesChanged', self.on_device_properties_changed) # Generic properties
+        # REMOVED: sig3_ok = self.bus.connect(..., self.on_device_properties_changed)
 
-        print(f"DEBUG: Signal connection status: InterfacesAdded={sig1_ok}, InterfacesRemoved={sig2_ok}, PropertiesChanged(Device)={sig3_ok}")
-        if not sig1_ok or not sig3_ok:
-            print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-            print("CRITICAL ERROR: Failed to connect essential D-Bus signals (InterfacesAdded or PropertiesChanged). Bluetooth monitoring will not work correctly.")
-            print("Tried generic 'object' signature. Check D-Bus permissions or consider PyQt version compatibility.")
-            print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        print(f"DEBUG: Signal connection status: InterfacesRemoved={sig2_ok}") # Report only connected one
 
-        print("BT Manager: Entering wait loop.")
+
+        print("BT Manager: Entering polling loop.")
+        poll_interval_ms = 2000 # Poll every 2 seconds (adjust as needed)
         loop_count = 0
+
         while self._is_running:
-            # if loop_count % 30 == 0: print(f"DEBUG: BluetoothManager running... Loop {loop_count}")
+            # --- POLLING LOGIC ---
+            try:
+                # 1. Poll Connected Device Properties (if connected)
+                current_connected_path = self.connected_device_path # Cache path for safety
+                if current_connected_path:
+                    # print(f"DEBUG: Polling device {current_connected_path}") # Can be noisy
+                    dev_props_iface = QDBusInterface(BLUEZ_SERVICE, current_connected_path, DBUS_PROP_IFACE, self.bus)
+                    dev_reply = dev_props_iface.call("GetAll", DEVICE_IFACE)
+                    if dev_reply.type() != QDBusMessage.MessageType.ErrorMessage and dev_reply.arguments():
+                        dev_props_all_variant = dev_reply.arguments()[0]
+                        dev_props_all = qvariant_dict_to_python(dev_props_all_variant)
+                        # Check for disconnect or battery change
+                        if not dev_props_all.get('Connected', False):
+                             print("DEBUG: Device disconnected detected via polling.")
+                             # Trigger disconnect logic (simulates InterfacesRemoved/PropsChanged)
+                             self.process_device_properties(current_connected_path, {'Connected': False})
+                             continue # Skip media player poll this iteration if device just disconnected
+                        elif dev_props_all.get('Battery', None) != self.current_battery:
+                             print("DEBUG: Battery change detected via polling.")
+                             self.current_battery = dev_props_all.get('Battery', None)
+                             self.battery_updated.emit(self.current_battery)
+                             # Note: process_device_properties could also be called here if it handles battery-only updates well
+                    else:
+                         # Failed to get props, assume disconnected?
+                         print(f"DEBUG: Failed to poll device {current_connected_path}, assuming disconnect.")
+                         self.process_device_properties(current_connected_path, {'Connected': False})
+                         continue # Skip media player poll
+
+                # 2. Poll Media Player Properties (if active)
+                current_media_path = self.media_player_path # Cache path
+                if current_media_path:
+                     # print(f"DEBUG: Polling media player {current_media_path}") # Can be noisy
+                     media_props_iface = QDBusInterface(BLUEZ_SERVICE, current_media_path, DBUS_PROP_IFACE, self.bus)
+                     media_reply = media_props_iface.call("GetAll", MEDIA_PLAYER_IFACE)
+                     if media_reply.type() != QDBusMessage.MessageType.ErrorMessage and media_reply.arguments():
+                          media_props_all_variant = media_reply.arguments()[0]
+                          media_props_all = qvariant_dict_to_python(media_props_all_variant)
+                          # Check for changes by comparing with stored state before calling update
+                          if media_props_all.get('Status') != self.playback_status or \
+                             media_props_all.get('Track', {}) != self.media_properties.get('Track', {}):
+                                print("DEBUG: Media state change detected via polling.")
+                                self.update_media_state(media_props_all) # Update state and emit signals
+                     # else:
+                         # If polling media player fails, maybe just log it, don't assume disconnect unless device poll fails
+                         # print(f"DEBUG: Failed to poll media player {current_media_path}")
+
+
+                # 3. Poll for NEW devices/players (less frequent?)
+                # This replaces InterfacesAdded. Could be done less often than property polling.
+                if loop_count % 5 == 0: # Check every 5 * poll_interval_ms (e.g., 10 seconds)
+                     # print("DEBUG: Polling for new/changed interfaces via GetManagedObjects")
+                     om_reply = om.call('GetManagedObjects')
+                     if om_reply.type() != QDBusMessage.MessageType.ErrorMessage and om_reply.arguments():
+                          obj_dict_variant = om_reply.arguments()[0]
+                          obj_dict = qvariant_dict_to_python(obj_dict_variant)
+                          # Find newly connected device (if none currently connected)
+                          if not self.connected_device_path:
+                               for path, interfaces in obj_dict.items():
+                                   if DEVICE_IFACE in interfaces:
+                                        dev_props = interfaces.get(DEVICE_IFACE, {})
+                                        if dev_props.get('Connected', False):
+                                             print("DEBUG: New device connection detected via polling.")
+                                             self.process_device_properties(path, dev_props)
+                                             break # Process first found connected device
+                          # Find newly appeared media player (if none currently active)
+                          elif not self.media_player_path and self.connected_device_path:
+                               self.find_media_player(self.connected_device_path)
+
+
+            except Exception as e:
+                 # Catch errors during polling loop
+                 print(f"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                 print(f"ERROR in BluetoothManager polling loop: {e}")
+                 traceback.print_exc()
+                 print(f"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+
+            # --- End Polling Logic ---
+
             loop_count += 1
-            self.msleep(1000) # Sleep for 1 second
+            self.msleep(poll_interval_ms) # Wait before next poll
+
 
         # Disconnect signals on exit
         print("BT Manager: Disconnecting D-Bus signals.")
-        if self.bus.isConnected(): # Check bus connection before disconnecting signals
-             self.bus.disconnect(BLUEZ_SERVICE, '/', DBUS_OM_IFACE, 'InterfacesAdded', self.on_interfaces_added)
+        if self.bus.isConnected():
+             # Only disconnect the one we successfully connected
              self.bus.disconnect(BLUEZ_SERVICE, '/', DBUS_OM_IFACE, 'InterfacesRemoved', self.on_interfaces_removed)
-             self.bus.disconnect(BLUEZ_SERVICE, '', DBUS_PROP_IFACE, 'PropertiesChanged', self.on_device_properties_changed)
-             if self.media_player_path:
-                 print(f"DEBUG: Disconnecting media properties signal for {self.media_player_path} on exit")
-                 self.bus.disconnect(BLUEZ_SERVICE, self.media_player_path, DBUS_PROP_IFACE, 'PropertiesChanged', self.on_media_properties_changed)
+             # REMOVED disconnect calls for signals we didn't connect
 
         print("BluetoothManager thread finished.")
 
