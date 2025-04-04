@@ -249,10 +249,10 @@ class BluetoothManager(QThread):
     def update_media_state(self, properties):
         # print(f"DEBUG: BluetoothManager.update_media_state - Python props: {properties}")
         """Updates internal state and emits signals based on media properties. Assumes 'properties' is Python dict."""
-        new_track_info = None
-        new_status = None
         track_changed = False
         status_changed = False
+        position_changed = False # ADDED flag
+        position_value = properties.get('Position', -1) # Get current position value early
 
         if 'Track' in properties:
             track_info = properties.get('Track', {})
@@ -260,28 +260,36 @@ class BluetoothManager(QThread):
                 track_changed = True
                 print(f"BT Manager: Track Info Updated (Poll): {track_info}")
                 self.media_properties['Track'] = track_info
+            elif not isinstance(track_info, dict):
+                 print(f"DEBUG: Unexpected type for Track property in update_media_state: {type(track_info)}")
 
         if 'Status' in properties:
             status = properties.get('Status', 'stopped')
             if status != self.playback_status:
                 status_changed = True
                 print(f"BT Manager: Playback Status Updated (Poll): {status}")
-                self.playback_status = status
+                self.playback_status = status # Update internal status FIRST
 
+        # Check position change *after* potentially updating track or status
         if 'Position' in properties:
-             position = properties.get('Position', 0)
-             # Only update position if track info exists, otherwise it's meaningless
-             if 'Track' in self.media_properties:
-                  self.media_properties['Position'] = position
+            # Compare with OLD stored position BEFORE overwriting it below
+            if position_value >= 0 and position_value != self.media_properties.get('Position', -1):
+                 position_changed = True
+                 # print(f"DEBUG: Position changed: {self.media_properties.get('Position', -1)} -> {position_value}") # Verbose debug
+            # Always store the LATEST position if track info exists or track just changed
+            if 'Track' in self.media_properties or track_changed:
+                 self.media_properties['Position'] = position_value
 
-
-        # Emit signals AFTER checking all relevant properties
+        # --- Emit signals based on detected changes ---
         if status_changed:
              print(f"DEBUG: Emitting playback_status_changed({self.playback_status})")
              self.playback_status_changed.emit(self.playback_status)
-        if track_changed:
-             # Update position in the emitted dict if it also changed or was present
-             if 'Position' in properties: self.media_properties['Position'] = properties['Position']
+
+        # Emit media properties if track changed OR if position changed WHILE playing
+        # Use the LATEST known status (self.playback_status) for the check
+        if track_changed or (position_changed and self.playback_status == 'playing'):
+             # Ensure position is up-to-date in the dict being emitted
+             if 'Position' in properties: self.media_properties['Position'] = position_value
              print(f"DEBUG: Emitting media_properties_changed({self.media_properties})")
              self.media_properties_changed.emit(self.media_properties)
 
@@ -376,81 +384,68 @@ class BluetoothManager(QThread):
 
 
         print("BT Manager: Entering polling loop.")
-        poll_interval_ms = 2000 # Poll every 2 seconds (adjust as needed)
+        poll_interval_ms = 1000 # Poll every 2 seconds (adjust as needed)
         loop_count = 0
 
         while self._is_running:
             # --- POLLING LOGIC ---
             try:
                 # 1. Poll Connected Device Properties (if connected)
-                current_connected_path = self.connected_device_path # Cache path for safety
+                current_connected_path = self.connected_device_path
                 if current_connected_path:
-                    # print(f"DEBUG: Polling device {current_connected_path}") # Can be noisy
                     dev_props_iface = QDBusInterface(BLUEZ_SERVICE, current_connected_path, DBUS_PROP_IFACE, self.bus)
                     dev_reply = dev_props_iface.call("GetAll", DEVICE_IFACE)
                     if dev_reply.type() != QDBusMessage.MessageType.ErrorMessage and dev_reply.arguments():
-                        dev_props_all_variant = dev_reply.arguments()[0]
-                        dev_props_all = qvariant_dict_to_python(dev_props_all_variant)
-                        # Check for disconnect or battery change
+                        dev_props_all = qvariant_dict_to_python(dev_reply.arguments()[0])
                         if not dev_props_all.get('Connected', False):
                              print("DEBUG: Device disconnected detected via polling.")
-                             # Trigger disconnect logic (simulates InterfacesRemoved/PropsChanged)
                              self.process_device_properties(current_connected_path, {'Connected': False})
-                             continue # Skip media player poll this iteration if device just disconnected
+                             continue # Skip media poll if disconnected
                         elif dev_props_all.get('Battery', None) != self.current_battery:
                              print("DEBUG: Battery change detected via polling.")
                              self.current_battery = dev_props_all.get('Battery', None)
                              self.battery_updated.emit(self.current_battery)
-                             # Note: process_device_properties could also be called here if it handles battery-only updates well
                     else:
-                         # Failed to get props, assume disconnected?
                          print(f"DEBUG: Failed to poll device {current_connected_path}, assuming disconnect.")
                          self.process_device_properties(current_connected_path, {'Connected': False})
-                         continue # Skip media player poll
+                         continue
 
                 # 2. Poll Media Player Properties (if active)
-                current_media_path = self.media_player_path # Cache path
+                current_media_path = self.media_player_path
                 if current_media_path:
-                     # print(f"DEBUG: Polling media player {current_media_path}") # Can be noisy
                      media_props_iface = QDBusInterface(BLUEZ_SERVICE, current_media_path, DBUS_PROP_IFACE, self.bus)
                      media_reply = media_props_iface.call("GetAll", MEDIA_PLAYER_IFACE)
                      if media_reply.type() != QDBusMessage.MessageType.ErrorMessage and media_reply.arguments():
-                          media_props_all_variant = media_reply.arguments()[0]
-                          media_props_all = qvariant_dict_to_python(media_props_all_variant)
-                          # Check for changes by comparing with stored state before calling update
-                          if media_props_all.get('Status') != self.playback_status or \
-                             media_props_all.get('Track', {}) != self.media_properties.get('Track', {}):
-                                print("DEBUG: Media state change detected via polling.")
-                                self.update_media_state(media_props_all) # Update state and emit signals
-                     # else:
-                         # If polling media player fails, maybe just log it, don't assume disconnect unless device poll fails
-                         # print(f"DEBUG: Failed to poll media player {current_media_path}")
+                          media_props_all = qvariant_dict_to_python(media_reply.arguments()[0])
+                          # --- MODIFIED: Always call update_media_state ---
+                          # Let the method handle comparisons and signal emission
+                          self.update_media_state(media_props_all)
+                          # --- END MODIFICATION ---
+                     # else: # Log error if needed but don't assume disconnect based only on this
+                     #    print(f"DEBUG: Failed to poll media player {current_media_path}")
 
 
                 # 3. Poll for NEW devices/players (less frequent?)
-                # This replaces InterfacesAdded. Could be done less often than property polling.
-                if loop_count % 5 == 0: # Check every 5 * poll_interval_ms (e.g., 10 seconds)
-                     # print("DEBUG: Polling for new/changed interfaces via GetManagedObjects")
-                     om_reply = om.call('GetManagedObjects')
-                     if om_reply.type() != QDBusMessage.MessageType.ErrorMessage and om_reply.arguments():
-                          obj_dict_variant = om_reply.arguments()[0]
-                          obj_dict = qvariant_dict_to_python(obj_dict_variant)
-                          # Find newly connected device (if none currently connected)
-                          if not self.connected_device_path:
-                               for path, interfaces in obj_dict.items():
-                                   if DEVICE_IFACE in interfaces:
-                                        dev_props = interfaces.get(DEVICE_IFACE, {})
-                                        if dev_props.get('Connected', False):
-                                             print("DEBUG: New device connection detected via polling.")
-                                             self.process_device_properties(path, dev_props)
-                                             break # Process first found connected device
-                          # Find newly appeared media player (if none currently active)
-                          elif not self.media_player_path and self.connected_device_path:
-                               self.find_media_player(self.connected_device_path)
+                if loop_count % 5 == 0: # Check every 10 seconds
+                    # Use the om_iface reference created before the loop
+                    om_reply = om_iface.call('GetManagedObjects') # Reuse interface object
+                    if om_reply.type() != QDBusMessage.MessageType.ErrorMessage and om_reply.arguments():
+                        obj_dict = qvariant_dict_to_python(om_reply.arguments()[0])
+                        # Find newly connected device (if none currently connected)
+                        if not self.connected_device_path:
+                             for path, interfaces in obj_dict.items():
+                                 if DEVICE_IFACE in interfaces:
+                                      dev_props = interfaces.get(DEVICE_IFACE, {})
+                                      if dev_props.get('Connected', False):
+                                           print("DEBUG: New device connection detected via polling.")
+                                           self.process_device_properties(path, dev_props)
+                                           break # Process first found
+                        # Find newly appeared media player (if none currently active but device is connected)
+                        elif not self.media_player_path and self.connected_device_path:
+                             self.find_media_player(self.connected_device_path) # Check if player appeared
 
 
             except Exception as e:
-                 # Catch errors during polling loop
                  print(f"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
                  print(f"ERROR in BluetoothManager polling loop: {e}")
                  traceback.print_exc()
