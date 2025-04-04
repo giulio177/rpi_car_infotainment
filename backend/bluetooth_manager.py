@@ -466,6 +466,52 @@ class BluetoothManager(QThread):
 
         print("BluetoothManager thread finished.")
 
+    def _send_media_command(self, command):
+        """Sends a simple command (Play, Pause, Next, Previous) to the media player."""
+        if not self.media_player_path:
+            print("BT Manager: No active media player path to send command to.")
+            return False
+        if not self.bus.isConnected():
+             print("BT Manager: D-Bus not connected.")
+             return False
+
+        print(f"BT Manager: Sending command '{command}' to {self.media_player_path}")
+        try:
+            player_iface = QDBusInterface(BLUEZ_SERVICE, self.media_player_path, MEDIA_PLAYER_IFACE, self.bus)
+            # Methods like Play, Pause, etc., usually take no arguments
+            reply_message = player_iface.call(command)
+
+            if reply_message.type() == QDBusMessage.MessageType.ErrorMessage:
+                 print(f"BT Manager: Error sending command '{command}': {reply_message.errorMessage()}")
+                 return False
+            else:
+                 print(f"BT Manager: Command '{command}' sent successfully.")
+                 # NOTE: The status update will come via polling, not immediately from the reply
+                 return True
+        except Exception as e:
+            print(f"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+            print(f"ERROR sending command '{command}': {e}")
+            traceback.print_exc()
+            print(f"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+            return False
+
+    def send_play(self):
+        return self._send_media_command("Play")
+
+    def send_pause(self):
+        return self._send_media_command("Pause")
+
+    def send_next(self):
+        return self._send_media_command("Next")
+
+    def send_previous(self):
+        return self._send_media_command("Previous")
+
+    def send_stop(self):
+        return self._send_media_command("Stop") # Note: Stop might clear track info
+
+    # Add FastForward, Rewind etc. if needed
+
 
     def stop(self):
         print("BluetoothManager: Stop requested.")
