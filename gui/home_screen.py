@@ -152,27 +152,27 @@ class HomeScreen(QWidget):
 
     # --- ADDED: Slot to update media player info ---
     @pyqtSlot(dict)
-    def update_media_info(self, properties):
-        """Updates the media player display based on BT properties."""
-        print("HomeScreen received media properties:", properties)
-        track_info = properties.get('Track', {})
-        duration_ms = track_info.get('Duration', QVariant(0)).value() # Duration in milliseconds
-        position_ms = properties.get('Position', QVariant(0)).value() # Position in milliseconds
-
-        title = track_info.get('Title', QVariant("Unknown Title")).value()
-        artist = track_info.get('Artist', QVariant("Unknown Artist")).value()
-        album = track_info.get('Album', QVariant("Unknown Album")).value() # Store if needed
-
-        self.track_title_label.setText(title)
-        self.track_artist_label.setText(artist)
-        self.album_art_label.setText(f"{album}\n(Art N/A)") # Update placeholder text, art not usually available
-
-        # Format time display (mm:ss / mm:ss)
-        pos_sec = position_ms // 1000
-        dur_sec = duration_ms // 1000
-        pos_str = f"{pos_sec // 60:02d}:{pos_sec % 60:02d}"
-        dur_str = f"{dur_sec // 60:02d}:{dur_sec % 60:02d}" if dur_sec > 0 else "??:??"
-        self.track_time_label.setText(f"{pos_str} / {dur_str}")
+      def update_media_info(self, properties):
+          """Updates the media player display based on BT properties."""
+          print("HomeScreen received media properties:", properties)
+          track_info = properties.get('Track', {})
+          duration_ms = track_info.get('Duration', 0) # Default to Python int 0
+          position_ms = properties.get('Position', 0) # Default to Python int 0
+  
+          title = track_info.get('Title', "Unknown Title") # Default to Python str
+          artist = track_info.get('Artist', "Unknown Artist") # Default to Python str
+          album = track_info.get('Album', "Unknown Album") # Default to Python str
+  
+          self.track_title_label.setText(title)
+          self.track_artist_label.setText(artist)
+          self.album_art_label.setText(f"{album}\n(Art N/A)") # Update placeholder text, art not usually available
+  
+          # Format time display (mm:ss / mm:ss)
+          pos_sec = position_ms // 1000
+          dur_sec = duration_ms // 1000
+          pos_str = f"{pos_sec // 60:02d}:{pos_sec % 60:02d}"
+          dur_str = f"{dur_sec // 60:02d}:{dur_sec % 60:02d}" if dur_sec > 0 else "??:??"
+          self.track_time_label.setText(f"{pos_str} / {dur_str}")
 
     # --- ADDED: Slot to update playback status ---
     @pyqtSlot(str)
