@@ -232,6 +232,19 @@ def get_light_theme(scale_factor=1.0):
         subcontrol-position: top; subcontrol-origin: margin;
     }}
 
+    QLabel#trackTitleLabel, QLabel#trackArtistLabel {{ /* Targets ScrollingLabel too */
+        /* Font sizes set previously - ensure they are appropriate */
+        /* DO NOT set min-width or width here unless absolutely necessary */
+        /* Alignment set in code */
+        /* qproperty-alignment: 'AlignCenter'; */ /* Can be set here too */
+    }}
+    QLabel#trackTitleLabel {{
+        font-size: {scale_value(base_font_size_pt + 2, scale_factor)}pt;
+        font-weight: bold;
+    }}
+     QLabel#trackArtistLabel {{
+        font-size: {scale_value(base_font_size_pt, scale_factor)}pt;
+     }}
     /* Add other specific styles */
     """
 
@@ -458,6 +471,20 @@ def get_dark_theme(scale_factor=1.0):
         subcontrol-position: top; subcontrol-origin: margin;
     }}
 
+
+    QLabel#trackTitleLabel, QLabel#trackArtistLabel {{ /* Targets ScrollingLabel too */
+        /* Font sizes set previously - ensure they are appropriate */
+        /* DO NOT set min-width or width here unless absolutely necessary */
+        /* Alignment set in code */
+        /* qproperty-alignment: 'AlignCenter'; */ /* Can be set here too */
+    }}
+    QLabel#trackTitleLabel {{
+        font-size: {scale_value(base_font_size_pt + 2, scale_factor)}pt;
+        font-weight: bold;
+    }}
+     QLabel#trackArtistLabel {{
+        font-size: {scale_value(base_font_size_pt, scale_factor)}pt;
+     }}
     /* Add other specific styles */
     """
 
