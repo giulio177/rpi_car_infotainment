@@ -384,7 +384,7 @@ class BluetoothManager(QThread):
 
 
         print("BT Manager: Entering polling loop.")
-        poll_interval_ms = 1000 # Poll every 2 seconds (adjust as needed)
+        poll_interval_ms = 500 # Poll every 2 seconds (adjust as needed)
         loop_count = 0
 
         while self._is_running:
