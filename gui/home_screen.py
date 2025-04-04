@@ -1,8 +1,7 @@
 # gui/home_screen.py
 
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
-                             QPushButton, QLabel, QSpacerItem, QSizePolicy,
-                             QSlider) # Keep QSlider if used elsewhere, maybe not needed here
+                             QPushButton, QLabel, QSpacerItem, QSizePolicy) # Keep QSlider if used elsewhere, maybe not needed here
 from PyQt6.QtCore import QTimer, QDateTime, Qt, QSize, pyqtSlot
 from PyQt6.QtGui import QPixmap, QIcon
 
@@ -12,7 +11,7 @@ from PyQt6.QtGui import QPixmap, QIcon
 # from .styling import scale_value
 # If scale_value is defined elsewhere, adjust import path:
 from .styling import scale_value
-
+from .widgets.scrolling_label import ScrollingLabel
 
 class HomeScreen(QWidget):
     def __init__(self, parent=None): # parent is likely MainWindow now
@@ -102,20 +101,20 @@ class HomeScreen(QWidget):
 
         self.album_art_label = QLabel("Album Art") # Placeholder text
         self.album_art_label.setObjectName("albumArtLabel") # Use ID for styling in QSS
-        # Remove fixed/min/max sizes - control via QSS (e.g., min-width, min-height) or leave to layout
-        # self.album_art_label.setMinimumSize(150, 150) # REMOVE
-        # self.album_art_label.setMaximumSize(200, 200) # REMOVE
-        # self.album_art_label.setStyleSheet(...) # REMOVE - Style via QSS and objectName
         self.album_art_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.media_layout.addWidget(self.album_art_label, 0, Qt.AlignmentFlag.AlignHCenter) # Stretch factor 0
 
-        self.track_title_label = QLabel("Track Title")
+        self.track_title_label = ScrollingLabel() # Use custom class
         self.track_title_label.setObjectName("trackTitleLabel")
-        # self.track_title_label.setStyleSheet(...) # REMOVE - Style via QSS
-        self.track_artist_label = QLabel("Artist Name")
+        self.track_title_label.setAlignment(Qt.AlignmentFlag.AlignCenter) # Set alignment
+
+        self.track_artist_label = ScrollingLabel() # Use custom class
         self.track_artist_label.setObjectName("trackArtistLabel")
-        self.track_time_label = QLabel("00:00 / 00:00")
+        self.track_artist_label.setAlignment(Qt.AlignmentFlag.AlignCenter) # Set alignment
+
+        self.track_time_label = QLabel("00:00 / 00:00") # Keep standard label for time
         self.track_time_label.setObjectName("trackTimeLabel")
+        self.track_time_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         self.media_layout.addWidget(self.track_title_label)
         self.media_layout.addWidget(self.track_artist_label)
@@ -139,6 +138,10 @@ class HomeScreen(QWidget):
         self.playback_layout.addStretch(1)
         self.media_layout.addLayout(self.playback_layout)
 
+        self.btn_prev.clicked.connect(self.on_previous_clicked)
+        self.btn_play_pause.clicked.connect(self.on_play_pause_clicked)
+        self.btn_next.clicked.connect(self.on_next_clicked)
+
         self.media_layout.addStretch(1) # Pushes media content upwards
 
         # --- Add widgets to top_section_layout ---
@@ -148,6 +151,8 @@ class HomeScreen(QWidget):
 
         # --- Add Top Section to Main Layout ---
         self.main_layout.addLayout(self.top_section_layout, 1) # Stretch factor 1 for vertical space
+
+        self.clear_media_info()
 
 
     # --- ADDED: Slot to update media player info ---
@@ -159,13 +164,13 @@ class HomeScreen(QWidget):
         duration_ms = track_info.get('Duration', 0) # Default to Python int 0
         position_ms = properties.get('Position', 0) # Default to Python int 0
 
-        title = track_info.get('Title', "Unknown Title") # Default to Python str
-        artist = track_info.get('Artist', "Unknown Artist") # Default to Python str
-        album = track_info.get('Album', "Unknown Album") # Default to Python str
+        title = track_info.get('Title', "---") # Default to Python str
+        artist = track_info.get('Artist', "---") # Default to Python str
+        album = track_info.get('Album', "") # Default to Python str
 
         self.track_title_label.setText(title)
         self.track_artist_label.setText(artist)
-        self.album_art_label.setText(f"{album}\n(Art N/A)") # Update placeholder text, art not usually available
+        self.album_art_label.setText(f"{album}\n(Art N/A)" if album else "Album Art") # Update placeholder text, art not usually available
 
         # Format time display (mm:ss / mm:ss)
         pos_sec = position_ms // 1000
@@ -180,24 +185,49 @@ class HomeScreen(QWidget):
         """Updates the play/pause button icon based on playback status."""
         print(f"HomeScreen received playback status: {status}")
         if status == "playing":
-            self.btn_play_pause.setText("⏸") # Use pause symbol
-            # Or use an icon: self.btn_play_pause.setIcon(QIcon("path/to/pause_icon.png"))
+            self.btn_play_pause.setText("⏸")
         elif status == "paused":
-            self.btn_play_pause.setText("▶") # Use play symbol
-            # Or use an icon: self.btn_play_pause.setIcon(QIcon("path/to/play_icon.png"))
-        else: # stopped, forward-seek, reverse-seek etc.
-            self.btn_play_pause.setText("▶") # Default to play symbol
+            self.btn_play_pause.setText("▶")
+        else: # stopped, etc.
+            self.btn_play_pause.setText("▶")
             if status == "stopped":
-                 self.clear_media_info() # Clear info if stopped
+                 self.clear_media_info() # Optionally clear info if stopped
 
-    # --- ADDED: Helper to clear media info ---
+
     def clear_media_info(self):
         """Resets media player display to default state."""
         self.track_title_label.setText("---")
         self.track_artist_label.setText("---")
-        self.track_time_label.setText("00:00 / 00:00")
-        self.album_art_label.setText("Album Art") # Reset placeholder
-        self.btn_play_pause.setText("▶") # Default to play symbol
+        self.track_time_label.setText("--:-- / --:--")
+        self.album_art_label.setText("Album Art")
+        self.btn_play_pause.setText("▶")
+
+
+    # --- ADDED: Click Handlers for Controls ---
+    def on_play_pause_clicked(self):
+        print("Play/Pause button clicked")
+        if self.main_window and self.main_window.bluetooth_manager:
+            current_status = self.main_window.bluetooth_manager.playback_status
+            if current_status == "playing":
+                self.main_window.bluetooth_manager.send_pause()
+            else: # Paused, stopped, or unknown - try playing
+                self.main_window.bluetooth_manager.send_play()
+        else:
+            print("Error: Cannot send command - BluetoothManager not available.")
+
+    def on_next_clicked(self):
+        print("Next button clicked")
+        if self.main_window and self.main_window.bluetooth_manager:
+            self.main_window.bluetooth_manager.send_next()
+        else:
+            print("Error: Cannot send command - BluetoothManager not available.")
+
+    def on_previous_clicked(self):
+        print("Previous button clicked")
+        if self.main_window and self.main_window.bluetooth_manager:
+            self.main_window.bluetooth_manager.send_previous()
+        else:
+            print("Error: Cannot send command - BluetoothManager not available.")
   
     def update_scaling(self, scale_factor, scaled_main_margin):
         """Applies scaling to internal layouts."""
