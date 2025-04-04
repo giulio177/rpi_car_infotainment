@@ -99,10 +99,11 @@ class HomeScreen(QWidget):
         # Spacing set by update_scaling
         self.media_layout.setAlignment(Qt.AlignmentFlag.AlignTop) # Keep content aligned top
 
-        self.album_art_label = QLabel("Album Art") # Placeholder text
-        self.album_art_label.setObjectName("albumArtLabel") # Use ID for styling in QSS
-        self.album_art_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.media_layout.addWidget(self.album_art_label, 0, Qt.AlignmentFlag.AlignHCenter) # Stretch factor 0
+        self.album_art_label = ScrollingLabel("(Album)") # Placeholder text
+        self.album_art_label.setObjectName("albumArtLabel") # Keep ID for styling
+        self.album_art_label.setAlignment(Qt.AlignmentFlag.AlignCenter) # Set alignment
+        # Add to layout (same as before, just different widget type)
+        self.media_layout.addWidget(self.album_art_label, 0, Qt.AlignmentFlag.AlignHCenter)
 
         self.track_title_label = ScrollingLabel() # Use custom class
         self.track_title_label.setObjectName("trackTitleLabel")
@@ -170,7 +171,7 @@ class HomeScreen(QWidget):
 
         self.track_title_label.setText(title)
         self.track_artist_label.setText(artist)
-        self.album_art_label.setText(f"{album}\n(Art N/A)" if album else "Album Art") # Update placeholder text, art not usually available
+        self.album_art_label.setText(album if album else "(Album Unknown)")
 
         # Format time display (mm:ss / mm:ss)
         pos_sec = position_ms // 1000
@@ -199,7 +200,7 @@ class HomeScreen(QWidget):
         self.track_title_label.setText("---")
         self.track_artist_label.setText("---")
         self.track_time_label.setText("--:-- / --:--")
-        self.album_art_label.setText("Album Art")
+        self.album_art_label.setText("(No Media)") # Set placeholder
         self.btn_play_pause.setText("▶")
 
 
