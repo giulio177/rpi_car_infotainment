@@ -87,6 +87,8 @@ class HomeScreen(QWidget):
                     self.grid_layout.addWidget(button, r, c)
                     btn_index += 1
 
+        self.grid_widget.setLayout(self.grid_layout
+      
         # Vertical spacer to push buttons up
         vertical_spacer = QSpacerItem(20, 1, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
         self.grid_layout.addItem(vertical_spacer, num_rows, 0, 1, target_cols)
@@ -120,6 +122,7 @@ class HomeScreen(QWidget):
         self.media_layout.addWidget(self.track_title_label)
         self.media_layout.addWidget(self.track_artist_label)
         self.media_layout.addWidget(self.track_time_label)
+      
 
         # Playback Controls
         self.playback_layout = QHBoxLayout() # Store reference
@@ -132,28 +135,11 @@ class HomeScreen(QWidget):
         self.btn_play_pause.setObjectName("mediaPlayPauseButton")
         self.btn_next.setObjectName("mediaNextButton")
 
-        self.playback_layout.addStretch(1)
-        self.playback_layout.addWidget(self.btn_prev)
-        self.playback_layout.addWidget(self.btn_play_pause)
-        self.playback_layout.addWidget(self.btn_next)
-        self.playback_layout.addStretch(1)
-        self.media_layout.addLayout(self.playback_layout)
+        # Add grid_widget with stretch factor 2 (takes 2/3 of available space)
+        self.top_section_layout.addWidget(self.grid_widget, 2)
 
-        self.btn_prev.clicked.connect(self.on_previous_clicked)
-        self.btn_play_pause.clicked.connect(self.on_play_pause_clicked)
-        self.btn_next.clicked.connect(self.on_next_clicked)
-
-        self.media_layout.addStretch(1) # Pushes media content upwards
-
-        # --- Add widgets to top_section_layout ---
-        self.top_section_layout.addWidget(self.grid_widget, 1) # Grid takes expanding space
-        self.top_section_layout.addStretch(1)                   # Spacer
-        self.top_section_layout.addWidget(self.media_widget)    # Media player takes preferred size
-
-        # --- Add Top Section to Main Layout ---
-        self.main_layout.addLayout(self.top_section_layout, 1) # Stretch factor 1 for vertical space
-
-        self.clear_media_info()
+        # Add media_widget with stretch factor 1 (takes 1/3 of available space)
+        self.top_section_layout.addWidget(self.media_widget, 1)
 
 
     # --- ADDED: Slot to update media player info ---
