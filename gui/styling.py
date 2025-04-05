@@ -1,6 +1,6 @@
 # gui/styling.py
 
-# --- ADD Helper function to calculate scaled int ---
+# --- Helper function to calculate scaled int ---
 def scale_value(base_value, scale_factor):
     """Calculates scaled integer value, ensuring minimum of 1."""
     return max(1, int(base_value * scale_factor))
@@ -25,7 +25,6 @@ def get_light_theme(scale_factor=1.0):
     # Use scaled sizes in the QSS string
     return f"""
     QWidget {{
-        /* background-color: #f0f0f0; /* Style specific widgets instead of global */
         color: #333;
         font-size: {scaled_font_size}pt; /* Apply scaled base font size */
     }}
@@ -56,34 +55,27 @@ def get_light_theme(scale_factor=1.0):
         padding: {scaled_padding // 2}px {scaled_padding}px; /* Scaled padding */
         border-radius: {scaled_border_radius}px;
         min-height: {scaled_button_min_height}px; /* Scaled min height */
-        /* font-size: {scale_value(11, scale_factor)}pt; /* Optionally different button font */
     }}
     QPushButton:pressed {{
         background-color: #c0c0c0;
     }}
 
-    /* Style specific buttons if needed */
-    QPushButton#homeBtnSettings, QPushButton#settingsNavButton {{ /* Example */
-       /* background-color: #a0a0ff; */
-    }}
     QPushButton#powerNavButton {{
-        background-color: #ff8080; /* Example: Make power button reddish */
+        background-color: #ff8080;
         border-color: #cc6666;
     }}
      QPushButton#powerNavButton:pressed {{
         background-color: #e67373;
      }}
-     QPushButton#settingsSaveButton {{ /* Style the Apply button */
-        /* font-weight: bold; */ /* Example */
-        padding: {scaled_padding // 1.5}px {scaled_padding * 1.5}px; /* Make Apply button padding larger */
-        min-width: {scale_value(150, scale_factor)}px; /* Give it a min width */
+     QPushButton#settingsSaveButton, QPushButton#settingsRestartButton {{
+        padding: {scaled_padding // 1.5}px {scaled_padding * 1.5}px;
+        min-width: {scale_value(150, scale_factor)}px;
      }}
 
 
     QLabel {{
         padding: {scaled_padding // 3}px;
-        background-color: transparent; /* Ensure labels don't block background */
-         /* Font size inherited from QWidget unless overridden */
+        background-color: transparent;
     }}
     QLabel#headerTitle {{
         font-size: {scale_value(16, scale_factor)}pt;
@@ -92,9 +84,14 @@ def get_light_theme(scale_factor=1.0):
      QLabel#headerClock {{
         font-size: {scale_value(16, scale_factor)}pt;
      }}
-     QLabel#statusBarObdLabel, QLabel#statusBarRadioLabel {{
-         font-size: {scale_value(9, scale_factor)}pt; /* Smaller status text */
+     QLabel#statusBarObdLabel, QLabel#statusBarRadioLabel,
+     QLabel#statusBarBtNameLabel, QLabel#statusBarBtBatteryLabel {{
+         font-size: {scale_value(9, scale_factor)}pt;
          padding: 2px;
+     }}
+      QLabel#statusBarBtBatteryLabel {{
+         padding-left: {scale_value(3, scale_factor)}px;
+         font-weight: bold;
      }}
      QLabel#statusBarSeparator {{
          font-size: {scale_value(9, scale_factor)}pt;
@@ -103,43 +100,76 @@ def get_light_theme(scale_factor=1.0):
          padding-right: {scaled_padding // 2}px;
      }}
      /* Styling for specific labels */
-     QLabel#freq_display {{ /* Radio Freq */
+     QLabel#freq_display {{
          font-size: {scale_value(36, scale_factor)}pt;
          font-weight: bold;
          color: #17a2b8;
          qproperty-alignment: 'AlignCenter';
      }}
-      QLabel#speed_value, QLabel#rpm_value, QLabel#coolant_value, QLabel#fuel_value {{ /* OBD Values */
+      QLabel#speed_value, QLabel#rpm_value, QLabel#coolant_value, QLabel#fuel_value {{
          font-size: {scale_value(22, scale_factor)}pt;
          font-weight: bold;
          color: #007bff;
      }}
-     QLabel#albumArtLabel {{
-        background-color: #cccccc; /* Placeholder background */
-        border: 1px solid #b0b0b0;
-        color: #555555;
-        min-height: {scale_value(120, scale_factor)}px; /* Scaled min size */
-        min-width: {scale_value(120, scale_factor)}px;
-        qproperty-alignment: 'AlignCenter';
-     }}
       QLabel#resolutionNoteLabel {{
-         font-size: {scale_value(base_font_size_pt - 2, scale_factor)}pt; /* Smaller note */
+         font-size: {scale_value(base_font_size_pt - 2, scale_factor)}pt;
          color: #666666;
      }}
+
+    /* --- Home Screen Media Player --- */
+    QLabel#albumArtLabel {{ /* Targets ScrollingLabel */
+        border: {scale_value(2, scale_factor)}px solid #a0a0a0; /* Thicker border */
+        background-color: rgba(128, 128, 128, 0.1);
+        border-radius: {scaled_border_radius}px;
+        font-size: {scale_value(base_font_size_pt, scale_factor)}pt;
+        color: #555555;
+        min-height: {scale_value(140, scale_factor)}px; /* Adjusted min height */
+        /* Width is ignored by ScrollingLabel's policy */
+        qproperty-alignment: 'AlignCenter'; /* Alignment from code */
+        margin-bottom: {scaled_padding // 2}px;
+        padding: {scaled_padding}px; /* Increase padding inside */
+    }}
+    QLabel#trackTitleLabel, QLabel#trackArtistLabel {{ /* Targets ScrollingLabel */
+        min-height: {scale_value(25, scale_factor)}px; /* Ensure min height for text lines */
+        /* Alignment set in code */
+    }}
+    QLabel#trackTitleLabel {{
+        font-size: {scale_value(base_font_size_pt + 2, scale_factor)}pt;
+        font-weight: bold;
+    }}
+     QLabel#trackArtistLabel {{
+        font-size: {scale_value(base_font_size_pt, scale_factor)}pt;
+     }}
+     QLabel#trackTimeLabel {{
+        min-height: {scale_value(20, scale_factor)}px;
+        font-size: {scale_value(base_font_size_pt - 1, scale_factor)}pt;
+        color: #666666;
+        qproperty-alignment: 'AlignCenter';
+        margin-top: {scaled_padding // 3}px;
+        margin-bottom: {scaled_padding // 2}px;
+     }}
+     QPushButton#mediaPrevButton, QPushButton#mediaPlayPauseButton, QPushButton#mediaNextButton {{
+        min-width: {scale_value(50, scale_factor)}px;
+     }}
+     QPushButton#mediaPlayPauseButton {{
+         font-size: {scale_value(base_font_size_pt + 4, scale_factor)}pt;
+     }}
+     /* --- End Media Player Styles --- */
+
 
     QLineEdit, QComboBox {{
         background-color: white;
         border: {scaled_border}px solid #b0b0b0;
         padding: {scaled_padding // 2}px;
         border-radius: {scaled_border_radius // 2}px;
-        min-height: {scale_value(base_button_min_height_px * 0.8, scale_factor)}px; /* Slightly smaller than buttons */
+        min-height: {scale_value(base_button_min_height_px * 0.8, scale_factor)}px;
     }}
     /* Styling for QComboBox dropdown */
     QComboBox QAbstractItemView {{
         background-color: white;
         color: #333;
         border: {scaled_border}px solid #b0b0b0;
-        selection-background-color: #dcdcdc; /* Selection in dropdown */
+        selection-background-color: #dcdcdc;
         selection-color: #333;
         padding: {scaled_padding // 3}px;
         outline: 0px;
@@ -150,7 +180,7 @@ def get_light_theme(scale_factor=1.0):
      QComboBox::drop-down {{
         subcontrol-origin: padding;
         subcontrol-position: top right;
-        width: {scale_value(20, scale_factor)}px; /* Scaled width */
+        width: {scale_value(20, scale_factor)}px;
         border-left-width: {scaled_border}px;
         border-left-color: #b0b0b0;
         border-left-style: solid;
@@ -168,44 +198,44 @@ def get_light_theme(scale_factor=1.0):
     QSlider::groove:horizontal {{
         border: {scaled_border}px solid #bbb;
         background: white;
-        height: {scale_value(8, scale_factor)}px; /* Scaled slider groove */
+        height: {scale_value(8, scale_factor)}px;
         border-radius: {scaled_border_radius // 2}px;
     }}
     QSlider::handle:horizontal {{
-        background: #5050fa; /* Example handle color */
+        background: #5050fa;
         border: {scaled_border}px solid #3030cc;
-        width: {scale_value(18, scale_factor)}px; /* Scaled handle width */
-        margin: -{scale_value(6, scale_factor)}px 0; /* Adjust vertical margin */
+        width: {scale_value(18, scale_factor)}px;
+        margin: -{scale_value(6, scale_factor)}px 0;
         border-radius: {scaled_border_radius}px;
     }}
     QProgressBar {{
         border: {scaled_border}px solid grey;
         border-radius: {scaled_border_radius // 2}px;
         background-color: #e0e0e0;
-        text-align: center; /* Or remove text-align if text is hidden */
-        height: {scale_value(15, scale_factor)}px; /* Scale progress bar height */
+        text-align: center;
+        height: {scale_value(15, scale_factor)}px;
     }}
     QProgressBar::chunk {{
-        background-color: #05B8CC; /* Adjust color as needed */
-        width: {scale_value(10, scale_factor)}px; /* Adjust chunk width for visual effect */
+        background-color: #05B8CC;
+        width: {scale_value(10, scale_factor)}px;
         margin: {scale_value(1, scale_factor)}px;
-        border-radius: {scale_value(base_border_radius_px // 3, scale_factor)}px;
+        border-radius: {scale_value(base_border_radius // 3, scale_factor)}px;
     }}
     QGroupBox {{
-        font-size: {scale_value(base_font_size_pt + 1, scale_factor)}pt; /* Slightly larger group titles */
+        font-size: {scale_value(base_font_size_pt + 1, scale_factor)}pt;
         border: {scaled_border}px solid gray;
         border-radius: {scaled_border_radius}px;
-        margin-top: {scale_value(10, scale_factor)}px; /* Space for title */
-         background-color: #e8e8e8; /* Slightly different group background */
-         padding: {scaled_padding // 2}px; /* Padding inside group box */
-         padding-top: {scaled_padding * 1.2}px; /* More top padding inside for title */
+        margin-top: {scale_value(10, scale_factor)}px;
+         background-color: #e8e8e8;
+         padding: {scaled_padding // 2}px;
+         padding-top: {scale_value(base_padding_px * 1.2, scale_factor)}px;
     }}
     QGroupBox::title {{
         subcontrol-origin: margin;
         subcontrol-position: top left;
         padding: 0 {scaled_padding // 2}px;
-        left: {scaled_padding}px; /* Indent title */
-        top: -{scaled_padding // 3}px; /* Adjust vertical position of title */
+        left: {scaled_padding}px;
+        top: -{scaled_padding // 3}px;
     }}
 
     /* ScrollArea Styling Light */
@@ -232,45 +262,6 @@ def get_light_theme(scale_factor=1.0):
         subcontrol-position: top; subcontrol-origin: margin;
     }}
 
-    /* --- Home Screen Media Player --- */
-    /* MODIFIED: Style for Scrolling Album Label */
-    QLabel#albumArtLabel {{ /* Targets ScrollingLabel too */
-        /* Remove background/border if just text */
-        background-color: transparent;
-        border: none;
-        /* Set font size, maybe smaller than track title? */
-        font-size: {scale_value(base_font_size_pt -1, scale_factor)}pt;
-        color: #666666; /* Light Theme Dim */
-        /* color: #aaaaaa; */ /* Dark Theme Dim */
-        /* Ensure min-height is sufficient if needed */
-        min-height: {scale_value(20, scale_factor)}px;
-        /* Width is ignored by ScrollingLabel's policy, don't set width/min-width */
-        qproperty-alignment: 'AlignCenter'; /* Alignment from code */
-        margin-bottom: {scaled_padding // 2}px; /* Keep margin */
-    }}
-    /* --- End Album Label Style --- */
-
-    QLabel#trackTitleLabel, QLabel#trackArtistLabel {{
-        /* Styles remain as before */
-        min-height: {scale_value(20, scale_factor)}px; /* Ensure min height */
-    }}
-    QLabel#trackTitleLabel {{
-        font-size: {scale_value(base_font_size_pt + 2, scale_factor)}pt;
-        font-weight: bold;
-    }}
-     QLabel#trackArtistLabel {{
-        font-size: {scale_value(base_font_size_pt, scale_factor)}pt;
-     }}
-     QLabel#trackTimeLabel {{
-         /* Style remains as before */
-        min-height: {scale_value(20, scale_factor)}px; /* Ensure min height */
-        font-size: {scale_value(base_font_size_pt - 1, scale_factor)}pt;
-        color: #666666; /* Light Theme Dim */
-        /* color: #aaaaaa; */ /* Dark Theme Dim */
-        qproperty-alignment: 'AlignCenter';
-        margin-top: {scaled_padding // 3}px;
-        margin-bottom: {scaled_padding // 2}px;
-     }}
     /* Add other specific styles */
     """
 
@@ -298,10 +289,7 @@ def get_dark_theme(scale_factor=1.0):
     QWidget#central_widget {{ background-color: #2e2e2e; }}
     QWidget#persistentBottomBar {{ background-color: #3a3a3a; border-top: {scaled_border}px solid #505050; }}
      QWidget#grid_widget, QWidget#media_widget {{ background-color: transparent; }}
-     /* Specific styling for settings screen scroll area */
-     QWidget#settingsScrollContent {{
-         background-color: #2e2e2e; /* Match main background */
-     }}
+     QWidget#settingsScrollContent {{ background-color: #2e2e2e; }}
 
     QPushButton {{
         background-color: #505050;
@@ -315,15 +303,14 @@ def get_dark_theme(scale_factor=1.0):
         background-color: #606060;
     }}
      QPushButton#powerNavButton {{
-        background-color: #a04040; /* Darker red for dark theme */
+        background-color: #a04040;
         border-color: #803333;
     }}
      QPushButton#powerNavButton:pressed {{
         background-color: #b35959;
      }}
-     QPushButton#settingsSaveButton {{ /* Style the Apply button */
-        /* font-weight: bold; */
-        padding: {scaled_padding // 1.5}px {scaled_padding * 1.5}px; /* Make Apply button padding larger */
+     QPushButton#settingsSaveButton, QPushButton#settingsRestartButton {{
+        padding: {scaled_padding // 1.5}px {scaled_padding * 1.5}px;
         min-width: {scale_value(150, scale_factor)}px;
      }}
 
@@ -339,9 +326,14 @@ def get_dark_theme(scale_factor=1.0):
      QLabel#headerClock {{
         font-size: {scale_value(16, scale_factor)}pt;
      }}
-      QLabel#statusBarObdLabel, QLabel#statusBarRadioLabel {{
+      QLabel#statusBarObdLabel, QLabel#statusBarRadioLabel,
+      QLabel#statusBarBtNameLabel, QLabel#statusBarBtBatteryLabel {{
          font-size: {scale_value(9, scale_factor)}pt;
          padding: 2px;
+     }}
+      QLabel#statusBarBtBatteryLabel {{
+         padding-left: {scale_value(3, scale_factor)}px;
+         font-weight: bold;
      }}
      QLabel#statusBarSeparator {{
          font-size: {scale_value(9, scale_factor)}pt;
@@ -349,29 +341,59 @@ def get_dark_theme(scale_factor=1.0):
          padding-left: {scaled_padding // 2}px;
          padding-right: {scaled_padding // 2}px;
      }}
-     QLabel#freq_display {{ /* Radio Freq */
+     QLabel#freq_display {{
          font-size: {scale_value(36, scale_factor)}pt;
          font-weight: bold;
-         color: #20c9d6; /* Lighter cyan for dark theme */
+         color: #20c9d6;
          qproperty-alignment: 'AlignCenter';
      }}
-      QLabel#speed_value, QLabel#rpm_value, QLabel#coolant_value, QLabel#fuel_value {{ /* OBD Values */
+      QLabel#speed_value, QLabel#rpm_value, QLabel#coolant_value, QLabel#fuel_value {{
          font-size: {scale_value(22, scale_factor)}pt;
          font-weight: bold;
-         color: #34a4ff; /* Lighter blue for dark theme */
-     }}
-     QLabel#albumArtLabel {{
-        background-color: #444444; /* Darker placeholder background */
-        border: 1px solid #606060;
-        color: #aaaaaa;
-        min-height: {scale_value(120, scale_factor)}px; /* Scaled min size */
-        min-width: {scale_value(120, scale_factor)}px;
-        qproperty-alignment: 'AlignCenter';
+         color: #34a4ff;
      }}
       QLabel#resolutionNoteLabel {{
-         font-size: {scale_value(base_font_size_pt - 2, scale_factor)}pt; /* Smaller note */
+         font-size: {scale_value(base_font_size_pt - 2, scale_factor)}pt;
          color: #aaaaaa;
      }}
+
+    /* --- Home Screen Media Player --- */
+    QLabel#albumArtLabel {{ /* Targets ScrollingLabel */
+        border: {scale_value(2, scale_factor)}px solid #505050; /* Dark theme border */
+        background-color: rgba(80, 80, 80, 0.2); /* Dark theme subtle background */
+        border-radius: {scaled_border_radius}px;
+        font-size: {scale_value(base_font_size_pt, scale_factor)}pt;
+        color: #bbbbbb; /* Dark Theme Dim Text */
+        min-height: {scale_value(140, scale_factor)}px; /* Adjusted min height */
+        qproperty-alignment: 'AlignCenter';
+        margin-bottom: {scaled_padding // 2}px;
+        padding: {scaled_padding}px;
+    }}
+    QLabel#trackTitleLabel, QLabel#trackArtistLabel {{ /* Targets ScrollingLabel */
+        min-height: {scale_value(25, scale_factor)}px;
+    }}
+    QLabel#trackTitleLabel {{
+        font-size: {scale_value(base_font_size_pt + 2, scale_factor)}pt;
+        font-weight: bold;
+    }}
+     QLabel#trackArtistLabel {{
+        font-size: {scale_value(base_font_size_pt, scale_factor)}pt;
+     }}
+     QLabel#trackTimeLabel {{
+        min-height: {scale_value(20, scale_factor)}px;
+        font-size: {scale_value(base_font_size_pt - 1, scale_factor)}pt;
+        color: #aaaaaa; /* Dark Theme Dim */
+        qproperty-alignment: 'AlignCenter';
+        margin-top: {scaled_padding // 3}px;
+        margin-bottom: {scaled_padding // 2}px;
+     }}
+     QPushButton#mediaPrevButton, QPushButton#mediaPlayPauseButton, QPushButton#mediaNextButton {{
+        min-width: {scale_value(50, scale_factor)}px;
+     }}
+     QPushButton#mediaPlayPauseButton {{
+         font-size: {scale_value(base_font_size_pt + 4, scale_factor)}pt;
+     }}
+     /* --- End Media Player Styles --- */
 
     QLineEdit {{
         background-color: #404040;
@@ -382,21 +404,19 @@ def get_dark_theme(scale_factor=1.0):
         min-height: {scale_value(base_button_min_height_px * 0.8, scale_factor)}px;
     }}
 
-    /* --- MODIFIED & ADDED: QComboBox Styling for Dark Theme --- */
     QComboBox {{
-        background-color: #404040; /* Main combo box background */
+        background-color: #404040;
         border: {scaled_border}px solid #707070;
-        color: #e0e0e0; /* Text color in the box */
+        color: #e0e0e0;
         padding: {scaled_padding // 2}px;
         border-radius: {scaled_border_radius // 2}px;
         min-height: {scale_value(base_button_min_height_px * 0.8, scale_factor)}px;
-        selection-background-color: #6060a0; /* Color when item selected IN THE BOX */
+        selection-background-color: #6060a0;
     }}
-    /* Style the dropdown arrow */
     QComboBox::drop-down {{
         subcontrol-origin: padding;
         subcontrol-position: top right;
-        width: {scale_value(20, scale_factor)}px; /* Scaled width */
+        width: {scale_value(20, scale_factor)}px;
         border-left-width: {scaled_border}px;
         border-left-color: #707070;
         border-left-style: solid;
@@ -409,25 +429,18 @@ def get_dark_theme(scale_factor=1.0):
          width: {scale_value(10, scale_factor)}px;
          height: {scale_value(10, scale_factor)}px;
     }}
-     QComboBox::down-arrow:on {{ /* when dropdown is visible */
-        /* top: 1px; left: 1px; */ /* Small shift effect */
-     }}
-
-    /* Style the dropdown list itself (the popup) */
     QComboBox QAbstractItemView {{
-        background-color: #3a3a3a; /* Background of the dropdown list */
-        color: #e0e0e0; /* Text color in the list */
+        background-color: #3a3a3a;
+        color: #e0e0e0;
         border: {scaled_border}px solid #707070;
-        selection-background-color: #5050a0; /* Background of selected item */
-        selection-color: #ffffff; /* Text color of selected item */
-        padding: {scaled_padding // 3}px; /* Padding inside the view */
-        outline: 0px; /* Remove focus outline */
+        selection-background-color: #5050a0;
+        selection-color: #ffffff;
+        padding: {scaled_padding // 3}px;
+        outline: 0px;
     }}
-     /* Style individual items in the dropdown */
      QComboBox QAbstractItemView::item {{
-         min-height: {scale_value(base_button_min_height_px * 0.7, scale_factor)}px; /* Ensure items are tall enough */
+         min-height: {scale_value(base_button_min_height_px * 0.7, scale_factor)}px;
      }}
-    /* --- End QComboBox specific styling --- */
 
 
     QSlider::groove:horizontal {{
@@ -437,7 +450,7 @@ def get_dark_theme(scale_factor=1.0):
         border-radius: {scaled_border_radius // 2}px;
     }}
     QSlider::handle:horizontal {{
-        background: #8080ff; /* Lighter handle */
+        background: #8080ff;
         border: {scaled_border}px solid #6060dd;
         width: {scale_value(18, scale_factor)}px;
         margin: -{scale_value(6, scale_factor)}px 0;
@@ -451,19 +464,19 @@ def get_dark_theme(scale_factor=1.0):
         height: {scale_value(15, scale_factor)}px;
     }}
     QProgressBar::chunk {{
-        background-color: #1db8cc; /* Adjust chunk color */
+        background-color: #1db8cc;
         width: {scale_value(10, scale_factor)}px;
         margin: {scale_value(1, scale_factor)}px;
-        border-radius: {scale_value(base_border_radius_px // 3, scale_factor)}px;
+         border-radius: {scale_value(base_border_radius // 3, scale_factor)}px;
     }}
      QGroupBox {{
         font-size: {scale_value(base_font_size_pt + 1, scale_factor)}pt;
         border: {scaled_border}px solid #666;
         border-radius: {scaled_border_radius}px;
         margin-top: {scale_value(10, scale_factor)}px;
-        background-color: #383838; /* Darker group background */
-        padding: {scaled_padding // 2}px; /* Padding inside group box */
-        padding-top: {scaled_padding * 1.2}px; /* More top padding inside for title */
+        background-color: #383838;
+        padding: {scaled_padding // 2}px;
+        padding-top: {scale_value(base_padding_px * 1.2, scale_factor)}px;
     }}
     QGroupBox::title {{
         subcontrol-origin: margin;
@@ -497,46 +510,6 @@ def get_dark_theme(scale_factor=1.0):
         subcontrol-position: top; subcontrol-origin: margin;
     }}
 
-
-    /* --- Home Screen Media Player --- */
-    /* MODIFIED: Style for Scrolling Album Label */
-    QLabel#albumArtLabel {{ /* Targets ScrollingLabel too */
-        /* Remove background/border if just text */
-        background-color: transparent;
-        border: none;
-        /* Set font size, maybe smaller than track title? */
-        font-size: {scale_value(base_font_size_pt -1, scale_factor)}pt;
-        color: #666666; /* Light Theme Dim */
-        /* color: #aaaaaa; */ /* Dark Theme Dim */
-        /* Ensure min-height is sufficient if needed */
-        min-height: {scale_value(20, scale_factor)}px;
-        /* Width is ignored by ScrollingLabel's policy, don't set width/min-width */
-        qproperty-alignment: 'AlignCenter'; /* Alignment from code */
-        margin-bottom: {scaled_padding // 2}px; /* Keep margin */
-    }}
-    /* --- End Album Label Style --- */
-
-    QLabel#trackTitleLabel, QLabel#trackArtistLabel {{
-        /* Styles remain as before */
-        min-height: {scale_value(20, scale_factor)}px; /* Ensure min height */
-    }}
-    QLabel#trackTitleLabel {{
-        font-size: {scale_value(base_font_size_pt + 2, scale_factor)}pt;
-        font-weight: bold;
-    }}
-     QLabel#trackArtistLabel {{
-        font-size: {scale_value(base_font_size_pt, scale_factor)}pt;
-     }}
-     QLabel#trackTimeLabel {{
-         /* Style remains as before */
-        min-height: {scale_value(20, scale_factor)}px; /* Ensure min height */
-        font-size: {scale_value(base_font_size_pt - 1, scale_factor)}pt;
-        color: #666666; /* Light Theme Dim */
-        /* color: #aaaaaa; */ /* Dark Theme Dim */
-        qproperty-alignment: 'AlignCenter';
-        margin-top: {scaled_padding // 3}px;
-        margin-bottom: {scaled_padding // 2}px;
-     }}
     /* Add other specific styles */
     """
 
