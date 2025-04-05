@@ -87,7 +87,7 @@ class HomeScreen(QWidget):
                     self.grid_layout.addWidget(button, r, c)
                     btn_index += 1
 
-        self.grid_widget.setLayout(self.grid_layout
+        self.grid_widget.setLayout(self.grid_layout)
       
         # Vertical spacer to push buttons up
         vertical_spacer = QSpacerItem(20, 1, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
