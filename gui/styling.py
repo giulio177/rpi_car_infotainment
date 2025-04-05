@@ -219,7 +219,7 @@ def get_light_theme(scale_factor=1.0):
         background-color: #05B8CC;
         width: {scale_value(10, scale_factor)}px;
         margin: {scale_value(1, scale_factor)}px;
-        border-radius: {scale_value(base_border_radius // 3, scale_factor)}px;
+        border-radius: {scale_value(base_border_radius_px // 3, scale_factor)}px; # Use base_border_radius_p
     }}
     QGroupBox {{
         font-size: {scale_value(base_font_size_pt + 1, scale_factor)}pt;
@@ -467,7 +467,7 @@ def get_dark_theme(scale_factor=1.0):
         background-color: #1db8cc;
         width: {scale_value(10, scale_factor)}px;
         margin: {scale_value(1, scale_factor)}px;
-         border-radius: {scale_value(base_border_radius // 3, scale_factor)}px;
+        border-radius: {scale_value(base_border_radius_px // 3, scale_factor)}px; # Use base_border_radius_p
     }}
      QGroupBox {{
         font-size: {scale_value(base_font_size_pt + 1, scale_factor)}pt;
