@@ -21,7 +21,7 @@ except ImportError:
 
 
 class HomeScreen(QWidget):
-    def __init__(self, parent=None): # parent is likely MainWindow now
+    def __init__(self, parent=None):
         super().__init__(parent)
         self.main_window = parent
 
@@ -30,7 +30,7 @@ class HomeScreen(QWidget):
         self.base_header_spacing = 10
         self.base_top_section_spacing = 15
         self.base_grid_spacing = 8
-        self.base_media_spacing = 10
+        self.base_media_spacing = 10 # Vertical spacing in media player
         self.base_media_playback_button_spacing = 5
 
         # --- Main Layout (Vertical) ---
@@ -104,32 +104,34 @@ class HomeScreen(QWidget):
         self.media_widget.setObjectName("media_widget")
         self.media_layout = QVBoxLayout(self.media_widget) # Store reference
         # Spacing set by update_scaling
-        self.media_layout.setAlignment(Qt.AlignmentFlag.AlignTop) # Keep content aligned top
+        # Removed AlignTop - Let stretch factor handle vertical distribution
 
-        # Use ScrollingLabel for Album, Title, Artist
-        self.album_art_label = ScrollingLabel("(Album)")
-        self.album_art_label.setObjectName("albumArtLabel")
+        # --- Album Label (Scrolling, takes expanding vertical space) ---
+        self.album_art_label = ScrollingLabel("(Album)") # Use ScrollingLabel
+        self.album_art_label.setObjectName("albumArtLabel") # For styling (border, etc.)
         self.album_art_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # Give it a vertical stretch factor (e.g., 3) to make it take more space
+        self.media_layout.addWidget(self.album_art_label, 3, Qt.AlignmentFlag.AlignHCenter) # Stretch 3
 
-        self.track_title_label = ScrollingLabel()
+        # --- Title Label (Scrolling, default vertical space) ---
+        self.track_title_label = ScrollingLabel() # Use ScrollingLabel
         self.track_title_label.setObjectName("trackTitleLabel")
         self.track_title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.media_layout.addWidget(self.track_title_label) # Stretch 0 (default)
 
-        self.track_artist_label = ScrollingLabel()
+        # --- Artist Label (Scrolling, default vertical space) ---
+        self.track_artist_label = ScrollingLabel() # Use ScrollingLabel
         self.track_artist_label.setObjectName("trackArtistLabel")
         self.track_artist_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.media_layout.addWidget(self.track_artist_label) # Stretch 0 (default)
 
-        # Standard label for time
-        self.track_time_label = QLabel("00:00 / 00:00")
+        # --- Time Label (Standard, default vertical space) ---
+        self.track_time_label = QLabel("--:-- / --:--")
         self.track_time_label.setObjectName("trackTimeLabel")
         self.track_time_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.media_layout.addWidget(self.track_time_label) # Stretch 0 (default)
 
-        self.media_layout.addWidget(self.album_art_label, 0, Qt.AlignmentFlag.AlignHCenter) # Add album first
-        self.media_layout.addWidget(self.track_title_label)
-        self.media_layout.addWidget(self.track_artist_label)
-        self.media_layout.addWidget(self.track_time_label)
-
-        # Playback Controls
+        # --- Playback Controls (Default vertical space) ---
         self.playback_layout = QHBoxLayout() # Store reference
         # Spacing set by update_scaling
         self.btn_prev = QPushButton("<<")
@@ -144,15 +146,16 @@ class HomeScreen(QWidget):
         self.playback_layout.addWidget(self.btn_play_pause)
         self.playback_layout.addWidget(self.btn_next)
         self.playback_layout.addStretch(1)
-        self.media_layout.addLayout(self.playback_layout)
+        self.media_layout.addLayout(self.playback_layout) # Add layout with buttons
 
         # Connect control buttons
         self.btn_prev.clicked.connect(self.on_previous_clicked)
         self.btn_play_pause.clicked.connect(self.on_play_pause_clicked)
         self.btn_next.clicked.connect(self.on_next_clicked)
 
-        self.media_layout.addStretch(1) # Pushes media content upwards within its area
+        # Removed extra stretch at the end
         self.media_widget.setLayout(self.media_layout) # Set layout on media container
+
 
         # --- Add Grid and Media Player to Top Section with Stretch Factors ---
         # Grid gets 2/3, Media Player gets 1/3 of horizontal space
@@ -197,10 +200,12 @@ class HomeScreen(QWidget):
         artist = track_info.get('Artist', "---")
         album = track_info.get('Album', "")
 
+        # Update scrolling labels
         self.track_title_label.setText(title)
         self.track_artist_label.setText(artist)
         self.album_art_label.setText(album if album else "(Album Unknown)")
 
+        # Update time label
         pos_sec = position_ms // 1000
         dur_sec = duration_ms // 1000
         pos_str = f"{pos_sec // 60:02d}:{pos_sec % 60:02d}"
@@ -218,7 +223,8 @@ class HomeScreen(QWidget):
             self.btn_play_pause.setText("▶")
         else: # stopped, etc.
             self.btn_play_pause.setText("▶")
-            if status == "stopped":
+            # Clear info ONLY if stopped and track info is already present
+            if status == "stopped" and self.track_title_label.text() != "---":
                  self.clear_media_info()
 
 
@@ -231,33 +237,30 @@ class HomeScreen(QWidget):
         self.btn_play_pause.setText("▶")
 
 
+    # --- Click Handlers ---
     def on_play_pause_clicked(self):
         print("Play/Pause button clicked")
         if self.main_window and self.main_window.bluetooth_manager:
-            # Check status stored in the manager
             current_status = self.main_window.bluetooth_manager.playback_status
             if current_status == "playing":
                 self.main_window.bluetooth_manager.send_pause()
-            else: # Paused, stopped, or unknown - try playing
+            else:
                 self.main_window.bluetooth_manager.send_play()
-        else:
-            print("Error: Cannot send command - BluetoothManager not available.")
+        else: print("Error: Cannot send command - BluetoothManager not available.")
 
     def on_next_clicked(self):
         print("Next button clicked")
         if self.main_window and self.main_window.bluetooth_manager:
             self.main_window.bluetooth_manager.send_next()
-        else:
-            print("Error: Cannot send command - BluetoothManager not available.")
+        else: print("Error: Cannot send command - BluetoothManager not available.")
 
     def on_previous_clicked(self):
         print("Previous button clicked")
         if self.main_window and self.main_window.bluetooth_manager:
             self.main_window.bluetooth_manager.send_previous()
-        else:
-            print("Error: Cannot send command - BluetoothManager not available.")
+        else: print("Error: Cannot send command - BluetoothManager not available.")
 
-
+    # --- Navigation and Clock ---
     def on_home_button_clicked(self, button_name):
         """Handle clicks on the main grid buttons and navigate."""
         print(f"Home button clicked: {button_name}")
@@ -273,7 +276,6 @@ class HomeScreen(QWidget):
                  print(f"No navigation action defined for: {button_name}")
         else:
             print("Error: Could not navigate. Main window reference is invalid or missing 'navigate_to' method.")
-
 
     def _update_clock(self):
         """Updates the clock label with the current time."""
