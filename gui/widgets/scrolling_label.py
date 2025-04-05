@@ -1,34 +1,53 @@
 # gui/widgets/scrolling_label.py
 
+from enum import Enum, auto
 from PyQt6.QtWidgets import QLabel, QSizePolicy
 from PyQt6.QtGui import QPainter, QFontMetrics
 from PyQt6.QtCore import Qt, QTimer, pyqtProperty, QRect, QSize
 
+class ScrollState(Enum):
+    STATIC = auto()
+    DELAYING = auto()
+    SCROLLING = auto()
+
 class ScrollingLabel(QLabel):
-    def __init__(self, parent=None, scroll_speed=50, padding=40):
+    def __init__(self, parent=None, scroll_speed_ms=50, delay_ms=3000, padding=40):
         super().__init__(parent)
         self._text = ""
         self._full_text_width = 0
         self._offset = 0
-        self._scroll_speed_ms = scroll_speed # Timer interval in ms
-        self._padding = padding # Pixels between text repetitions
+        self._scroll_speed_ms = scroll_speed_ms # Timer interval in ms
+        self._delay_ms = delay_ms             # Delay before scrolling starts
+        self._padding = padding               # Pixels between text repetitions
+        self._state = ScrollState.STATIC
 
-        self._timer = QTimer(self)
-        self._timer.timeout.connect(self._scroll)
-        self._timer.setInterval(self._scroll_speed_ms)
+        # Timer for the actual scrolling movement
+        self._scroll_timer = QTimer(self)
+        self._scroll_timer.timeout.connect(self._scroll_step)
+        self._scroll_timer.setInterval(self._scroll_speed_ms)
+
+        # Timer for the initial delay before scrolling
+        self._delay_timer = QTimer(self)
+        self._delay_timer.setSingleShot(True) # Only fire once
+        self._delay_timer.timeout.connect(self._start_scrolling_after_delay)
 
         # Prevent label from expanding horizontally beyond its container
         self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
 
-
     def setText(self, text):
-        if self._text == text:
+        new_text = str(text) if text is not None else ""
+        if self._text == new_text:
             return # No change
 
-        self._text = str(text) if text is not None else ""
+        # Stop any existing timers immediately
+        self._scroll_timer.stop()
+        self._delay_timer.stop()
+
+        self._text = new_text
         self._offset = 0 # Reset scroll position
+        self._state = ScrollState.STATIC # Reset state
         self._update_text_width()
-        self._update_timer_state()
+        self._evaluate_scrolling() # Check if scrolling is needed and start delay if so
         self.update() # Trigger repaint
 
 
@@ -42,61 +61,83 @@ class ScrollingLabel(QLabel):
         self._full_text_width = fm.horizontalAdvance(self._text)
 
 
-    def _update_timer_state(self):
-        # Start timer only if text width is greater than widget width
-        if self._full_text_width > self.width() and self.isVisible():
-            if not self._timer.isActive():
-                self._timer.start()
-                # print(f"Starting scroll for '{self._text}' (width {self._full_text_width} > {self.width()})")
+    def _evaluate_scrolling(self):
+        """Checks if scrolling is needed and manages state/timers."""
+        widget_width = self.width()
+
+        # Check if scrolling is required
+        needs_scrolling = self._full_text_width > widget_width and self.isVisible()
+
+        if needs_scrolling:
+            if self._state == ScrollState.STATIC:
+                # print(f"Starting delay for '{self._text}'")
+                self._state = ScrollState.DELAYING
+                self._delay_timer.start(self._delay_ms)
         else:
-            if self._timer.isActive():
-                self._timer.stop()
-                self._offset = 0 # Reset offset when stopping
-                self.update() # Repaint immediately with static text
-                # print(f"Stopping scroll for '{self._text}' (width {self._full_text_width} <= {self.width()})")
+            # Scrolling is not needed (or widget not visible)
+            if self._state != ScrollState.STATIC:
+                # print(f"Stopping scroll/delay for '{self._text}'")
+                self._state = ScrollState.STATIC
+                self._scroll_timer.stop()
+                self._delay_timer.stop()
+                self._offset = 0
+                self.update() # Ensure static text is drawn immediately
 
 
-    def _scroll(self):
-        if not self.isVisible():
-            self._timer.stop()
+    def _start_scrolling_after_delay(self):
+        """Called when the initial delay timer finishes."""
+        if self._state == ScrollState.DELAYING and self.isVisible():
+            # print(f"Delay finished, starting scroll for '{self._text}'")
+            self._state = ScrollState.SCROLLING
+            self._scroll_timer.start()
+        elif not self.isVisible(): # If hidden during delay, stop everything
+             self._state = ScrollState.STATIC
+             self._scroll_timer.stop()
+
+
+    def _scroll_step(self):
+        """Called by the scroll timer to advance the offset."""
+        if self._state != ScrollState.SCROLLING or not self.isVisible():
+            self._scroll_timer.stop() # Should not happen if state is managed well, but safety check
+            self._state = ScrollState.STATIC
+            self._offset = 0
+            self.update()
             return
 
         self._offset += 1
         # Reset offset when it scrolls past the text length + padding
         if self._offset > self._full_text_width + self._padding:
             self._offset = 0
+            # --- Optional: Re-trigger delay after one full scroll ---
+            # self._state = ScrollState.DELAYING
+            # self._scroll_timer.stop()
+            # self._delay_timer.start(self._delay_ms)
+            # --- Or just loop continuously (current behavior) ---
+
         self.update() # Trigger repaint
 
 
     def paintEvent(self, event):
-        if not self._timer.isActive() or self._full_text_width <= self.width():
-            # If not scrolling, use default QLabel painting centered/aligned
-            # Note: Alignment needs to be set on the instance if desired
-            # e.g., self.track_title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            super().paintEvent(event) # Default painting
-            return
-
         painter = QPainter(self)
         fm = painter.fontMetrics()
         widget_width = self.width()
         text_height = fm.height()
-        # Calculate vertical position (simple vertical center)
-        y = (self.height() - text_height) // 2 + fm.ascent()
+        y = (self.height() - text_height) // 2 + fm.ascent() # Vertical center
 
-        x = -self._offset # Start drawing from the offset
+        if self._state != ScrollState.SCROLLING or self._full_text_width <= widget_width:
+            # Paint static text (centered or aligned as per QLabel setting)
+            # Use default QLabel painting which respects alignment
+            super().paintEvent(event)
+            return
 
-        # Draw the text - potentially twice for wrap-around effect
+        # --- Scrolling Paint Logic ---
+        x = -self._offset # Start drawing from the calculated offset
+
         while x < widget_width:
-            # Calculate clipping rectangle to avoid drawing outside widget bounds
-            clip_rect = QRect(max(0, x), 0, min(widget_width - x, self._full_text_width) , self.height())
-            # Draw portion of the text within the clip rectangle
-            # painter.setClipRect(clip_rect) # Clipping might be automatic? Test needed.
+            # Draw the text at the current position x
             painter.drawText(x, y, self._text)
-            # painter.setClipping(False) # Disable clipping for next draw
-
             # Move x for the next potential draw (text + padding)
             x += self._full_text_width + self._padding
-
             # Optimization: If the first draw already filled the width, no need to loop
             if x >= widget_width and (x - self._full_text_width - self._padding) < 0:
                  break
@@ -104,20 +145,25 @@ class ScrollingLabel(QLabel):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        # Re-evaluate if scrolling is needed when size changes
-        self._update_timer_state()
+        # Re-evaluate scrolling need when size changes
+        self._evaluate_scrolling()
 
 
     def showEvent(self, event):
         super().showEvent(event)
-        self._update_timer_state()
+        # Re-evaluate scrolling need when widget becomes visible
+        self._evaluate_scrolling()
 
 
     def hideEvent(self, event):
         super().hideEvent(event)
-        if self._timer.isActive():
-            self._timer.stop()
+        # Stop timers when widget is hidden
+        if self._scroll_timer.isActive():
+            self._scroll_timer.stop()
+        if self._delay_timer.isActive():
+             self._delay_timer.stop()
+        self._state = ScrollState.STATIC # Reset state when hidden
 
 
-    # Expose text property for QSS etc. (optional but good practice)
-    pyqtProperty(str, text, setText)
+    # Expose text property for QSS etc.
+    pyqtProperty(str, lambda self: self.text(), self.setText)
