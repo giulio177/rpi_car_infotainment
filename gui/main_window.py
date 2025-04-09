@@ -200,7 +200,7 @@ class MainWindow(QMainWindow):
         self.radio_manager.frequency_updated.connect(self.radio_screen.update_frequency)
         self.radio_manager.signal_strength.connect(self.radio_screen.update_signal_strength)
         self.bluetooth_manager.connection_changed.connect(self.update_bluetooth_statusbar)
-        self.bluetooth_manager.battery_updated.connect(self.update_bluetooth_statusbar_battery)
+        self.bluetooth_manager.battery_updated.connect(self.update_bluetooth_header_battery)
         self.bluetooth_manager.connection_changed.connect(self.update_bluetooth_header)
         self.bluetooth_manager.battery_updated.connect(self.update_bluetooth_header_battery)
         self.bluetooth_manager.media_properties_changed.connect(self.home_screen.update_media_info)
