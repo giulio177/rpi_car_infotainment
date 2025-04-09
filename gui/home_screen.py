@@ -258,9 +258,3 @@ class HomeScreen(QWidget):
                  print(f"No navigation action defined for: {button_name}")
         else:
             print("Error: Could not navigate. Main window reference is invalid or missing 'navigate_to' method.")
-
-    def _update_clock(self):
-        """Updates the clock label with the current time."""
-        current_time = QDateTime.currentDateTime()
-        time_str = current_time.toString("HH:mm")
-        self.clock_label.setText(time_str)
