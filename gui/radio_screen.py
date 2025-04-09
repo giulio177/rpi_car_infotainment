@@ -24,18 +24,29 @@ class RadioScreen(QWidget):
         # Margins/Spacing set by update_scaling
 
         # --- Header Layout ---
-        self.header_layout = QHBoxLayout() # Store reference
-        # Spacing set by update_scaling
-        self.header_title_label = QLabel("FM Radio")
+        self.header_layout = QHBoxLayout()
+        self.header_title_label = QLabel("Home") # Or screen-specific title
         self.header_title_label.setObjectName("headerTitle")
         self.header_layout.addWidget(self.header_title_label)
-        spacer = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-        self.header_layout.addItem(spacer)
+
+        header_spacer = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.header_layout.addItem(header_spacer) # Pushes right-aligned items
+
+        # --- ADDED: Header BT Labels ---
+        self.bt_battery_label = QLabel("") # Placeholder for battery %
+        self.bt_battery_label.setObjectName("headerBtBattery")
+        self.bt_battery_label.hide() # Initially hidden
+        self.header_layout.addWidget(self.bt_battery_label)
+
+        self.bt_icon_label = QLabel() # Placeholder for icon
+        self.bt_icon_label.setObjectName("headerBtIcon")
+        self.bt_icon_label.hide() # Initially hidden
+        self.header_layout.addWidget(self.bt_icon_label)
+        # --- END ADDED ---
+
         self.clock_label = QLabel("00:00")
         self.clock_label.setObjectName("headerClock")
-        self.header_layout.addWidget(self.clock_label)
-        self.clock_timer = QTimer(self)
-        self.clock_timer.timeout.connect(self._update_clock)
+        self.header_layout.addWidget(self.clock_label) # Clock is last
         self.clock_timer.start(10000)
         self._update_clock()
         self.main_layout.addLayout(self.header_layout)
