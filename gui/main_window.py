@@ -200,7 +200,7 @@ class MainWindow(QMainWindow):
         self.radio_manager.frequency_updated.connect(self.radio_screen.update_frequency)
         self.radio_manager.signal_strength.connect(self.radio_screen.update_signal_strength)
         self.bluetooth_manager.connection_changed.connect(self.update_bluetooth_statusbar)
-        self.bluetooth_manager.battery_updated.connect(self.update_bluetooth_header_battery)
+        self.bluetooth_manager.battery_updated.connect(self.update_bluetooth_statusbar_battery)
         self.bluetooth_manager.connection_changed.connect(self.update_bluetooth_header)
         self.bluetooth_manager.battery_updated.connect(self.update_bluetooth_header_battery)
         self.bluetooth_manager.media_properties_changed.connect(self.home_screen.update_media_info)
@@ -318,63 +318,96 @@ class MainWindow(QMainWindow):
     # --- Status Update Slots ---
     @pyqtSlot(bool, str)
     def update_bluetooth_statusbar(self, connected, device_name):
-        # ... (Implementation remains the same) ...
+        """Updates the Bluetooth status name and separator in the BOTTOM status bar."""
+        print(f"DEBUG: Updating status bar BT name, Connected={connected}, Name='{device_name}'")
         if connected:
-             max_len = 20
+             max_len = 20 # Max length for status bar display
              display_name = (device_name[:max_len] + '...') if len(device_name) > max_len else device_name
              self.bt_name_label.setText(f"BT: {display_name}")
-             self.bt_name_label.setToolTip(device_name)
+             self.bt_name_label.setToolTip(device_name) # Show full name on hover
+             # Show name and separator, battery visibility handled by its own slot
              self.bt_name_label.show()
              self.bt_separator_label.show()
         else:
+             # Hide all BT elements in status bar on disconnect
              self.bt_name_label.hide()
+             self.bt_battery_label.hide() # Hide battery too
              self.bt_separator_label.hide()
+             # Clear media info on home screen
              if hasattr(self.home_screen, 'clear_media_info'):
                  self.home_screen.clear_media_info()
 
-    @pyqtSlot(object)
-    def update_bluetooth_header_battery(self, level):
-        # ... (Implementation remains the same) ...
-         if level is not None and isinstance(level, int) and self.bt_name_label.isVisible():
-             self.bt_battery_label.setText(f"({level}%)")
+    @pyqtSlot(object) # Slot receives int or None
+    def update_bluetooth_statusbar_battery(self, level):
+        """Updates the Bluetooth battery percentage in the BOTTOM status bar."""
+        print(f"DEBUG: Updating status bar BT battery, Level={level}")
+        # Show battery only if level is valid AND the name label is visible (meaning device connected)
+        show_battery = level is not None and isinstance(level, int) and self.bt_name_label.isVisible()
+
+        if show_battery:
+             battery_text = f"({level}%)"
+             self.bt_battery_label.setText(battery_text)
              self.bt_battery_label.show()
-         else:
+        else:
+             self.bt_battery_label.setText("") # Clear text
              self.bt_battery_label.hide()
 
 
     # --- Header Bluetooth Update Slots ---
     @pyqtSlot(bool, str)
-    def update_bluetooth_header(self, connected, device_name=""):
+    def update_bluetooth_header(self, connected, device_name=""): # Name not used here
         """Updates the Bluetooth icon visibility in ALL screen headers."""
-        # Only proceed if scaling has been done (widget sizes are valid)
-        if not self._has_scaled_correctly: return
+        # Only proceed if initial scaling has occurred
+        if not hasattr(self, '_has_scaled_correctly') or not self._has_scaled_correctly:
+            print("DEBUG: Skipping header BT icon update - initial scaling not done.")
+            return
 
         print(f"DEBUG: Updating header BT icon, Connected={connected}")
-        show_icon = connected and not self.bt_connected_icon.isNull() # Check icon loaded ok
+        show_icon = connected and hasattr(self, 'bt_connected_icon') and not self.bt_connected_icon.isNull()
 
-        # Calculate scaled size dynamically
+        # Calculate scaled size dynamically (important to do this every time in case scaling changed)
         scale_factor = self.height() / self.BASE_RESOLUTION.height() if self.BASE_RESOLUTION.height() > 0 else 1.0
         scaled_size = QSize(
             scale_value(self.base_header_icon_size.width(), scale_factor),
             scale_value(self.base_header_icon_size.height(), scale_factor)
         )
-        print(f"DEBUG: Icon Scaled Size: {scaled_size}") # Debug
+        # print(f"DEBUG: Header Icon Scaled Size: {scaled_size}")
 
         pixmap = self.bt_connected_icon.pixmap(scaled_size) if show_icon else QPixmap()
-        print(f"DEBUG: Pixmap isNull: {pixmap.isNull()}") # Debug
+        # print(f"DEBUG: Header Pixmap isNull: {pixmap.isNull()}")
 
         for screen in self.all_screens:
-            if hasattr(screen, 'bt_icon_label'):
-                if show_icon:
+            if hasattr(screen, 'bt_icon_label'): # Check if screen has the label
+                if show_icon and not pixmap.isNull():
                     screen.bt_icon_label.setPixmap(pixmap)
-                    screen.bt_icon_label.setFixedSize(scaled_size) # Crucial: Set fixed size
-                    print(f"DEBUG: Showing BT icon on {type(screen).__name__}") # Debug
+                    screen.bt_icon_label.setFixedSize(scaled_size) # Ensure size matches pixmap
+                    # print(f"DEBUG: Showing BT icon on {type(screen).__name__}")
                     screen.bt_icon_label.show()
                 else:
-                    print(f"DEBUG: Hiding BT icon on {type(screen).__name__}") # Debug
+                    # print(f"DEBUG: Hiding BT icon on {type(screen).__name__}")
                     screen.bt_icon_label.hide()
-                    screen.bt_icon_label.clear()
+                    screen.bt_icon_label.clear() # Clear any previous pixmap
 
+    @pyqtSlot(object) # Slot receives int or None
+    def update_bluetooth_header_battery(self, level):
+        """Updates the Bluetooth battery percentage text in ALL screen headers."""
+         # Only proceed if initial scaling has occurred
+        if not hasattr(self, '_has_scaled_correctly') or not self._has_scaled_correctly:
+            print("DEBUG: Skipping header BT battery update - initial scaling not done.")
+            return
+
+        # Also check if bluetooth manager exists and has a connected device path
+        manager_connected = hasattr(self, 'bluetooth_manager') and self.bluetooth_manager.connected_device_path is not None
+        print(f"DEBUG: Updating header BT battery, Level={level}, Manager Connected={manager_connected}")
+
+        # Show battery only if level is valid AND manager indicates connection
+        show_battery = level is not None and isinstance(level, int) and manager_connected
+        battery_text = f"{level}%" if show_battery else ""
+
+        for screen in self.all_screens:
+            if hasattr(screen, 'bt_battery_label'): # Check if screen has the label
+                screen.bt_battery_label.setText(battery_text)
+                screen.bt_battery_label.setVisible(show_battery) # Use setVisible for show/hide
 
     # --- Keep Methods like update_obd_status, update_radio_status, etc. ---
     @pyqtSlot(bool, str)
