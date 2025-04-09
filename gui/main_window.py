@@ -333,7 +333,7 @@ class MainWindow(QMainWindow):
                  self.home_screen.clear_media_info()
 
     @pyqtSlot(object)
-    def update_bluetooth_statusbar_battery(self, level):
+    def update_bluetooth_header_battery(self, level):
         # ... (Implementation remains the same) ...
          if level is not None and isinstance(level, int) and self.bt_name_label.isVisible():
              self.bt_battery_label.setText(f"({level}%)")
