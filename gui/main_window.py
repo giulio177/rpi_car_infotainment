@@ -44,9 +44,6 @@ class MainWindow(QMainWindow):
         self.audio_manager = AudioManager()
         self.bluetooth_manager = BluetoothManager()
 
-        # --- Flag to prevent scaling before fullscreen is settled ---
-        self._has_scaled_correctly = False # Renamed for clarity
-
         # --- Base sizes definition ---
         self.base_icon_size = QSize(38, 38)
         self.base_header_icon_size = QSize(28, 28) # Base size for 1080p
@@ -232,47 +229,35 @@ class MainWindow(QMainWindow):
         self.quit_shortcut = QShortcut(QKeySequence("Ctrl+Q"), self)
         self.quit_shortcut.activated.connect(self.close)
 
-        # Initial scaling/theme applied by first resizeEvent *with correct size*
+        # Apply initial scaling based on BASE size only
+        # We call it once here. resizeEvent will call it again, but the factor should be 1.0
+        print("Applying initial scaling based on fixed BASE_RESOLUTION.")
+        self._apply_scaling()
 
 
     # --- MODIFIED: resizeEvent ---
     def resizeEvent(self, event):
-        """Override resizeEvent to apply scaling ONLY after fullscreen is settled."""
+        """Override resizeEvent to re-apply scaling IF the size actually changes (unlikely in forced fullscreen)."""
+        # This event might still fire, especially during startup.
+        # We always rescale based on the fixed BASE_RESOLUTION.
         super().resizeEvent(event)
-        current_size = event.size()
-        print(f"DEBUG: resizeEvent triggered with Size: {current_size}")
-
-        # Check if we have a reasonable size (likely fullscreen) AND haven't scaled yet
-        # Use a threshold slightly smaller than target to account for minor variations
-        is_fullscreen_approx = current_size.width() > 1000 and current_size.height() > 500
-
-        if is_fullscreen_approx and not self._has_scaled_correctly:
-            print(f"Applying initial scaling for size: {current_size}")
-            self._apply_scaling()
-            self._has_scaled_correctly = True # Mark that initial scaling is done
-        elif self._has_scaled_correctly:
-            # Handle subsequent resizes if needed (e.g., if manually resized later, though unlikely in kiosk mode)
-            # This might be where the resize back to 767x415 was happening if something triggered it
-            # For now, only rescale if size significantly changes AFTER initial scaling
-            # print(f"Subsequent resize event: {current_size}")
-            # self._apply_scaling() # Uncomment this line if you WANT rescaling on later size changes
-            pass
-        else:
-            # Ignore resize events with small initial sizes before fullscreen
-            print(f"Ignoring resize event (Size: {current_size}, Scaled Flag: {self._has_scaled_correctly})")
-
+        print(f"DEBUG: resizeEvent triggered with Size: {event.size()} - Re-applying scaling based on BASE.")
+        self._apply_scaling() # Recalculate based on BASE, not event.size()
 
     # REMOVED showEvent - Relying on resizeEvent check
 
 
     def _apply_scaling(self):
-        """Applies scaling to UI elements based on current window height vs BASE_RESOLUTION."""
-        current_height = self.height()
-        if self.BASE_RESOLUTION.height() <= 0 or current_height <= 0: scale_factor = 1.0
-        else: scale_factor = current_height / self.BASE_RESOLUTION.height()
-        print(f"DEBUG: _apply_scaling factor: {scale_factor:.3f} (Height: {current_height})")
+        """Applies scaling to UI elements based on the fixed BASE_RESOLUTION."""
+        # --- Calculate scale_factor based on BASE vs BASE (always 1.0) ---
+        # This ensures internal scaling is *always* relative to 1920x1080
+        if self.BASE_RESOLUTION.height() <= 0: scale_factor = 1.0
+        else: scale_factor = self.BASE_RESOLUTION.height() / self.BASE_RESOLUTION.height() # Force 1.0
+        # ---
+        print(f"DEBUG: _apply_scaling factor: {scale_factor:.3f} (Using BASE Height: {self.BASE_RESOLUTION.height()})")
 
-        # Calculate scaled sizes
+        # Calculate scaled sizes using scale_factor (which is now 1.0)
+        # This effectively uses the base_* values directly unless BASE_RESOLUTION changes
         scaled_icon_size = QSize(scale_value(self.base_icon_size.width(), scale_factor), scale_value(self.base_icon_size.height(), scale_factor))
         scaled_header_icon_size = QSize(scale_value(self.base_header_icon_size.width(), scale_factor), scale_value(self.base_header_icon_size.height(), scale_factor))
         scaled_button_size = QSize(scale_value(self.base_bottom_bar_button_size.width(), scale_factor), scale_value(self.base_bottom_bar_button_size.height(), scale_factor))
@@ -282,6 +267,7 @@ class MainWindow(QMainWindow):
         scaled_margin = scale_value(self.base_layout_margin, scale_factor)
         scaled_main_margin = scale_value(self.base_main_margin, scale_factor)
 
+        # --- Apply sizes and layouts (remains the same) ---
         # Apply to bottom bar elements
         self.home_button_bar.setIconSize(scaled_icon_size)
         self.home_button_bar.setFixedSize(scaled_button_size)
@@ -300,19 +286,22 @@ class MainWindow(QMainWindow):
         self.bottom_bar_layout.setContentsMargins(scaled_margin, scaled_margin, scaled_margin, scaled_margin)
         self.bottom_bar_layout.setSpacing(scaled_spacing)
         self.main_layout.setContentsMargins(0,0,0,0)
-        self.main_layout.setSpacing(scale_value(5, scale_factor))
+        self.main_layout.setSpacing(scale_value(5, scale_factor)) # Base this on base_layout_spacing?
 
-        # Re-apply theme/stylesheet
+        # --- Re-apply theme/stylesheet ---
+        # Pass the now fixed scale_factor (1.0)
         apply_theme(QApplication.instance(), self.current_theme, scale_factor)
 
-        # Update Header Icons (Force update with potentially new size)
-        self.update_bluetooth_header(self.bluetooth_manager.connected_device_path is not None, "")
+        # --- Update Header Icons ---
+        # Use the calculated scaled_header_icon_size
+        self.update_bluetooth_header(self.bluetooth_manager.connected_device_path is not None, "", scaled_header_icon_size) # Pass size
         self.update_bluetooth_header_battery(self.bluetooth_manager.current_battery)
 
-        # Notify Child Screens
+        # --- Notify Child Screens ---
+        # Pass the calculated scaled_main_margin
         for screen in self.all_screens:
              if hasattr(screen, 'update_scaling'):
-                  screen.update_scaling(scale_factor, scaled_main_margin)
+                  screen.update_scaling(scale_factor, scaled_main_margin) # Pass factor and margin
 
 
     # --- Status Update Slots ---
@@ -355,59 +344,47 @@ class MainWindow(QMainWindow):
 
     # --- Header Bluetooth Update Slots ---
     @pyqtSlot(bool, str)
-    def update_bluetooth_header(self, connected, device_name=""): # Name not used here
+    @pyqtSlot(bool, str, QSize) # Overload for internal call from _apply_scaling
+    def update_bluetooth_header(self, connected, device_name="", scaled_size=None):
         """Updates the Bluetooth icon visibility in ALL screen headers."""
-        # Only proceed if initial scaling has occurred
-        if not hasattr(self, '_has_scaled_correctly') or not self._has_scaled_correctly:
-            print("DEBUG: Skipping header BT icon update - initial scaling not done.")
-            return
-
         print(f"DEBUG: Updating header BT icon, Connected={connected}")
         show_icon = connected and hasattr(self, 'bt_connected_icon') and not self.bt_connected_icon.isNull()
 
-        # Calculate scaled size dynamically (important to do this every time in case scaling changed)
-        scale_factor = self.height() / self.BASE_RESOLUTION.height() if self.BASE_RESOLUTION.height() > 0 else 1.0
-        scaled_size = QSize(
-            scale_value(self.base_header_icon_size.width(), scale_factor),
-            scale_value(self.base_header_icon_size.height(), scale_factor)
-        )
-        # print(f"DEBUG: Header Icon Scaled Size: {scaled_size}")
+        # Calculate scaled size if not provided (e.g., called directly by signal)
+        if scaled_size is None:
+            scale_factor = self.BASE_RESOLUTION.height() / self.BASE_RESOLUTION.height() if self.BASE_RESOLUTION.height() > 0 else 1.0
+            scaled_size = QSize(
+                scale_value(self.base_header_icon_size.width(), scale_factor),
+                scale_value(self.base_header_icon_size.height(), scale_factor)
+            )
+        print(f"DEBUG: Icon Target Size: {scaled_size}")
 
         pixmap = self.bt_connected_icon.pixmap(scaled_size) if show_icon else QPixmap()
-        # print(f"DEBUG: Header Pixmap isNull: {pixmap.isNull()}")
+        print(f"DEBUG: Header Pixmap isNull: {pixmap.isNull()}")
 
         for screen in self.all_screens:
-            if hasattr(screen, 'bt_icon_label'): # Check if screen has the label
+            if hasattr(screen, 'bt_icon_label'):
                 if show_icon and not pixmap.isNull():
                     screen.bt_icon_label.setPixmap(pixmap)
-                    screen.bt_icon_label.setFixedSize(scaled_size) # Ensure size matches pixmap
-                    # print(f"DEBUG: Showing BT icon on {type(screen).__name__}")
+                    screen.bt_icon_label.setFixedSize(scaled_size) # Crucial
                     screen.bt_icon_label.show()
                 else:
-                    # print(f"DEBUG: Hiding BT icon on {type(screen).__name__}")
                     screen.bt_icon_label.hide()
-                    screen.bt_icon_label.clear() # Clear any previous pixmap
+                    screen.bt_icon_label.clear()
+                  
 
-    @pyqtSlot(object) # Slot receives int or None
+   @pyqtSlot(object)
     def update_bluetooth_header_battery(self, level):
-        """Updates the Bluetooth battery percentage text in ALL screen headers."""
-         # Only proceed if initial scaling has occurred
-        if not hasattr(self, '_has_scaled_correctly') or not self._has_scaled_correctly:
-            print("DEBUG: Skipping header BT battery update - initial scaling not done.")
-            return
-
-        # Also check if bluetooth manager exists and has a connected device path
+        """Updates the Bluetooth battery text in ALL screen headers."""
+        # No need to check _has_scaled_correctly anymore
         manager_connected = hasattr(self, 'bluetooth_manager') and self.bluetooth_manager.connected_device_path is not None
         print(f"DEBUG: Updating header BT battery, Level={level}, Manager Connected={manager_connected}")
-
-        # Show battery only if level is valid AND manager indicates connection
         show_battery = level is not None and isinstance(level, int) and manager_connected
         battery_text = f"{level}%" if show_battery else ""
-
         for screen in self.all_screens:
-            if hasattr(screen, 'bt_battery_label'): # Check if screen has the label
+            if hasattr(screen, 'bt_battery_label'):
                 screen.bt_battery_label.setText(battery_text)
-                screen.bt_battery_label.setVisible(show_battery) # Use setVisible for show/hide
+                screen.bt_battery_label.setVisible(show_battery)
 
     # --- Keep Methods like update_obd_status, update_radio_status, etc. ---
     @pyqtSlot(bool, str)
