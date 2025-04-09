@@ -375,12 +375,13 @@ class MainWindow(QMainWindow):
     @pyqtSlot(bool)
     @pyqtSlot(object)
     def update_bluetooth_header_status(self, *args):
-         """Updates the combined Bluetooth status text in the header."""
+         """Updates the combined Bluetooth status text and visibility in the header."""
+         # ... (Implementation remains the same - sets text and visibility of header_bt_status_label) ...
          if not self._has_scaled_correctly: return
 
          connected = self.bluetooth_manager.connected_device_path is not None
          device_name = self.bluetooth_manager.connected_device_name if connected else ""
-         # battery_level = self.bluetooth_manager.current_battery # Ignore battery for now
+         battery_level = self.bluetooth_manager.current_battery # Store battery level
 
          status_text = ""
          show_label = False
@@ -389,13 +390,13 @@ class MainWindow(QMainWindow):
              show_label = True
              max_len = 25 # Max length for header display
              display_name = (device_name[:max_len] + '...') if len(device_name) > max_len else device_name
-             status_text = display_name # Just show the name
+             status_text = display_name # Just show the name for now
              self.header_bt_status_label.setToolTip(device_name)
-             # --- Temporarily removing battery info ---
+             # --- Temporarily removed battery display ---
              # if battery_level is not None and isinstance(battery_level, int):
              #      status_text += f" - {battery_level}%"
              # else:
-             #      status_text += " - N/A"
+             #      status_text += " - N/A" # Indicate if battery unavailable
              # ---
 
          print(f"DEBUG: Updating header BT status text: '{status_text}', Visible={show_label}")
@@ -442,33 +443,37 @@ class MainWindow(QMainWindow):
 
     # --- Header Bluetooth Update Slots ---
     @pyqtSlot(bool, str)
-    @pyqtSlot(bool, str, QSize) # Overload for internal call from _apply_scaling
-    def update_bluetooth_header(self, connected, device_name="", scaled_size=None):
-        """Updates the Bluetooth icon visibility in ALL screen headers."""
-        print(f"DEBUG: Updating header BT icon, Connected={connected}")
-        show_icon = connected and hasattr(self, 'bt_connected_icon') and not self.bt_connected_icon.isNull()
+    def update_bluetooth_header(self, connected, device_name=""):
+        """DEPRECATED (Visibility handled by update_bluetooth_header_status). Kept for signal connection safety."""
+        # This method is now effectively redundant because update_bluetooth_header_status
+        # handles both the text AND visibility of the header_bt_status_label.
+        # We keep it connected to connection_changed just in case, but it doesn't
+        # need to do anything anymore regarding the icon.
+        print(f"DEBUG: update_bluetooth_header called (now redundant), Connected={connected}")
+        # --- REMOVE/COMMENT OUT ---
+        # if not self._has_scaled_correctly: return
+        # show_icon = connected and hasattr(self, 'bt_connected_icon') and not self.bt_connected_icon.isNull()
+        # if scaled_size is None:
+        #     scale_factor = self.height() / self.BASE_RESOLUTION.height() if self.BASE_RESOLUTION.height() > 0 else 1.0
+        #     scaled_size = QSize(
+        #         scale_value(self.base_header_icon_size.width(), scale_factor), # <--- Error originated here
+        #         scale_value(self.base_header_icon_size.height(), scale_factor)
+        #     )
+        # print(f"DEBUG: Icon Target Size: {scaled_size}")
+        # pixmap = self.bt_connected_icon.pixmap(scaled_size) if show_icon else QPixmap()
+        # print(f"DEBUG: Header Pixmap isNull: {pixmap.isNull()}")
+        # for screen in self.all_screens:
+        #     if hasattr(screen, 'bt_icon_label'):
+        #         if show_icon and not pixmap.isNull():
+        #             screen.bt_icon_label.setPixmap(pixmap)
+        #             screen.bt_icon_label.setFixedSize(scaled_size)
+        #             screen.bt_icon_label.show()
+        #         else:
+        #             screen.bt_icon_label.hide()
+        #             screen.bt_icon_label.clear()
+        # --- END REMOVAL ---
+        pass # Method does nothing now
 
-        # Calculate scaled size if not provided (e.g., called directly by signal)
-        if scaled_size is None:
-            scale_factor = self.BASE_RESOLUTION.height() / self.BASE_RESOLUTION.height() if self.BASE_RESOLUTION.height() > 0 else 1.0
-            scaled_size = QSize(
-                scale_value(self.base_header_icon_size.width(), scale_factor),
-                scale_value(self.base_header_icon_size.height(), scale_factor)
-            )
-        print(f"DEBUG: Icon Target Size: {scaled_size}")
-
-        pixmap = self.bt_connected_icon.pixmap(scaled_size) if show_icon else QPixmap()
-        print(f"DEBUG: Header Pixmap isNull: {pixmap.isNull()}")
-
-        for screen in self.all_screens:
-            if hasattr(screen, 'bt_icon_label'):
-                if show_icon and not pixmap.isNull():
-                    screen.bt_icon_label.setPixmap(pixmap)
-                    screen.bt_icon_label.setFixedSize(scaled_size) # Crucial
-                    screen.bt_icon_label.show()
-                else:
-                    screen.bt_icon_label.hide()
-                    screen.bt_icon_label.clear()
                   
 
     @pyqtSlot(object)
