@@ -214,14 +214,24 @@ def get_light_theme(scale_factor=1.0):
         font-size: {scale_value(18, scale_factor)}pt;
         padding-left: {scaled_padding // 2}px;
     }}
-     QLabel#headerBtBattery {{
-         font-size: {scale_value(12, scale_factor)}pt;
+    
+     /* ==================== Header Bar Styles ==================== */
+    QLabel#headerTitle {{
+        font-size: {scale_value(18, scale_factor)}pt;
+        font-weight: bold;
+        padding-right: {scaled_padding}px; /* More space after title */
+    }}
+     QLabel#headerClock {{
+        font-size: {scale_value(18, scale_factor)}pt;
+        padding-left: {scaled_padding // 2}px;
+    }}
+     /* Combined BT Status Label in Header */
+     QLabel#headerBtStatus {{
+         font-size: {scale_value(12, scale_factor)}pt; /* Consistent size */
          font-weight: bold;
-         color: #007bff;
-         padding-right: {scaled_padding // 4}px;
-     }}
-     QLabel#headerBtIcon {{
-         padding: 0px; margin: 0px;
+         color: #0060c0; /* Adjusted blue */
+         padding-left: {scaled_padding}px; /* Space before BT status */
+         padding-right: {scaled_padding // 2}px; /* Space between BT and Clock */
      }}
 
     /* --- Home Screen Media --- */
@@ -511,14 +521,24 @@ def get_dark_theme(scale_factor=1.0):
         font-size: {scale_value(18, scale_factor)}pt;
         padding-left: {scaled_padding // 2}px;
      }}
-     QLabel#headerBtBattery {{
+
+     /* ==================== Header Bar Styles ==================== */
+    QLabel#headerTitle {{
+        font-size: {scale_value(18, scale_factor)}pt;
+        font-weight: bold;
+        padding-right: {scaled_padding}px;
+    }}
+     QLabel#headerClock {{
+        font-size: {scale_value(18, scale_factor)}pt;
+        padding-left: {scaled_padding // 2}px;
+    }}
+     /* Combined BT Status Label in Header */
+     QLabel#headerBtStatus {{
          font-size: {scale_value(12, scale_factor)}pt;
          font-weight: bold;
-         color: #34a4ff; /* Lighter blue */
-         padding-right: {scaled_padding // 4}px;
-     }}
-     QLabel#headerBtIcon {{
-         padding: 0px; margin: 0px;
+         color: #50a0ff; /* Adjusted light blue */
+         padding-left: {scaled_padding}px;
+         padding-right: {scaled_padding // 2}px;
      }}
 
     /* --- Home Screen Media --- */
