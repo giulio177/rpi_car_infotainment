@@ -84,6 +84,22 @@ def get_light_theme(scale_factor=1.0):
      QLabel#headerClock {{
         font-size: {scale_value(16, scale_factor)}pt;
      }}
+
+     QLabel#headerBtBattery {{
+         font-size: {scale_value(11, scale_factor)}pt; /* Smaller font for battery */
+         font-weight: bold;
+         color: #007bff; /* Example color - Adjust */
+         padding-right: {scaled_padding // 4}px; /* Small space between battery% and icon */
+         /* Vertical alignment handled by layout */
+     }}
+     QLabel#headerBtIcon {{
+         /* Size set in code via setFixedSize/setPixmap */
+         /* No text padding needed */
+         padding: 0px;
+         margin: 0px;
+         /* Vertical alignment handled by layout */
+     }}
+     
      QLabel#statusBarObdLabel, QLabel#statusBarRadioLabel,
      QLabel#statusBarBtNameLabel, QLabel#statusBarBtBatteryLabel {{
          font-size: {scale_value(9, scale_factor)}pt;
@@ -326,8 +342,20 @@ def get_dark_theme(scale_factor=1.0):
      QLabel#headerClock {{
         font-size: {scale_value(16, scale_factor)}pt;
      }}
-      QLabel#statusBarObdLabel, QLabel#statusBarRadioLabel,
-      QLabel#statusBarBtNameLabel, QLabel#statusBarBtBatteryLabel {{
+
+     QLabel#headerBtBattery {{
+         font-size: {scale_value(11, scale_factor)}pt;
+         font-weight: bold;
+         color: #34a4ff; /* Lighter blue - Adjust */
+         padding-right: {scaled_padding // 4}px;
+     }}
+     QLabel#headerBtIcon {{
+         padding: 0px;
+         margin: 0px;
+     }}
+     
+     QLabel#statusBarObdLabel, QLabel#statusBarRadioLabel,
+     QLabel#statusBarBtNameLabel, QLabel#statusBarBtBatteryLabel {{
          font-size: {scale_value(9, scale_factor)}pt;
          padding: 2px;
      }}
