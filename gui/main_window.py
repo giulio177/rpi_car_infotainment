@@ -339,16 +339,22 @@ class MainWindow(QMainWindow):
     # --- Central scaling logic ---
     def _apply_scaling(self):
         """Applies scaling to UI elements based on current window height vs BASE_RESOLUTION."""
-        # ... (Calculate scale_factor) ...
-        scale_factor = self.height() / self.BASE_RESOLUTION.height() if self.BASE_RESOLUTION.height() > 0 else 1.0
+        current_height = self.height()
+        if self.BASE_RESOLUTION.height() <= 0 or current_height <= 0:
+             scale_factor = 1.0
+        else:
+             scale_factor = current_height / self.BASE_RESOLUTION.height()
 
-        # Calculate scaled sizes
-        scaled_icon_size = QSize(...) # Bottom bar
-        scaled_header_icon_size = QSize( # <-- ADDED
+        # --- Calculate scaled sizes (COMPLETE THESE) ---
+        scaled_icon_size = QSize( # For bottom bar icons
+            scale_value(self.base_icon_size.width(), scale_factor),
+            scale_value(self.base_icon_size.height(), scale_factor)
+        )
+        scaled_header_icon_size = QSize( # For header icon
             scale_value(self.base_header_icon_size.width(), scale_factor),
             scale_value(self.base_header_icon_size.height(), scale_factor)
         )
-        scaled_button_size = QSize(
+        scaled_button_size = QSize( # For bottom bar buttons
              scale_value(self.base_bottom_bar_button_size.width(), scale_factor),
              scale_value(self.base_bottom_bar_button_size.height(), scale_factor)
         )
