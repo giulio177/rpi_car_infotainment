@@ -48,7 +48,7 @@ class MainWindow(QMainWindow):
         self._has_scaled_correctly = False
 
         # --- Base sizes definition ---
-        self.base_top_padding = 25 # Added base padding for the very top
+        self.base_top_padding = 250 # Added base padding for the very top
         self.base_icon_size = QSize(42, 42) # Larger icons for bottom bar
         # self.base_header_icon_size = QSize(28, 28) # Still needed for calculation robustness
         self.base_bottom_bar_button_size = QSize(65, 65) # Larger buttons
