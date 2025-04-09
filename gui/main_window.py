@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                              QPushButton, QStackedWidget, QApplication, QLabel,
                              QMessageBox, QSlider)
 from PyQt6.QtCore import pyqtSlot, Qt, QTimer, QDateTime, QSize, QMargins
-from PyQt6.QtGui import QIcon, QShortcut, QKeySequence
+from PyQt6.QtGui import QIcon, QPixmap, QShortcut, QKeySequence
 
 from .styling import apply_theme, scale_value
 
@@ -32,6 +32,7 @@ ICON_VOLUME = os.path.join(ICON_PATH, "volume.png")
 ICON_VOLUME_MUTED = os.path.join(ICON_PATH, "volume_muted.png")
 ICON_RESTART = os.path.join(ICON_PATH, "restart.png")
 ICON_POWER = os.path.join(ICON_PATH, "power.png")
+ICON_BT_CONNECTED = os.path.join(ICON_PATH, "bluetooth_connected.png")
 # ---
 
 class MainWindow(QMainWindow):
@@ -47,6 +48,7 @@ class MainWindow(QMainWindow):
 
         # --- Base sizes definition (relative to BASE_RESOLUTION) ---
         self.base_icon_size = QSize(38, 38) # Slightly larger base for 1080p? Adjust.
+        self.base_header_icon_size = QSize(28, 28) # Smaller icon for header - Adjust
         self.base_bottom_bar_button_size = QSize(55, 55) # Adjust.
         self.base_bottom_bar_height = 80 # Adjust.
         self.base_volume_slider_width = 180 # Adjust.
@@ -94,6 +96,10 @@ class MainWindow(QMainWindow):
         self.bt_name_label.hide()
         self.bt_battery_label.hide()
         self.bt_separator_label.hide()
+
+        self.bt_connected_icon = QIcon(ICON_BT_CONNECTED) # <-- ADDED: Load BT Icon
+        if self.bt_connected_icon.isNull():
+            print(f"Warning: Failed to load icon: {ICON_BT_CONNECTED}")
 
         # --- PERSISTENT BOTTOM BAR ---
         self.bottom_bar_widget = QWidget()
@@ -178,12 +184,13 @@ class MainWindow(QMainWindow):
         self.radio_screen = RadioScreen(self.radio_manager, parent=self)
         self.obd_screen = OBDScreen(parent=self)
         self.settings_screen = SettingsScreen(self.settings_manager, self)
+        # --- Store screens in a list for easier iteration ---
+        self.all_screens = [self.home_screen, self.radio_screen, self.obd_screen, self.settings_screen]
+        # ---
 
         # --- Add Screens to Stack ---
-        self.stacked_widget.addWidget(self.home_screen)
-        self.stacked_widget.addWidget(self.radio_screen)
-        self.stacked_widget.addWidget(self.obd_screen)
-        self.stacked_widget.addWidget(self.settings_screen)
+        for screen in self.all_screens:
+            self.stacked_widget.addWidget(screen)
 
         # --- Connect Backend Signals ---
         self.obd_manager.connection_status.connect(self.update_obd_status)
@@ -191,8 +198,10 @@ class MainWindow(QMainWindow):
         self.radio_manager.radio_status.connect(self.update_radio_status)
         self.radio_manager.frequency_updated.connect(self.radio_screen.update_frequency)
         self.radio_manager.signal_strength.connect(self.radio_screen.update_signal_strength)
-        self.bluetooth_manager.connection_changed.connect(self.update_bluetooth_status)
-        self.bluetooth_manager.battery_updated.connect(self.update_bluetooth_battery)
+        self.bluetooth_manager.connection_changed.connect(self.update_bluetooth_statusbar) # Renamed slot
+        self.bluetooth_manager.battery_updated.connect(self.update_bluetooth_statusbar_battery) # Renamed slot
+        self.bluetooth_manager.connection_changed.connect(self.update_bluetooth_header) # New slot
+        self.bluetooth_manager.battery_updated.connect(self.update_bluetooth_header_battery) # New slot
         self.bluetooth_manager.media_properties_changed.connect(self.home_screen.update_media_info)
         self.bluetooth_manager.playback_status_changed.connect(self.home_screen.update_playback_status)
 
@@ -233,42 +242,72 @@ class MainWindow(QMainWindow):
 
     # --- Slots for Bluetooth updates ---
     @pyqtSlot(bool, str)
-    def update_bluetooth_status(self, connected, device_name):
-        print(f"MainWindow received BT status: Connected={connected}, Name='{device_name}'")
+    def update_bluetooth_statusbar(self, connected, device_name):
+        """Updates the Bluetooth status in the BOTTOM status bar."""
+        # ... (Existing logic for bottom bar bt_name_label, bt_separator_label visibility) ...
         if connected:
-            # Truncate name if too long for the bar
-            max_len = 20 # Adjust as needed
-            display_name = (device_name[:max_len] + '...') if len(device_name) > max_len else device_name
-            self.bt_name_label.setText(f"BT: {display_name}")
-            self.bt_name_label.setToolTip(device_name) # Show full name on hover
-            self.bt_name_label.show()
-            self.bt_separator_label.show()
-            # Battery label visibility handled by update_bluetooth_battery
+             max_len = 20 # Adjust as needed
+             display_name = (device_name[:max_len] + '...') if len(device_name) > max_len else device_name
+             self.bt_name_label.setText(f"BT: {display_name}")
+             self.bt_name_label.setToolTip(device_name)
+             self.bt_name_label.show()
+             self.bt_separator_label.show()
         else:
-            self.bt_name_label.setText("BT: -")
-            self.bt_name_label.hide()
-            self.bt_battery_label.hide()
-            self.bt_separator_label.hide()
-            # Clear media info on home screen when BT disconnects
-            if hasattr(self.home_screen, 'clear_media_info'):
-                self.home_screen.clear_media_info()
+             self.bt_name_label.hide()
+             self.bt_separator_label.hide()
+             # Battery label handled by its own slot
+             if hasattr(self.home_screen, 'clear_media_info'):
+                 self.home_screen.clear_media_info()
 
-
-    @pyqtSlot(object) # Receiving int or None
-    def update_bluetooth_battery(self, level):
-        print(f"MainWindow received BT battery: Level={level}")
+    @pyqtSlot(object)
+    def update_bluetooth_statusbar_battery(self, level):
+        """Updates the Bluetooth battery in the BOTTOM status bar."""
+        # ... (Existing logic for bottom bar bt_battery_label visibility/text) ...
         if level is not None and isinstance(level, int) and self.bt_name_label.isVisible():
-             # Use a battery icon font or emoji if available, otherwise text
-             # Example using text:
              self.bt_battery_label.setText(f"({level}%)")
-             # Example using simple icons (requires adding icons to assets):
-             # icon_name = "battery_full.png" # Implement logic for different levels
-             # icon = QIcon(os.path.join(ICON_PATH, icon_name))
-             # self.bt_battery_label.setPixmap(icon.pixmap(QSize(16, 16))) # Example size
              self.bt_battery_label.show()
         else:
-             self.bt_battery_label.setText("")
              self.bt_battery_label.hide()
+
+    # --- ADDED: Slots to update HEADER Bluetooth elements ---
+    @pyqtSlot(bool, str)
+    def update_bluetooth_header(self, connected, device_name=""): # Name not used here, just connection status
+        """Updates the Bluetooth icon visibility in ALL screen headers."""
+        print(f"DEBUG: Updating header BT icon, Connected={connected}")
+        show_icon = connected
+        # Calculate scaled size for the icon *now*
+        scale_factor = self.height() / self.BASE_RESOLUTION.height() if self.BASE_RESOLUTION.height() > 0 else 1.0
+        scaled_size = QSize(
+            scale_value(self.base_header_icon_size.width(), scale_factor),
+            scale_value(self.base_header_icon_size.height(), scale_factor)
+        )
+
+        for screen in self.all_screens:
+            if hasattr(screen, 'bt_icon_label'):
+                if show_icon and not self.bt_connected_icon.isNull():
+                    # Set pixmap with scaled size
+                    pixmap = self.bt_connected_icon.pixmap(scaled_size)
+                    screen.bt_icon_label.setPixmap(pixmap)
+                    screen.bt_icon_label.setFixedSize(scaled_size) # Ensure QLabel size matches pixmap
+                    screen.bt_icon_label.show()
+                else:
+                    screen.bt_icon_label.hide()
+                    screen.bt_icon_label.clear() # Clear pixmap
+
+    @pyqtSlot(object)
+    def update_bluetooth_header_battery(self, level):
+        """Updates the Bluetooth battery text in ALL screen headers."""
+        print(f"DEBUG: Updating header BT battery, Level={level}")
+        show_battery = level is not None and isinstance(level, int) and self.bluetooth_manager.connected_device_path is not None
+        battery_text = f"{level}%" if show_battery else ""
+
+        for screen in self.all_screens:
+            if hasattr(screen, 'bt_battery_label'):
+                screen.bt_battery_label.setText(battery_text)
+                if show_battery:
+                    screen.bt_battery_label.show()
+                else:
+                    screen.bt_battery_label.hide()
 
 
     # --- Keep Methods like update_obd_status, update_radio_status, etc. ---
@@ -299,17 +338,15 @@ class MainWindow(QMainWindow):
 
     # --- Central scaling logic ---
     def _apply_scaling(self):
-        """Applies scaling to UI elements based on current window height."""
-        current_height = self.height()
-        if self.BASE_RESOLUTION.height() <= 0 or current_height <= 0: # Prevent division by zero
-             scale_factor = 1.0
-        else:
-             scale_factor = current_height / self.BASE_RESOLUTION.height()
+        """Applies scaling to UI elements based on current window height vs BASE_RESOLUTION."""
+        # ... (Calculate scale_factor) ...
+        scale_factor = self.height() / self.BASE_RESOLUTION.height() if self.BASE_RESOLUTION.height() > 0 else 1.0
 
-        # --- Scale elements controlled directly ---
-        scaled_icon_size = QSize(
-            scale_value(self.base_icon_size.width(), scale_factor),
-            scale_value(self.base_icon_size.height(), scale_factor)
+        # Calculate scaled sizes
+        scaled_icon_size = QSize(...) # Bottom bar
+        scaled_header_icon_size = QSize( # <-- ADDED
+            scale_value(self.base_header_icon_size.width(), scale_factor),
+            scale_value(self.base_header_icon_size.height(), scale_factor)
         )
         scaled_button_size = QSize(
              scale_value(self.base_bottom_bar_button_size.width(), scale_factor),
@@ -348,6 +385,10 @@ class MainWindow(QMainWindow):
         # --- Re-apply theme/stylesheet with new scale factor ---
         # This handles font sizes and other QSS-controlled properties
         apply_theme(QApplication.instance(), self.current_theme, scale_factor)
+
+        # --- Update Header Icons (call the update method to apply scaled size) ---
+        self.update_bluetooth_header(self.bluetooth_manager.connected_device_path is not None, "") # Force icon update with new size
+        self.update_bluetooth_header_battery(self.bluetooth_manager.current_battery) # Force battery text update
 
         # --- Notify Child Screens (Optional but recommended for complex children) ---
         # Children might need to adjust internal layouts/widgets not covered by QSS
