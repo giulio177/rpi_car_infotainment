@@ -8,53 +8,24 @@ from PyQt6.QtCore import QTimer, QDateTime, pyqtSlot, Qt
 from .styling import scale_value
 
 class RadioScreen(QWidget):
+    # --- ADDED: Screen Title ---
+    screen_title = "Radio FM"
+  
     def __init__(self, radio_manager, parent=None): # parent is likely MainWindow
         super().__init__(parent)
         self.radio_manager = radio_manager
         self.main_window = parent
 
-        # --- Base sizes ---
+        # --- Store base sizes ---
         self.base_margin = 10
-        self.base_spacing = 10 # General spacing
-        self.base_controls_spacing = 10
-        self.base_presets_spacing = 5
+        self.base_top_section_spacing = 15
+        self.base_grid_spacing = 8
+        self.base_media_spacing = 10
+        self.base_media_playback_button_spacing = 5
 
-        # --- Main Layout ---
+        # --- Main Layout (Vertical) ---
         self.main_layout = QVBoxLayout(self)
         # Margins/Spacing set by update_scaling
-
-        # --- Header Layout ---
-        self.header_layout = QHBoxLayout()
-        self.header_title_label = QLabel("Home") # Or screen-specific title
-        self.header_title_label.setObjectName("headerTitle")
-        self.header_layout.addWidget(self.header_title_label)
-
-        header_spacer = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-        self.header_layout.addItem(header_spacer) # Pushes right-aligned items
-
-        # --- ADDED: Header BT Labels ---
-        self.bt_battery_label = QLabel("") # Placeholder for battery %
-        self.bt_battery_label.setObjectName("headerBtBattery")
-        self.bt_battery_label.hide() # Initially hidden
-        self.header_layout.addWidget(self.bt_battery_label)
-
-        self.bt_icon_label = QLabel() # Placeholder for icon
-        self.bt_icon_label.setObjectName("headerBtIcon")
-        self.bt_icon_label.hide() # Initially hidden
-        self.header_layout.addWidget(self.bt_icon_label)
-        # --- END ADDED ---
-
-        self.clock_label = QLabel("00:00")
-        self.clock_label.setObjectName("headerClock")
-        self.header_layout.addWidget(self.clock_label) # Clock is last
-        self.clock_timer = QTimer(self) # Assign to self.clock_timer
-        # ----------------------
-        self.clock_timer.timeout.connect(self._update_clock)
-        self.clock_timer.start(10000)
-        self._update_clock()
-        self.main_layout.addLayout(self.header_layout)
-        # --- END Header ---
-
 
         # Frequency Display
         self.freq_display = QLabel("--- MHz")
@@ -115,16 +86,19 @@ class RadioScreen(QWidget):
 
     def update_scaling(self, scale_factor, scaled_main_margin):
         """Applies scaling to internal layouts."""
-        scaled_spacing = scale_value(self.base_spacing, scale_factor)
-        scaled_controls_spacing = scale_value(self.base_controls_spacing, scale_factor)
-        scaled_presets_spacing = scale_value(self.base_presets_spacing, scale_factor)
+        scaled_top_section_spacing = scale_value(self.base_top_section_spacing, scale_factor)
+        scaled_grid_spacing = scale_value(self.base_grid_spacing, scale_factor)
+        scaled_media_spacing = scale_value(self.base_media_spacing, scale_factor)
+        scaled_playback_spacing = scale_value(self.base_media_playback_button_spacing, scale_factor)
 
         # Apply to layouts
         self.main_layout.setContentsMargins(scaled_main_margin, scaled_main_margin, scaled_main_margin, scaled_main_margin)
-        self.main_layout.setSpacing(scaled_spacing)
-        self.header_layout.setSpacing(scaled_spacing)
-        self.controls_layout.setSpacing(scaled_controls_spacing)
-        self.presets_layout.setSpacing(scaled_presets_spacing)
+        self.main_layout.setSpacing(scaled_main_margin) # Main spacing between top section / (nothing else now)
+      
+        self.top_section_layout.setSpacing(scaled_top_section_spacing)
+        self.grid_layout.setSpacing(scaled_grid_spacing)
+        self.media_layout.setSpacing(scaled_media_spacing)
+        self.playback_layout.setSpacing(scaled_playback_spacing)
 
     def preset_clicked(self, index):
         # TODO: Retrieve the frequency associated with this preset index (e.g., from settings)
@@ -144,9 +118,3 @@ class RadioScreen(QWidget):
     @pyqtSlot(str)
     def update_status_display(self, status):
         self.status_display.setText(f"Status: {status}")
-
-    def _update_clock(self):
-        """Updates the clock label with the current time."""
-        current_time = QDateTime.currentDateTime()
-        time_str = current_time.toString("HH:mm")
-        self.clock_label.setText(time_str)
