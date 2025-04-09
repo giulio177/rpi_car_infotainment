@@ -98,7 +98,7 @@ class MainWindow(QMainWindow):
         self.header_layout.addWidget(self.header_title_label)
         header_spacer = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
         self.header_layout.addItem(header_spacer)
-        self.header_bt_status_label = QLabel("") # Combined BT Status
+        self.header_bt_status_label = QLabel("iPhone") # Combined BT Status
         self.header_bt_status_label.setObjectName("headerBtStatus")
         self.header_bt_status_label.hide()
         self.header_layout.addWidget(self.header_bt_status_label)
