@@ -388,7 +388,7 @@ class MainWindow(QMainWindow):
 
          if connected:
              show_label = True
-             max_len = 25 # Max length for header display
+             max_len = 50 # Max length for header display
              display_name = (device_name[:max_len] + '...') if len(device_name) > max_len else device_name
              status_text = display_name # Just show the name for now
              self.header_bt_status_label.setToolTip(device_name)
