@@ -17,6 +17,7 @@ def get_light_theme(scale_factor=1.0):
     # Base sizes relative to 1920x1080
     base_font_size_pt = 14
     base_padding_px = 12
+    base_album_art_size_px = 160 # Base size for square side (adjust as needed for 1080p)
     base_button_min_height_px = 45 # Base for normal buttons
     base_border_radius_px = 6
     base_border_px = 1
@@ -24,6 +25,7 @@ def get_light_theme(scale_factor=1.0):
     # Calculate scaled sizes
     scaled_font_size = scale_value(base_font_size_pt, scale_factor)
     scaled_padding = scale_value(base_padding_px, scale_factor)
+    scaled_album_art_size = scale_value(base_album_art_size_px, scale_factor) # Scaled square size
     scaled_button_min_height = scale_value(base_button_min_height_px, scale_factor)
     scaled_border_radius = scale_value(base_border_radius_px, scale_factor)
     scaled_border = scale_value(base_border_px, scale_factor)
@@ -182,41 +184,54 @@ def get_light_theme(scale_factor=1.0):
      }}
 
     /* --- Home Screen Media --- */
-    QLabel#albumArtLabel {{
+    QLabel#albumArtLabel {{ /* Targets ScrollingLabel */
         border: {scale_value(2, scale_factor)}px solid #a0a0a0;
         background-color: rgba(200, 200, 200, 0.15);
         border-radius: {scaled_border_radius}px;
-        font-size: {scale_value(base_font_size_pt + 1, scale_factor)}pt; /* Larger album text */
+        font-size: {scale_value(base_font_size_pt, scale_factor)}pt; /* Slightly smaller album text */
         color: #555555;
-        min-height: {scale_value(140, scale_factor)}px;
         qproperty-alignment: 'AlignCenter';
-        margin-bottom: {scaled_padding // 2}px;
+        margin-bottom: {scaled_padding // 1.5}px; /* Adjusted margin */
         padding: {scaled_padding}px;
+        /* --- Enforce Square Aspect Ratio --- */
+        min-width: {scaled_album_art_size}px;
+        max-width: {scaled_album_art_size}px;
+        min-height: {scaled_album_art_size}px;
+        max-height: {scaled_album_art_size}px;
+        /* --- */
     }}
-    QLabel#trackTitleLabel {{
-        min-height: {scale_value(30, scale_factor)}px; /* Adjusted min height */
-        font-size: {scale_value(base_font_size_pt + 4, scale_factor)}pt; /* Larger Title */
+    QLabel#trackTitleLabel {{ /* Targets ScrollingLabel */
+        min-height: {scale_value(35, scale_factor)}px; /* Ensure enough height */
+        font-size: {scale_value(base_font_size_pt + 4, scale_factor)}pt;
         font-weight: bold;
+        color: #222222; /* Explicit dark color for light theme */
+        /* Alignment set in code (AlignCenter) */
+        /* qproperty-alignment: 'AlignCenter'; */
+        margin-bottom: {scaled_padding // 4}px; /* Small margin below title */
     }}
-     QLabel#trackArtistLabel {{
-        min-height: {scale_value(30, scale_factor)}px; /* Adjusted min height */
-        font-size: {scale_value(base_font_size_pt + 2, scale_factor)}pt; /* Larger Artist */
+     QLabel#trackArtistLabel {{ /* Targets ScrollingLabel */
+        min-height: {scale_value(30, scale_factor)}px;
+        font-size: {scale_value(base_font_size_pt + 2, scale_factor)}pt;
+        color: #444444; /* Explicit color */
+        /* Alignment set in code (AlignCenter) */
+        margin-bottom: {scaled_padding // 2}px; /* More margin below artist */
      }}
      QLabel#trackTimeLabel {{
-        min-height: {scale_value(24, scale_factor)}px; /* Adjusted min height */
-        font-size: {scale_value(base_font_size_pt, scale_factor)}pt; /* Larger Time */
+        min-height: {scale_value(24, scale_factor)}px;
+        font-size: {scale_value(base_font_size_pt, scale_factor)}pt;
         color: #666666;
         qproperty-alignment: 'AlignCenter';
-        margin-top: {scaled_padding // 2}px; /* Adjusted margin */
-        margin-bottom: {scaled_padding // 1.5}px; /* Adjusted margin */
+        margin-top: {scaled_padding // 2}px; /* Increased margin above time */
+        margin-bottom: {scaled_padding}px; /* Increased margin below time */
      }}
      QPushButton#mediaPrevButton, QPushButton#mediaPlayPauseButton, QPushButton#mediaNextButton {{
-        min-width: {scale_value(65, scale_factor)}px; /* Adjusted base size */
+        min-width: {scale_value(65, scale_factor)}px;
         padding: {scale_value(base_padding_px * 0.7, scale_factor)}px;
+        /* min-height defined globally or specifically if needed */
      }}
      QPushButton#mediaPlayPauseButton {{
-         font-size: {scale_value(base_font_size_pt + 8, scale_factor)}pt; /* Adjusted base size */
-         min-width: {scale_value(75, scale_factor)}px; /* Adjusted base size */
+         font-size: {scale_value(base_font_size_pt + 8, scale_factor)}pt;
+         min-width: {scale_value(75, scale_factor)}px;
      }}
 
     /* --- OBD Screen --- */
@@ -253,6 +268,7 @@ def get_dark_theme(scale_factor=1.0):
     # Base sizes relative to 1920x1080
     base_font_size_pt = 14
     base_padding_px = 12
+    base_album_art_size_px = 160 # Base size for square side
     base_button_min_height_px = 45
     base_border_radius_px = 6
     base_border_px = 1
@@ -260,6 +276,7 @@ def get_dark_theme(scale_factor=1.0):
     # Calculate scaled sizes
     scaled_font_size = scale_value(base_font_size_pt, scale_factor)
     scaled_padding = scale_value(base_padding_px, scale_factor)
+    scaled_album_art_size = scale_value(base_album_art_size_px, scale_factor)
     scaled_button_min_height = scale_value(base_button_min_height_px, scale_factor)
     scaled_border_radius = scale_value(base_border_radius_px, scale_factor)
     scaled_border = scale_value(base_border_px, scale_factor)
@@ -383,36 +400,51 @@ def get_dark_theme(scale_factor=1.0):
     }}
 
     /* --- Home Screen Media --- */
-    QLabel#albumArtLabel {{
+    QLabel#albumArtLabel {{ /* Targets ScrollingLabel */
         border: {scale_value(2, scale_factor)}px solid #505050;
         background-color: rgba(80, 80, 80, 0.2);
         border-radius: {scaled_border_radius}px;
-        font-size: {scale_value(base_font_size_pt + 1, scale_factor)}pt;
-        color: #bbbbbb; min-height: {scale_value(140, scale_factor)}px;
-        qproperty-alignment: 'AlignCenter'; margin-bottom: {scaled_padding // 2}px;
+        font-size: {scale_value(base_font_size_pt, scale_factor)}pt;
+        color: #bbbbbb;
+        qproperty-alignment: 'AlignCenter';
+        margin-bottom: {scaled_padding // 1.5}px;
         padding: {scaled_padding}px;
+        /* --- Enforce Square Aspect Ratio --- */
+        min-width: {scaled_album_art_size}px;
+        max-width: {scaled_album_art_size}px;
+        min-height: {scaled_album_art_size}px;
+        max-height: {scaled_album_art_size}px;
+        /* --- */
     }}
-    QLabel#trackTitleLabel {{
-        min-height: {scale_value(30, scale_factor)}px;
-        font-size: {scale_value(base_font_size_pt + 4, scale_factor)}pt; font-weight: bold;
+    QLabel#trackTitleLabel {{ /* Targets ScrollingLabel */
+        min-height: {scale_value(35, scale_factor)}px;
+        font-size: {scale_value(base_font_size_pt + 4, scale_factor)}pt;
+        font-weight: bold;
+        color: #eeeeee; /* Explicit light color for dark theme */
+        margin-bottom: {scaled_padding // 4}px;
     }}
-    QLabel#trackArtistLabel {{
+     QLabel#trackArtistLabel {{ /* Targets ScrollingLabel */
         min-height: {scale_value(30, scale_factor)}px;
         font-size: {scale_value(base_font_size_pt + 2, scale_factor)}pt;
-    }}
-    QLabel#trackTimeLabel {{
+        color: #cccccc; /* Explicit color */
+        margin-bottom: {scaled_padding // 2}px;
+     }}
+     QLabel#trackTimeLabel {{
         min-height: {scale_value(24, scale_factor)}px;
-        font-size: {scale_value(base_font_size_pt, scale_factor)}pt; color: #aaaaaa;
-        qproperty-alignment: 'AlignCenter'; margin-top: {scaled_padding // 2}px;
-        margin-bottom: {scaled_padding // 1.5}px;
-    }}
-    QPushButton#mediaPrevButton, QPushButton#mediaPlayPauseButton, QPushButton#mediaNextButton {{
-        min-width: {scale_value(65, scale_factor)}px; padding: {scale_value(base_padding_px * 0.7, scale_factor)}px;
-    }}
-    QPushButton#mediaPlayPauseButton {{
-        font-size: {scale_value(base_font_size_pt + 8, scale_factor)}pt;
-        min-width: {scale_value(75, scale_factor)}px;
-    }}
+        font-size: {scale_value(base_font_size_pt, scale_factor)}pt;
+        color: #aaaaaa;
+        qproperty-alignment: 'AlignCenter';
+        margin-top: {scaled_padding // 2}px;
+        margin-bottom: {scaled_padding}px;
+     }}
+     QPushButton#mediaPrevButton, QPushButton#mediaPlayPauseButton, QPushButton#mediaNextButton {{
+        min-width: {scale_value(65, scale_factor)}px;
+        padding: {scale_value(base_padding_px * 0.7, scale_factor)}px;
+     }}
+     QPushButton#mediaPlayPauseButton {{
+         font-size: {scale_value(base_font_size_pt + 8, scale_factor)}pt;
+         min-width: {scale_value(75, scale_factor)}px;
+     }}
 
     /* --- OBD Screen --- */
     QLabel#speed_value, QLabel#rpm_value, QLabel#coolant_value, QLabel#fuel_value {{
