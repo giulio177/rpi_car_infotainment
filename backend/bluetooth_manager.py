@@ -354,7 +354,7 @@ class BluetoothManager(QThread):
 
 
         print("BT Manager: Entering polling loop.")
-        poll_interval_ms = 2000 # Poll every 2 seconds
+        poll_interval_ms = 500 # Poll every 2 seconds
         loop_count = 0
         om_iface = QDBusInterface(BLUEZ_SERVICE, '/', DBUS_OM_IFACE, self.bus) # Reuse interface object
 
