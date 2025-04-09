@@ -16,7 +16,7 @@ from backend.audio_manager import AudioManager
 from backend.bluetooth_manager import BluetoothManager
 from backend.obd_manager import OBDManager
 from backend.radio_manager import RadioManager
-from backend.settings_manager import SettingsManager # Import if needed directly
+from backend.settings_manager import SettingsManager
 
 # Import screens
 from .home_screen import HomeScreen
@@ -36,9 +36,7 @@ ICON_BT_CONNECTED = os.path.join(ICON_PATH, "bluetooth_connected.png")
 # ---
 
 class MainWindow(QMainWindow):
-    # --- MODIFIED: Base resolution for scaling is now 1080p ---
     BASE_RESOLUTION = QSize(1920, 1080)
-    # ---
 
     def __init__(self, settings_manager, parent=None):
         super().__init__(parent)
@@ -46,31 +44,43 @@ class MainWindow(QMainWindow):
         self.audio_manager = AudioManager()
         self.bluetooth_manager = BluetoothManager()
 
-        # --- Flag to track initial scaling ---
-        self._initial_scaling_done = False
+        # --- Flag to prevent scaling before fullscreen is settled ---
+        self._has_scaled_correctly = False # Renamed for clarity
 
-        # --- Base sizes definition (relative to BASE_RESOLUTION) ---
-        self.base_icon_size = QSize(38, 38) # Slightly larger base for 1080p? Adjust.
-        self.base_header_icon_size = QSize(28, 28) # Smaller icon for header - Adjust
-        self.base_bottom_bar_button_size = QSize(55, 55) # Adjust.
-        self.base_bottom_bar_height = 80 # Adjust.
-        self.base_volume_slider_width = 180 # Adjust.
-        self.base_layout_spacing = 12 # Adjust.
-        self.base_layout_margin = 6 # Adjust.
-        self.base_main_margin = 12 # Adjust.
+        # --- Base sizes definition ---
+        self.base_icon_size = QSize(38, 38)
+        self.base_header_icon_size = QSize(28, 28) # Base size for 1080p
+        self.base_bottom_bar_button_size = QSize(55, 55)
+        self.base_bottom_bar_height = 80
+        self.base_volume_slider_width = 180
+        self.base_layout_spacing = 12
+        self.base_layout_margin = 6
+        self.base_main_margin = 12
+
+        # --- Load Icons ---
+        self.home_icon = QIcon(ICON_HOME)
+        self.settings_icon = QIcon(ICON_SETTINGS)
+        self.volume_normal_icon = QIcon(ICON_VOLUME)
+        self.volume_muted_icon = QIcon(ICON_VOLUME_MUTED)
+        self.restart_icon = QIcon(ICON_RESTART)
+        self.power_icon = QIcon(ICON_POWER)
+        self.bt_connected_icon = QIcon(ICON_BT_CONNECTED)
+        # --- ADDED: Explicit check for BT icon ---
+        if self.bt_connected_icon.isNull():
+            print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+            print(f"CRITICAL WARNING: Bluetooth icon failed to load from: {ICON_BT_CONNECTED}")
+            print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        # ---
 
         # --- Volume/Mute variables ---
         self.is_muted = False
-        self.last_volume_level = 50 # Default
+        self.last_volume_level = 50
 
         # --- Window setup ---
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
         self.setWindowTitle("RPi Car Infotainment")
 
-        # --- REMOVED: Code block reading window_resolution from settings ---
-        # App always starts full screen, scaling adapts to actual screen vs BASE_RESOLUTION
-
-        # --- Theme (Applied via _apply_scaling) ---
+        # --- Theme (Set variable, apply in _apply_scaling) ---
         self.current_theme = self.settings_manager.get("theme")
 
         # --- Central Widget Area ---
@@ -83,7 +93,7 @@ class MainWindow(QMainWindow):
         self.stacked_widget = QStackedWidget()
         self.main_layout.addWidget(self.stacked_widget, 1)
 
-        # --- Status Labels Setup ---
+        # --- Status Labels Setup (Bottom Bar) ---
         self.obd_status_label = QLabel("OBD: Disconnected")
         self.obd_status_label.setObjectName("statusBarObdLabel")
         self.radio_status_label = QLabel("Radio: Idle")
@@ -100,10 +110,6 @@ class MainWindow(QMainWindow):
         self.bt_battery_label.hide()
         self.bt_separator_label.hide()
 
-        self.bt_connected_icon = QIcon(ICON_BT_CONNECTED) # <-- ADDED: Load BT Icon
-        if self.bt_connected_icon.isNull():
-            print(f"Warning: Failed to load icon: {ICON_BT_CONNECTED}")
-
         # --- PERSISTENT BOTTOM BAR ---
         self.bottom_bar_widget = QWidget()
         self.bottom_bar_widget.setObjectName("persistentBottomBar")
@@ -111,22 +117,18 @@ class MainWindow(QMainWindow):
 
         # --- Create bottom bar buttons ---
         self.home_button_bar = QPushButton()
-        self.home_icon = QIcon(ICON_HOME)
         self.home_button_bar.setIcon(self.home_icon)
         self.home_button_bar.setObjectName("homeNavButton")
         self.home_button_bar.setToolTip("Go to Home Screen")
         self.home_button_bar.clicked.connect(self.go_to_home)
 
         self.settings_button = QPushButton()
-        self.settings_icon = QIcon(ICON_SETTINGS)
         self.settings_button.setIcon(self.settings_icon)
         self.settings_button.setObjectName("settingsNavButton")
         self.settings_button.setToolTip("Open Settings")
         self.settings_button.clicked.connect(self.go_to_settings)
 
         self.volume_icon_button = QPushButton()
-        self.volume_normal_icon = QIcon(ICON_VOLUME)
-        self.volume_muted_icon = QIcon(ICON_VOLUME_MUTED)
         self.volume_icon_button.setObjectName("volumeIcon")
         self.volume_icon_button.setToolTip("Mute / Unmute Volume")
         self.volume_icon_button.setCheckable(True)
@@ -137,14 +139,12 @@ class MainWindow(QMainWindow):
         self.volume_slider.valueChanged.connect(self.volume_slider_changed)
 
         self.restart_button_bar = QPushButton()
-        self.restart_icon = QIcon(ICON_RESTART)
         self.restart_button_bar.setIcon(self.restart_icon)
         self.restart_button_bar.setObjectName("restartNavButton")
         self.restart_button_bar.setToolTip("Restart Application")
         self.restart_button_bar.clicked.connect(self.restart_application)
 
         self.power_button = QPushButton()
-        self.power_icon = QIcon(ICON_POWER)
         self.power_button.setIcon(self.power_icon)
         self.power_button.setObjectName("powerNavButton")
         self.power_button.setToolTip("Exit Application (Ctrl+Q)")
@@ -187,9 +187,7 @@ class MainWindow(QMainWindow):
         self.radio_screen = RadioScreen(self.radio_manager, parent=self)
         self.obd_screen = OBDScreen(parent=self)
         self.settings_screen = SettingsScreen(self.settings_manager, self)
-        # --- Store screens in a list for easier iteration ---
         self.all_screens = [self.home_screen, self.radio_screen, self.obd_screen, self.settings_screen]
-        # ---
 
         # --- Add Screens to Stack ---
         for screen in self.all_screens:
@@ -201,10 +199,10 @@ class MainWindow(QMainWindow):
         self.radio_manager.radio_status.connect(self.update_radio_status)
         self.radio_manager.frequency_updated.connect(self.radio_screen.update_frequency)
         self.radio_manager.signal_strength.connect(self.radio_screen.update_signal_strength)
-        self.bluetooth_manager.connection_changed.connect(self.update_bluetooth_statusbar) # Renamed slot
-        self.bluetooth_manager.battery_updated.connect(self.update_bluetooth_statusbar_battery) # Renamed slot
-        self.bluetooth_manager.connection_changed.connect(self.update_bluetooth_header) # New slot
-        self.bluetooth_manager.battery_updated.connect(self.update_bluetooth_header_battery) # New slot
+        self.bluetooth_manager.connection_changed.connect(self.update_bluetooth_statusbar)
+        self.bluetooth_manager.battery_updated.connect(self.update_bluetooth_statusbar_battery)
+        self.bluetooth_manager.connection_changed.connect(self.update_bluetooth_header)
+        self.bluetooth_manager.battery_updated.connect(self.update_bluetooth_header_battery)
         self.bluetooth_manager.media_properties_changed.connect(self.home_screen.update_media_info)
         self.bluetooth_manager.playback_status_changed.connect(self.home_screen.update_playback_status)
 
@@ -212,21 +210,15 @@ class MainWindow(QMainWindow):
         initial_system_mute = self.audio_manager.get_mute_status()
         self.is_muted = initial_system_mute if initial_system_mute is not None else False
         self.last_volume_level = self.settings_manager.get("volume") or 50
-        if not self.is_muted and self.last_volume_level == 0:
-            self.last_volume_level = 50
-
+        if not self.is_muted and self.last_volume_level == 0: self.last_volume_level = 50
         initial_icon = self.volume_muted_icon if self.is_muted else self.volume_normal_icon
         self.volume_icon_button.setIcon(initial_icon)
         self.volume_icon_button.setChecked(self.is_muted)
-
         initial_slider_value = self.audio_manager.get_volume()
-        if initial_slider_value is None:
-            initial_slider_value = 0 if self.is_muted else self.last_volume_level
+        if initial_slider_value is None: initial_slider_value = 0 if self.is_muted else self.last_volume_level
         self.volume_slider.setValue(initial_slider_value)
-        if not self.is_muted:
-             self.audio_manager.set_volume(initial_slider_value)
-        else:
-             self.audio_manager.set_mute(True)
+        if not self.is_muted: self.audio_manager.set_volume(initial_slider_value)
+        else: self.audio_manager.set_mute(True)
 
         # --- Start Backend Threads ---
         self.obd_manager.start()
@@ -240,16 +232,95 @@ class MainWindow(QMainWindow):
         self.quit_shortcut = QShortcut(QKeySequence("Ctrl+Q"), self)
         self.quit_shortcut.activated.connect(self.close)
 
-        # Initial scaling/theme applied by first resizeEvent
+        # Initial scaling/theme applied by first resizeEvent *with correct size*
 
 
-    # --- Slots for Bluetooth updates ---
+    # --- MODIFIED: resizeEvent ---
+    def resizeEvent(self, event):
+        """Override resizeEvent to apply scaling ONLY after fullscreen is settled."""
+        super().resizeEvent(event)
+        current_size = event.size()
+        print(f"DEBUG: resizeEvent triggered with Size: {current_size}")
+
+        # Check if we have a reasonable size (likely fullscreen) AND haven't scaled yet
+        # Use a threshold slightly smaller than target to account for minor variations
+        is_fullscreen_approx = current_size.width() > 1000 and current_size.height() > 500
+
+        if is_fullscreen_approx and not self._has_scaled_correctly:
+            print(f"Applying initial scaling for size: {current_size}")
+            self._apply_scaling()
+            self._has_scaled_correctly = True # Mark that initial scaling is done
+        elif self._has_scaled_correctly:
+            # Handle subsequent resizes if needed (e.g., if manually resized later, though unlikely in kiosk mode)
+            # This might be where the resize back to 767x415 was happening if something triggered it
+            # For now, only rescale if size significantly changes AFTER initial scaling
+            # print(f"Subsequent resize event: {current_size}")
+            # self._apply_scaling() # Uncomment this line if you WANT rescaling on later size changes
+            pass
+        else:
+            # Ignore resize events with small initial sizes before fullscreen
+            print(f"Ignoring resize event (Size: {current_size}, Scaled Flag: {self._has_scaled_correctly})")
+
+
+    # REMOVED showEvent - Relying on resizeEvent check
+
+
+    def _apply_scaling(self):
+        """Applies scaling to UI elements based on current window height vs BASE_RESOLUTION."""
+        current_height = self.height()
+        if self.BASE_RESOLUTION.height() <= 0 or current_height <= 0: scale_factor = 1.0
+        else: scale_factor = current_height / self.BASE_RESOLUTION.height()
+        print(f"DEBUG: _apply_scaling factor: {scale_factor:.3f} (Height: {current_height})")
+
+        # Calculate scaled sizes
+        scaled_icon_size = QSize(scale_value(self.base_icon_size.width(), scale_factor), scale_value(self.base_icon_size.height(), scale_factor))
+        scaled_header_icon_size = QSize(scale_value(self.base_header_icon_size.width(), scale_factor), scale_value(self.base_header_icon_size.height(), scale_factor))
+        scaled_button_size = QSize(scale_value(self.base_bottom_bar_button_size.width(), scale_factor), scale_value(self.base_bottom_bar_button_size.height(), scale_factor))
+        scaled_bottom_bar_height = scale_value(self.base_bottom_bar_height, scale_factor)
+        scaled_slider_width = scale_value(self.base_volume_slider_width, scale_factor)
+        scaled_spacing = scale_value(self.base_layout_spacing, scale_factor)
+        scaled_margin = scale_value(self.base_layout_margin, scale_factor)
+        scaled_main_margin = scale_value(self.base_main_margin, scale_factor)
+
+        # Apply to bottom bar elements
+        self.home_button_bar.setIconSize(scaled_icon_size)
+        self.home_button_bar.setFixedSize(scaled_button_size)
+        self.settings_button.setIconSize(scaled_icon_size)
+        self.settings_button.setFixedSize(scaled_button_size)
+        self.volume_icon_button.setIconSize(scaled_icon_size)
+        self.volume_icon_button.setFixedSize(scaled_button_size)
+        self.restart_button_bar.setIconSize(scaled_icon_size)
+        self.restart_button_bar.setFixedSize(scaled_button_size)
+        self.power_button.setIconSize(scaled_icon_size)
+        self.power_button.setFixedSize(scaled_button_size)
+        self.volume_slider.setFixedWidth(scaled_slider_width)
+        self.bottom_bar_widget.setFixedHeight(scaled_bottom_bar_height)
+
+        # Apply to layouts
+        self.bottom_bar_layout.setContentsMargins(scaled_margin, scaled_margin, scaled_margin, scaled_margin)
+        self.bottom_bar_layout.setSpacing(scaled_spacing)
+        self.main_layout.setContentsMargins(0,0,0,0)
+        self.main_layout.setSpacing(scale_value(5, scale_factor))
+
+        # Re-apply theme/stylesheet
+        apply_theme(QApplication.instance(), self.current_theme, scale_factor)
+
+        # Update Header Icons (Force update with potentially new size)
+        self.update_bluetooth_header(self.bluetooth_manager.connected_device_path is not None, "")
+        self.update_bluetooth_header_battery(self.bluetooth_manager.current_battery)
+
+        # Notify Child Screens
+        for screen in self.all_screens:
+             if hasattr(screen, 'update_scaling'):
+                  screen.update_scaling(scale_factor, scaled_main_margin)
+
+
+    # --- Status Update Slots ---
     @pyqtSlot(bool, str)
     def update_bluetooth_statusbar(self, connected, device_name):
-        """Updates the Bluetooth status in the BOTTOM status bar."""
-        # ... (Existing logic for bottom bar bt_name_label, bt_separator_label visibility) ...
+        # ... (Implementation remains the same) ...
         if connected:
-             max_len = 20 # Adjust as needed
+             max_len = 20
              display_name = (device_name[:max_len] + '...') if len(device_name) > max_len else device_name
              self.bt_name_label.setText(f"BT: {display_name}")
              self.bt_name_label.setToolTip(device_name)
@@ -258,59 +329,51 @@ class MainWindow(QMainWindow):
         else:
              self.bt_name_label.hide()
              self.bt_separator_label.hide()
-             # Battery label handled by its own slot
              if hasattr(self.home_screen, 'clear_media_info'):
                  self.home_screen.clear_media_info()
 
     @pyqtSlot(object)
     def update_bluetooth_statusbar_battery(self, level):
-        """Updates the Bluetooth battery in the BOTTOM status bar."""
-        # ... (Existing logic for bottom bar bt_battery_label visibility/text) ...
-        if level is not None and isinstance(level, int) and self.bt_name_label.isVisible():
+        # ... (Implementation remains the same) ...
+         if level is not None and isinstance(level, int) and self.bt_name_label.isVisible():
              self.bt_battery_label.setText(f"({level}%)")
              self.bt_battery_label.show()
-        else:
+         else:
              self.bt_battery_label.hide()
 
-    # --- ADDED: Slots to update HEADER Bluetooth elements ---
+
+    # --- Header Bluetooth Update Slots ---
     @pyqtSlot(bool, str)
-    def update_bluetooth_header(self, connected, device_name=""): # Name not used here, just connection status
+    def update_bluetooth_header(self, connected, device_name=""):
         """Updates the Bluetooth icon visibility in ALL screen headers."""
+        # Only proceed if scaling has been done (widget sizes are valid)
+        if not self._has_scaled_correctly: return
+
         print(f"DEBUG: Updating header BT icon, Connected={connected}")
-        show_icon = connected
-        # Calculate scaled size for the icon *now*
+        show_icon = connected and not self.bt_connected_icon.isNull() # Check icon loaded ok
+
+        # Calculate scaled size dynamically
         scale_factor = self.height() / self.BASE_RESOLUTION.height() if self.BASE_RESOLUTION.height() > 0 else 1.0
         scaled_size = QSize(
             scale_value(self.base_header_icon_size.width(), scale_factor),
             scale_value(self.base_header_icon_size.height(), scale_factor)
         )
+        print(f"DEBUG: Icon Scaled Size: {scaled_size}") # Debug
+
+        pixmap = self.bt_connected_icon.pixmap(scaled_size) if show_icon else QPixmap()
+        print(f"DEBUG: Pixmap isNull: {pixmap.isNull()}") # Debug
 
         for screen in self.all_screens:
             if hasattr(screen, 'bt_icon_label'):
-                if show_icon and not self.bt_connected_icon.isNull():
-                    # Set pixmap with scaled size
-                    pixmap = self.bt_connected_icon.pixmap(scaled_size)
+                if show_icon:
                     screen.bt_icon_label.setPixmap(pixmap)
-                    screen.bt_icon_label.setFixedSize(scaled_size) # Ensure QLabel size matches pixmap
+                    screen.bt_icon_label.setFixedSize(scaled_size) # Crucial: Set fixed size
+                    print(f"DEBUG: Showing BT icon on {type(screen).__name__}") # Debug
                     screen.bt_icon_label.show()
                 else:
+                    print(f"DEBUG: Hiding BT icon on {type(screen).__name__}") # Debug
                     screen.bt_icon_label.hide()
-                    screen.bt_icon_label.clear() # Clear pixmap
-
-    @pyqtSlot(object)
-    def update_bluetooth_header_battery(self, level):
-        """Updates the Bluetooth battery text in ALL screen headers."""
-        print(f"DEBUG: Updating header BT battery, Level={level}")
-        show_battery = level is not None and isinstance(level, int) and self.bluetooth_manager.connected_device_path is not None
-        battery_text = f"{level}%" if show_battery else ""
-
-        for screen in self.all_screens:
-            if hasattr(screen, 'bt_battery_label'):
-                screen.bt_battery_label.setText(battery_text)
-                if show_battery:
-                    screen.bt_battery_label.show()
-                else:
-                    screen.bt_battery_label.hide()
+                    screen.bt_icon_label.clear()
 
 
     # --- Keep Methods like update_obd_status, update_radio_status, etc. ---
@@ -329,93 +392,6 @@ class MainWindow(QMainWindow):
         self.radio_status_label.setText(f"Radio: {status}")
         self.radio_screen.update_status_display(status)
 
-
-    # --- resizeEvent handler ---
-    def resizeEvent(self, event):
-        """Override resizeEvent to apply scaling when window size changes."""
-        super().resizeEvent(event)
-        # Only apply scaling if the initial setup via showEvent is done
-        # and the size is reasonable (avoid tiny intermediate sizes)
-        if not self._initial_scaling_done or event.size().width() < 100 or event.size().height() < 100:
-             print(f"Resize event ignored (Initial scaling done: {self._initial_scaling_done}, Size: {event.size()})")
-             return
-
-        print(f"Window resized to: {event.size().width()}x{event.size().height()} (Applying scaling)")
-        self._apply_scaling()
-
-    # --- showEvent ---
-    def showEvent(self, event):
-        """Override showEvent to trigger initial scaling AFTER window is shown fullscreen."""
-        super().showEvent(event)
-        if not self._initial_scaling_done:
-            print("showEvent: Triggering initial scaling...")
-            # Force an immediate scaling calculation based on the now-correct fullscreen size
-            self._apply_scaling()
-            self._initial_scaling_done = True # Prevent resizeEvent from double-scaling initially
-        else:
-            print("showEvent: Initial scaling already done.")
-
-    # --- Central scaling logic ---
-    def _apply_scaling(self):
-        """Applies scaling to UI elements based on current window height vs BASE_RESOLUTION."""
-        current_height = self.height()
-        if self.BASE_RESOLUTION.height() <= 0 or current_height <= 0:
-             scale_factor = 1.0
-        else:
-             scale_factor = current_height / self.BASE_RESOLUTION.height()
-
-        # --- Calculate scaled sizes (COMPLETE THESE) ---
-        scaled_icon_size = QSize( # For bottom bar icons
-            scale_value(self.base_icon_size.width(), scale_factor),
-            scale_value(self.base_icon_size.height(), scale_factor)
-        )
-        scaled_header_icon_size = QSize( # For header icon
-            scale_value(self.base_header_icon_size.width(), scale_factor),
-            scale_value(self.base_header_icon_size.height(), scale_factor)
-        )
-        scaled_button_size = QSize( # For bottom bar buttons
-             scale_value(self.base_bottom_bar_button_size.width(), scale_factor),
-             scale_value(self.base_bottom_bar_button_size.height(), scale_factor)
-        )
-        scaled_bottom_bar_height = scale_value(self.base_bottom_bar_height, scale_factor)
-        scaled_slider_width = scale_value(self.base_volume_slider_width, scale_factor)
-        scaled_spacing = scale_value(self.base_layout_spacing, scale_factor)
-        scaled_margin = scale_value(self.base_layout_margin, scale_factor)
-        scaled_main_margin = scale_value(self.base_main_margin, scale_factor)
-
-        # Apply to bottom bar buttons
-        self.home_button_bar.setIconSize(scaled_icon_size)
-        self.home_button_bar.setFixedSize(scaled_button_size)
-        self.settings_button.setIconSize(scaled_icon_size)
-        self.settings_button.setFixedSize(scaled_button_size)
-        self.volume_icon_button.setIconSize(scaled_icon_size)
-        self.volume_icon_button.setFixedSize(scaled_button_size)
-        self.restart_button_bar.setIconSize(scaled_icon_size)
-        self.restart_button_bar.setFixedSize(scaled_button_size)
-        self.power_button.setIconSize(scaled_icon_size)
-        self.power_button.setFixedSize(scaled_button_size)
-
-        # Apply to volume slider and bottom bar itself
-        self.volume_slider.setFixedWidth(scaled_slider_width)
-        self.bottom_bar_widget.setFixedHeight(scaled_bottom_bar_height)
-
-        # Apply to layouts
-        self.bottom_bar_layout.setContentsMargins(scaled_margin, scaled_margin, scaled_margin, scaled_margin)
-        self.bottom_bar_layout.setSpacing(scaled_spacing)
-        self.main_layout.setContentsMargins(0,0,0,0)
-        self.main_layout.setSpacing(scale_value(5, scale_factor))
-
-         # --- Re-apply theme/stylesheet ---
-        apply_theme(QApplication.instance(), self.current_theme, scale_factor)
-
-        # --- Update Header Icons (remains the same) ---
-        self.update_bluetooth_header(self.bluetooth_manager.connected_device_path is not None, "")
-        self.update_bluetooth_header_battery(self.bluetooth_manager.current_battery)
-
-        # --- Notify Child Screens ---
-        for screen in self.all_screens:
-             if hasattr(screen, 'update_scaling'):
-                  screen.update_scaling(scale_factor, scaled_main_margin)
 
     def switch_theme(self, theme_name):
         """Switches theme and re-applies scaling/styling."""
