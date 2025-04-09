@@ -12,7 +12,7 @@ class SettingsManager:
             "radio_type": "none",
             "radio_i2c_address": None,
             "last_fm_station": 98.5,
-            "window_resolution": [1024, 600] # <-- ADD THIS LINE (List [Width, Height])
+            "window_resolution": [1920, 1080]
         }
         self.settings = self._load_settings()
 
@@ -22,26 +22,19 @@ class SettingsManager:
             try:
                 with open(self.config_file, 'r') as f:
                     loaded_settings = json.load(f)
-                    # Ensure all default keys are present
-                    # Use defaults.copy() to avoid modifying the class default dict
                     updated_settings = self.defaults.copy()
-                    # Overwrite defaults with loaded values
                     updated_settings.update(loaded_settings)
-                    # Handle potential type mismatches if needed (e.g., old string format)
-                    if not isinstance(updated_settings.get("window_resolution"), list) or \
-                       len(updated_settings.get("window_resolution", [])) != 2:
-                         print("Warning: Invalid window_resolution in config, using default.")
-                         updated_settings["window_resolution"] = self.defaults["window_resolution"]
-
+                    
                     return updated_settings
             except (json.JSONDecodeError, IOError) as e:
                 print(f"Error loading settings file {self.config_file}: {e}")
                 return self.defaults.copy()
         else:
             print(f"Settings file not found. Creating default: {self.config_file}")
-            self.settings = self.defaults.copy()
-            self.save_settings()
-            return self.settings
+            # Create default file using self.defaults directly
+            with open(self.config_file, 'w') as f:
+                json.dump(self.defaults, f, indent=4)
+            return self.defaults.copy() # Return a copy
 
     def save_settings(self):
         try:
