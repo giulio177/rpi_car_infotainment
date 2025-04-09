@@ -20,10 +20,15 @@ if __name__ == "__main__":
     settings_manager = SettingsManager('config.json')
     main_win = MainWindow(settings_manager)
 
-    # --- MODIFIED: Show in Full Screen ---
-    # main_win.show() # Previous line
-    main_win.showFullScreen() # Show maximized without window decorations
-    # --- END MODIFICATION ---
+    target_width = 1920
+    target_height = 1080
+    print(f"Setting fixed window size to: {target_width}x{target_height}")
+    main_win.resize(target_width, target_height)
+    # Optional: Force position to top-left if needed, although fullscreen usually handles this
+    # main_win.move(0, 0)
+
+    # Now show it fullscreen, attempting to use the size we just set
+    main_win.showFullScreen()
 
     # Timer for reliable Ctrl+C handling in Qt loop
     signal_timer = QTimer()
