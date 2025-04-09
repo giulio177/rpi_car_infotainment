@@ -9,7 +9,8 @@ from PyQt6.QtCore import QTimer, QDateTime, pyqtSlot, Qt
 from .styling import scale_value
 
 class SettingsScreen(QWidget):
-    # AVAILABLE_RESOLUTIONS removed - no longer used
+    # --- ADDED: Screen Title ---
+    screen_title = "Settings"
 
     def __init__(self, settings_manager, main_window_ref, parent=None):
         super().__init__(parent)
@@ -28,51 +29,6 @@ class SettingsScreen(QWidget):
         self.main_layout = QVBoxLayout(self)
         # Margins/Spacing set by update_scaling
 
-        # --- Header Layout ---
-        self.header_layout = QHBoxLayout()
-        self.header_title_label = QLabel("Home") # Or screen-specific title
-        self.header_title_label.setObjectName("headerTitle")
-        self.header_layout.addWidget(self.header_title_label)
-
-        header_spacer = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-        self.header_layout.addItem(header_spacer) # Pushes right-aligned items
-
-        # --- ADDED: Header BT Labels ---
-        self.bt_battery_label = QLabel("") # Placeholder for battery %
-        self.bt_battery_label.setObjectName("headerBtBattery")
-        self.bt_battery_label.hide() # Initially hidden
-        self.header_layout.addWidget(self.bt_battery_label)
-
-        self.bt_icon_label = QLabel() # Placeholder for icon
-        self.bt_icon_label.setObjectName("headerBtIcon")
-        self.bt_icon_label.hide() # Initially hidden
-        self.header_layout.addWidget(self.bt_icon_label)
-        # --- END ADDED ---
-
-        self.clock_label = QLabel("00:00")
-        self.clock_label.setObjectName("headerClock")
-        self.header_layout.addWidget(self.clock_label) # Clock is last
-        self.clock_timer = QTimer(self) # Assign to self.clock_timer
-        # ----------------------
-        self.clock_timer.timeout.connect(self._update_clock)
-        self.clock_timer.start(10000)
-        self._update_clock()
-        self.main_layout.addLayout(self.header_layout)
-
-        # --- Button Layout ---
-        self.button_layout = QHBoxLayout()
-        # Spacing set by update_scaling
-        self.save_button = QPushButton("Apply Settings")
-        self.save_button.setObjectName("settingsSaveButton")
-        self.save_button.clicked.connect(self.apply_settings)
-        self.restart_button = QPushButton("Apply and Restart")
-        self.restart_button.setObjectName("settingsRestartButton")
-        self.restart_button.clicked.connect(self.apply_and_restart)
-        self.button_layout.addStretch(1)
-        self.button_layout.addWidget(self.save_button)
-        self.button_layout.addWidget(self.restart_button)
-        self.button_layout.addStretch(1)
-        self.main_layout.addLayout(self.button_layout)
 
         # --- SCROLL AREA SETUP ---
         self.scroll_area = QScrollArea()
@@ -85,6 +41,8 @@ class SettingsScreen(QWidget):
         self.scroll_content_widget.setObjectName("settingsScrollContent")
         self.scroll_layout = QVBoxLayout(self.scroll_content_widget)
         # Spacing set by update_scaling
+
+        
 
         # --- General Settings Group ---
         self.general_group = QGroupBox("General")
@@ -161,6 +119,21 @@ class SettingsScreen(QWidget):
         # Add scroll area to the main layout
         self.main_layout.addWidget(self.scroll_area, 1)
 
+        # --- Button Layout ---
+        self.button_layout = QHBoxLayout()
+        # Spacing set by update_scaling
+        self.save_button = QPushButton("Apply Settings")
+        self.save_button.setObjectName("settingsSaveButton")
+        self.save_button.clicked.connect(self.apply_settings)
+        self.restart_button = QPushButton("Apply and Restart")
+        self.restart_button.setObjectName("settingsRestartButton")
+        self.restart_button.clicked.connect(self.apply_and_restart)
+        self.button_layout.addStretch(1)
+        self.button_layout.addWidget(self.save_button)
+        self.button_layout.addWidget(self.restart_button)
+        self.button_layout.addStretch(1)
+        self.main_layout.addLayout(self.button_layout)
+
 
     def update_scaling(self, scale_factor, scaled_main_margin):
         """Applies scaling to internal layouts."""
@@ -173,7 +146,6 @@ class SettingsScreen(QWidget):
         # Apply to MAIN layouts
         self.main_layout.setContentsMargins(scaled_main_margin, scaled_main_margin, scaled_main_margin, scaled_main_margin)
         self.main_layout.setSpacing(scaled_spacing)
-        self.header_layout.setSpacing(scaled_spacing)
         self.button_layout.setSpacing(scaled_button_layout_spacing) # Scale button spacing
 
         # Apply to the layout INSIDE the scroll area
@@ -284,8 +256,3 @@ class SettingsScreen(QWidget):
             print("ERROR: Cannot restart. MainWindow reference is invalid or missing 'restart_application' method.")
 
 
-    def _update_clock(self):
-        """Updates the clock label with the current time."""
-        current_time = QDateTime.currentDateTime()
-        time_str = current_time.toString("HH:mm")
-        self.clock_label.setText(time_str)
