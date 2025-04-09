@@ -17,10 +17,8 @@ class OBDScreen(QWidget):
 
         # --- Store base sizes ---
         self.base_margin = 10
-        self.base_top_section_spacing = 15
-        self.base_grid_spacing = 8
-        self.base_media_spacing = 10
-        self.base_media_playback_button_spacing = 5
+        self.base_spacing = 10 # General spacing
+        self.base_grid_spacing = 15 # Spacing between grid items
 
         # --- Main Layout (Vertical) ---
         self.main_layout = QVBoxLayout(self)
