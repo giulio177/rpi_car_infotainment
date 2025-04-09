@@ -104,11 +104,3 @@ class OBDScreen(QWidget):
     @pyqtSlot(str)
     def update_connection_status(self, status_text):
         self.status_label.setText(f"Status: {status_text.replace('OBD: ', '')}")
-
-
-    def _update_clock(self):
-        """Updates the clock label with the current time."""
-        current_time = QDateTime.currentDateTime()
-        time_str = current_time.toString("HH:mm")
-        self.clock_label.setText(time_str)
-      
