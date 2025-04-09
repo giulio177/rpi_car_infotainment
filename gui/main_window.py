@@ -5,7 +5,7 @@ import sys
 
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                              QPushButton, QStackedWidget, QApplication, QLabel,
-                             QMessageBox, QSlider)
+                             QMessageBox, QSlider, QSpacerItem, QSizePolicy) # Added QSpacerItem, QSizePolicy
 from PyQt6.QtCore import pyqtSlot, Qt, QTimer, QDateTime, QSize, QMargins
 from PyQt6.QtGui import QIcon, QPixmap, QShortcut, QKeySequence
 
@@ -16,7 +16,7 @@ from backend.audio_manager import AudioManager
 from backend.bluetooth_manager import BluetoothManager
 from backend.obd_manager import OBDManager
 from backend.radio_manager import RadioManager
-from backend.settings_manager import SettingsManager
+from backend.settings_manager import SettingsManager # Import if needed directly
 
 # Import screens
 from .home_screen import HomeScreen
@@ -32,7 +32,7 @@ ICON_VOLUME = os.path.join(ICON_PATH, "volume.png")
 ICON_VOLUME_MUTED = os.path.join(ICON_PATH, "volume_muted.png")
 ICON_RESTART = os.path.join(ICON_PATH, "restart.png")
 ICON_POWER = os.path.join(ICON_PATH, "power.png")
-ICON_BT_CONNECTED = os.path.join(ICON_PATH, "bluetooth_connected.png")
+# ICON_BT_CONNECTED removed - not using icon for now
 # ---
 
 class MainWindow(QMainWindow):
@@ -44,29 +44,27 @@ class MainWindow(QMainWindow):
         self.audio_manager = AudioManager()
         self.bluetooth_manager = BluetoothManager()
 
+        # Flag for initial scaling
+        self._has_scaled_correctly = False
+
         # --- Base sizes definition ---
         self.base_icon_size = QSize(38, 38)
-        self.base_header_icon_size = QSize(28, 28) # Base size for 1080p
+        # self.base_header_icon_size removed
         self.base_bottom_bar_button_size = QSize(55, 55)
         self.base_bottom_bar_height = 80
         self.base_volume_slider_width = 180
-        self.base_layout_spacing = 12
-        self.base_layout_margin = 6
-        self.base_main_margin = 12
+        self.base_layout_spacing = 12 # General spacing
+        self.base_header_spacing = 15 # Specific spacing for header items
+        self.base_layout_margin = 6 # Bottom bar internal margin
+        self.base_main_margin = 12 # Child screen margin
 
-        # --- Load Icons ---
+        # --- Load Icons (No BT icon needed now) ---
         self.home_icon = QIcon(ICON_HOME)
         self.settings_icon = QIcon(ICON_SETTINGS)
         self.volume_normal_icon = QIcon(ICON_VOLUME)
         self.volume_muted_icon = QIcon(ICON_VOLUME_MUTED)
         self.restart_icon = QIcon(ICON_RESTART)
         self.power_icon = QIcon(ICON_POWER)
-        self.bt_connected_icon = QIcon(ICON_BT_CONNECTED)
-        # --- ADDED: Explicit check for BT icon ---
-        if self.bt_connected_icon.isNull():
-            print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-            print(f"CRITICAL WARNING: Bluetooth icon failed to load from: {ICON_BT_CONNECTED}")
-            print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
         # ---
 
         # --- Volume/Mute variables ---
@@ -75,20 +73,52 @@ class MainWindow(QMainWindow):
 
         # --- Window setup ---
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
-        self.setWindowTitle("RPi Car Infotainment")
+        self.setWindowTitle("RPi Car Infotainment") # Default title
 
         # --- Theme (Set variable, apply in _apply_scaling) ---
         self.current_theme = self.settings_manager.get("theme")
 
-        # --- Central Widget Area ---
+        # --- Central Widget & Main Layout ---
         self.central_widget = QWidget()
         self.central_widget.setObjectName("central_widget")
-        self.main_layout = QVBoxLayout(self.central_widget)
+        self.main_layout = QVBoxLayout(self.central_widget) # Main vertical layout
         self.setCentralWidget(self.central_widget)
+
+        # --- PERSISTENT HEADER BAR (Moved Here) ---
+        self.header_layout = QHBoxLayout() # Horizontal layout for header
+        # Spacing set by scaling
+
+        self.header_title_label = QLabel("Home") # Initial title
+        self.header_title_label.setObjectName("headerTitle")
+        self.header_layout.addWidget(self.header_title_label)
+
+        header_spacer = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.header_layout.addItem(header_spacer) # Pushes right items
+
+        # Combined BT Status Label (Text: "Device - XX%")
+        self.header_bt_status_label = QLabel("")
+        self.header_bt_status_label.setObjectName("headerBtStatus") # New ID for styling
+        self.header_bt_status_label.hide() # Initially hidden
+        self.header_layout.addWidget(self.header_bt_status_label)
+
+        self.header_clock_label = QLabel("00:00")
+        self.header_clock_label.setObjectName("headerClock")
+        self.header_layout.addWidget(self.header_clock_label)
+
+        # Clock Timer now managed by MainWindow
+        self.header_clock_timer = QTimer(self)
+        self.header_clock_timer.timeout.connect(self._update_header_clock)
+        self.header_clock_timer.start(10000) # Update every 10s
+        self._update_header_clock() # Initial update
+
+        # Add header layout to the top of the main layout
+        self.main_layout.addLayout(self.header_layout, 0) # Stretch = 0
 
         # --- Stacked Widget for Screens ---
         self.stacked_widget = QStackedWidget()
-        self.main_layout.addWidget(self.stacked_widget, 1)
+        # Connect signal to update title when screen changes
+        self.stacked_widget.currentChanged.connect(self.update_header_title)
+        self.main_layout.addWidget(self.stacked_widget, 1) # Takes remaining vertical space (Stretch = 1)
 
         # --- Status Labels Setup (Bottom Bar) ---
         self.obd_status_label = QLabel("OBD: Disconnected")
@@ -222,9 +252,10 @@ class MainWindow(QMainWindow):
         if self.radio_manager.radio_type != "none": self.radio_manager.start()
         self.bluetooth_manager.start()
 
-        # Set initial screen
+        # Set initial screen & Title
         self.stacked_widget.setCurrentWidget(self.home_screen)
-
+        self.update_header_title(0) # Set initial title based on home screen index
+      
         # --- Keyboard Shortcut for Quitting ---
         self.quit_shortcut = QShortcut(QKeySequence("Ctrl+Q"), self)
         self.quit_shortcut.activated.connect(self.close)
@@ -235,74 +266,113 @@ class MainWindow(QMainWindow):
         self._apply_scaling()
 
 
-    # --- MODIFIED: resizeEvent ---
+    # --- Event Handlers ---
     def resizeEvent(self, event):
-        """Override resizeEvent to re-apply scaling IF the size actually changes (unlikely in forced fullscreen)."""
-        # This event might still fire, especially during startup.
-        # We always rescale based on the fixed BASE_RESOLUTION.
+        """Override resizeEvent to apply scaling ONLY after fullscreen is settled."""
         super().resizeEvent(event)
-        print(f"DEBUG: resizeEvent triggered with Size: {event.size()} - Re-applying scaling based on BASE.")
-        self._apply_scaling() # Recalculate based on BASE, not event.size()
+        current_size = event.size()
+        print(f"DEBUG: resizeEvent triggered with Size: {current_size}")
+        is_fullscreen_approx = current_size.width() > 1000 and current_size.height() > 500
+        if is_fullscreen_approx and not self._has_scaled_correctly:
+            print(f"Applying initial scaling for size: {current_size}")
+            self._apply_scaling()
+            self._has_scaled_correctly = True
+        # Ignoring subsequent or small initial resizes for stability
 
     # REMOVED showEvent - Relying on resizeEvent check
 
 
+    # --- Scaling ---
     def _apply_scaling(self):
         """Applies scaling to UI elements based on the fixed BASE_RESOLUTION."""
-        # --- Calculate scale_factor based on BASE vs BASE (always 1.0) ---
-        # This ensures internal scaling is *always* relative to 1920x1080
+        current_height = self.height() # Use actual height for factor if needed, but base vs base gives 1.0
         if self.BASE_RESOLUTION.height() <= 0: scale_factor = 1.0
-        else: scale_factor = self.BASE_RESOLUTION.height() / self.BASE_RESOLUTION.height() # Force 1.0
-        # ---
-        print(f"DEBUG: _apply_scaling factor: {scale_factor:.3f} (Using BASE Height: {self.BASE_RESOLUTION.height()})")
+        else: scale_factor = current_height / self.BASE_RESOLUTION.height() # Keep factor based on actual height vs base
+        print(f"DEBUG: _apply_scaling factor: {scale_factor:.3f} (Height: {current_height})")
 
-        # Calculate scaled sizes using scale_factor (which is now 1.0)
-        # This effectively uses the base_* values directly unless BASE_RESOLUTION changes
+        # Calculate scaled sizes
         scaled_icon_size = QSize(scale_value(self.base_icon_size.width(), scale_factor), scale_value(self.base_icon_size.height(), scale_factor))
-        scaled_header_icon_size = QSize(scale_value(self.base_header_icon_size.width(), scale_factor), scale_value(self.base_header_icon_size.height(), scale_factor))
         scaled_button_size = QSize(scale_value(self.base_bottom_bar_button_size.width(), scale_factor), scale_value(self.base_bottom_bar_button_size.height(), scale_factor))
         scaled_bottom_bar_height = scale_value(self.base_bottom_bar_height, scale_factor)
         scaled_slider_width = scale_value(self.base_volume_slider_width, scale_factor)
         scaled_spacing = scale_value(self.base_layout_spacing, scale_factor)
+        scaled_header_spacing = scale_value(self.base_header_spacing, scale_factor) # Added header spacing
         scaled_margin = scale_value(self.base_layout_margin, scale_factor)
         scaled_main_margin = scale_value(self.base_main_margin, scale_factor)
 
-        # --- Apply sizes and layouts (remains the same) ---
         # Apply to bottom bar elements
-        self.home_button_bar.setIconSize(scaled_icon_size)
-        self.home_button_bar.setFixedSize(scaled_button_size)
-        self.settings_button.setIconSize(scaled_icon_size)
-        self.settings_button.setFixedSize(scaled_button_size)
-        self.volume_icon_button.setIconSize(scaled_icon_size)
-        self.volume_icon_button.setFixedSize(scaled_button_size)
-        self.restart_button_bar.setIconSize(scaled_icon_size)
-        self.restart_button_bar.setFixedSize(scaled_button_size)
-        self.power_button.setIconSize(scaled_icon_size)
-        self.power_button.setFixedSize(scaled_button_size)
-        self.volume_slider.setFixedWidth(scaled_slider_width)
-        self.bottom_bar_widget.setFixedHeight(scaled_bottom_bar_height)
+        # ... (Set sizes/widths for bottom bar) ...
 
         # Apply to layouts
+        self.header_layout.setSpacing(scaled_header_spacing) # Scale header spacing
         self.bottom_bar_layout.setContentsMargins(scaled_margin, scaled_margin, scaled_margin, scaled_margin)
         self.bottom_bar_layout.setSpacing(scaled_spacing)
         self.main_layout.setContentsMargins(0,0,0,0)
-        self.main_layout.setSpacing(scale_value(5, scale_factor)) # Base this on base_layout_spacing?
+        self.main_layout.setSpacing(scale_value(5, scale_factor)) # Spacing between header/stack/bottom
 
-        # --- Re-apply theme/stylesheet ---
-        # Pass the now fixed scale_factor (1.0)
+        # Re-apply theme/stylesheet
         apply_theme(QApplication.instance(), self.current_theme, scale_factor)
 
-        # --- Update Header Icons ---
-        # Use the calculated scaled_header_icon_size
-        self.update_bluetooth_header(self.bluetooth_manager.connected_device_path is not None, "", scaled_header_icon_size) # Pass size
-        self.update_bluetooth_header_battery(self.bluetooth_manager.current_battery)
+        # Update Header Bluetooth Status (force refresh after style change)
+        self.update_bluetooth_header_status()
 
-        # --- Notify Child Screens ---
-        # Pass the calculated scaled_main_margin
+        # Notify Child Screens (pass margin, factor)
         for screen in self.all_screens:
              if hasattr(screen, 'update_scaling'):
-                  screen.update_scaling(scale_factor, scaled_main_margin) # Pass factor and margin
+                  screen.update_scaling(scale_factor, scaled_main_margin)
 
+
+    # --- Header Update Slots ---
+    def _update_header_clock(self):
+        """Updates the clock label in the header."""
+        current_time = QDateTime.currentDateTime()
+        time_str = current_time.toString("HH:mm")
+        self.header_clock_label.setText(time_str)
+
+    @pyqtSlot(int)
+    def update_header_title(self, index):
+        """Updates the header title based on the current screen index."""
+        current_widget = self.stacked_widget.widget(index)
+        if current_widget:
+            # Try to get a title attribute, fallback to class name or default
+            title = getattr(current_widget, 'screen_title', type(current_widget).__name__)
+            self.header_title_label.setText(title)
+            print(f"DEBUG: Header title set to: {title}")
+        else:
+            self.header_title_label.setText("Infotainment") # Fallback
+
+
+    # --- Combined Slot for Header BT Status Update ---
+    @pyqtSlot() # Triggered by connection_changed and battery_updated
+    @pyqtSlot(bool) # To handle connection signal directly if needed
+    @pyqtSlot(object) # To handle battery signal directly if needed
+    def update_bluetooth_header_status(self, *args):
+         """Updates the combined Bluetooth status text in the header."""
+         if not self._has_scaled_correctly: return # Don't update before scaling
+
+         connected = self.bluetooth_manager.connected_device_path is not None
+         device_name = self.bluetooth_manager.connected_device_name if connected else ""
+         battery_level = self.bluetooth_manager.current_battery
+
+         status_text = ""
+         show_label = False
+
+         if connected:
+             show_label = True
+             # Use Alias/Name from manager
+             max_len = 20 # Max length for header display
+             display_name = (device_name[:max_len] + '...') if len(device_name) > max_len else device_name
+             status_text = display_name
+             self.header_bt_status_label.setToolTip(device_name) # Show full name on hover
+
+             if battery_level is not None and isinstance(battery_level, int):
+                  status_text += f" - {battery_level}%" # Append battery if available
+             else:
+                  status_text += " - N/A" # Indicate if battery unavailable
+
+         print(f"DEBUG: Updating header BT status text: '{status_text}', Visible={show_label}")
+         self.header_bt_status_label.setText(status_text)
+         self.header_bt_status_label.setVisible(show_label)
 
     # --- Status Update Slots ---
     @pyqtSlot(bool, str)
