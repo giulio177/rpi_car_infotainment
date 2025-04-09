@@ -373,8 +373,8 @@ class MainWindow(QMainWindow):
                     screen.bt_icon_label.clear()
                   
 
-   @pyqtSlot(object)
-   def update_bluetooth_header_battery(self, level):
+    @pyqtSlot(object)
+    def update_bluetooth_header_battery(self, level):
         """Updates the Bluetooth battery text in ALL screen headers."""
         # No need to check _has_scaled_correctly anymore
         manager_connected = hasattr(self, 'bluetooth_manager') and self.bluetooth_manager.connected_device_path is not None
