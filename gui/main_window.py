@@ -4,28 +4,28 @@ import os
 import sys
 
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-                             QPushButton, QStackedWidget, QApplication, QLabel, QMessageBox,
-                             QSlider) # Keep QPushButton if used elsewhere
+                             QPushButton, QStackedWidget, QApplication, QLabel,
+                             QMessageBox, QSlider)
 from PyQt6.QtCore import pyqtSlot, Qt, QTimer, QDateTime, QSize, QMargins
-
 from PyQt6.QtGui import QIcon, QShortcut, QKeySequence
 
+from .styling import apply_theme, scale_value
+
+# Import backend managers
+from backend.audio_manager import AudioManager
+from backend.bluetooth_manager import BluetoothManager
+from backend.obd_manager import OBDManager
+from backend.radio_manager import RadioManager
+from backend.settings_manager import SettingsManager # Import if needed directly
 
 # Import screens
 from .home_screen import HomeScreen
 from .radio_screen import RadioScreen
 from .obd_screen import OBDScreen
 from .setting_screen import SettingsScreen
-from .styling import apply_theme, scale_value
 
-# Import backend managers
-from backend.obd_manager import OBDManager
-from backend.radio_manager import RadioManager
-from backend.audio_manager import AudioManager
-from backend.bluetooth_manager import BluetoothManager
-
-# --- Define Icon Paths (adjust paths if your folder structure is different) ---
-ICON_PATH = "assets/icons/" # Base path for icons
+# --- Icon definitions ---
+ICON_PATH = "assets/icons/"
 ICON_HOME = os.path.join(ICON_PATH, "home.png")
 ICON_SETTINGS = os.path.join(ICON_PATH, "settings.png")
 ICON_VOLUME = os.path.join(ICON_PATH, "volume.png")
@@ -35,7 +35,9 @@ ICON_POWER = os.path.join(ICON_PATH, "power.png")
 # ---
 
 class MainWindow(QMainWindow):
-    BASE_RESOLUTION = QSize(1024, 600) # Design resolution
+    # --- MODIFIED: Base resolution for scaling is now 1080p ---
+    BASE_RESOLUTION = QSize(1920, 1080)
+    # ---
 
     def __init__(self, settings_manager, parent=None):
         super().__init__(parent)
@@ -43,79 +45,71 @@ class MainWindow(QMainWindow):
         self.audio_manager = AudioManager()
         self.bluetooth_manager = BluetoothManager()
 
-        # --- Define Base Sizes used in code (not just QSS) ---
-        self.base_icon_size = QSize(32, 32)
-        self.base_bottom_bar_button_size = QSize(45, 45)
-        self.base_bottom_bar_height = 70 # Base height for the bottom bar
-        self.base_volume_slider_width = 150
-        self.base_layout_spacing = 10
-        self.base_layout_margin = 5 # For bottom bar contents margin
-        self.base_main_margin = 10 # For main window content margins (used in child screens too)
+        # --- Base sizes definition (relative to BASE_RESOLUTION) ---
+        self.base_icon_size = QSize(38, 38) # Slightly larger base for 1080p? Adjust.
+        self.base_bottom_bar_button_size = QSize(55, 55) # Adjust.
+        self.base_bottom_bar_height = 80 # Adjust.
+        self.base_volume_slider_width = 180 # Adjust.
+        self.base_layout_spacing = 12 # Adjust.
+        self.base_layout_margin = 6 # Adjust.
+        self.base_main_margin = 12 # Adjust.
 
-        # ---  Volume Mute Variables ---
-        # Get initial system mute status if possible, otherwise assume not muted
-        initial_system_mute = self.audio_manager.get_mute_status()
-        self.is_muted = initial_system_mute if initial_system_mute is not None else False
+        # --- Volume/Mute variables ---
+        self.is_muted = False
+        self.last_volume_level = 50 # Default
 
-        # Load last saved volume level from settings, default to 50
-        # This is the level we restore to when unmuting
-        self.last_volume_level = self.settings_manager.get("volume") or 50
-        # Ensure last_volume_level isn't 0 if we are not initially muted
-        if not self.is_muted and self.last_volume_level == 0:
-            self.last_volume_level = 50 # Default restore level if saved was 0
-        # ---
-
-        # --- Borderless Window ---
+        # --- Window setup ---
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
         self.setWindowTitle("RPi Car Infotainment")
 
-        # --- Apply Theme ---
+        # --- REMOVED: Code block reading window_resolution from settings ---
+        # App always starts full screen, scaling adapts to actual screen vs BASE_RESOLUTION
+
+        # --- Theme (Applied via _apply_scaling) ---
         self.current_theme = self.settings_manager.get("theme")
-        
+
         # --- Central Widget Area ---
         self.central_widget = QWidget()
+        self.central_widget.setObjectName("central_widget")
         self.main_layout = QVBoxLayout(self.central_widget)
         self.setCentralWidget(self.central_widget)
 
-        # --- Stacked Widget for Screens (Keep This) ---
+        # --- Stacked Widget for Screens ---
         self.stacked_widget = QStackedWidget()
-        self.main_layout.addWidget(self.stacked_widget, 1) # Takes up main space
+        self.main_layout.addWidget(self.stacked_widget, 1)
 
-        # --- Status Labels ---
+        # --- Status Labels Setup ---
         self.obd_status_label = QLabel("OBD: Disconnected")
         self.obd_status_label.setObjectName("statusBarObdLabel")
         self.radio_status_label = QLabel("Radio: Idle")
         self.radio_status_label.setObjectName("statusBarRadioLabel")
-
         self.separator_label = QLabel("|")
         self.separator_label.setObjectName("statusBarSeparator")
-
-        # --- Bluetooth Status Labels ---
         self.bt_name_label = QLabel("BT: -")
         self.bt_name_label.setObjectName("statusBarBtNameLabel")
-        self.bt_battery_label = QLabel("") # Initially empty battery label
+        self.bt_battery_label = QLabel("")
         self.bt_battery_label.setObjectName("statusBarBtBatteryLabel")
-        self.bt_separator_label = QLabel("|") # Separator for BT section
+        self.bt_separator_label = QLabel("|")
         self.bt_separator_label.setObjectName("statusBarSeparator")
         self.bt_name_label.hide()
         self.bt_battery_label.hide()
         self.bt_separator_label.hide()
-      
+
         # --- PERSISTENT BOTTOM BAR ---
         self.bottom_bar_widget = QWidget()
         self.bottom_bar_widget.setObjectName("persistentBottomBar")
         self.bottom_bar_layout = QHBoxLayout(self.bottom_bar_widget)
 
-        # --- Create bottom bar buttons (sizes set by scaling) ---
+        # --- Create bottom bar buttons ---
         self.home_button_bar = QPushButton()
-        self.home_icon = QIcon(ICON_HOME) # Store icon ref
+        self.home_icon = QIcon(ICON_HOME)
         self.home_button_bar.setIcon(self.home_icon)
         self.home_button_bar.setObjectName("homeNavButton")
         self.home_button_bar.setToolTip("Go to Home Screen")
         self.home_button_bar.clicked.connect(self.go_to_home)
 
         self.settings_button = QPushButton()
-        self.settings_icon = QIcon(ICON_SETTINGS) # Store icon ref
+        self.settings_icon = QIcon(ICON_SETTINGS)
         self.settings_button.setIcon(self.settings_icon)
         self.settings_button.setObjectName("settingsNavButton")
         self.settings_button.setToolTip("Open Settings")
@@ -124,7 +118,6 @@ class MainWindow(QMainWindow):
         self.volume_icon_button = QPushButton()
         self.volume_normal_icon = QIcon(ICON_VOLUME)
         self.volume_muted_icon = QIcon(ICON_VOLUME_MUTED)
-        self.volume_icon_button.setIcon(self.volume_normal_icon) # Initial set later
         self.volume_icon_button.setObjectName("volumeIcon")
         self.volume_icon_button.setToolTip("Mute / Unmute Volume")
         self.volume_icon_button.setCheckable(True)
@@ -135,40 +128,38 @@ class MainWindow(QMainWindow):
         self.volume_slider.valueChanged.connect(self.volume_slider_changed)
 
         self.restart_button_bar = QPushButton()
-        self.restart_icon = QIcon(ICON_RESTART) # Store icon ref
+        self.restart_icon = QIcon(ICON_RESTART)
         self.restart_button_bar.setIcon(self.restart_icon)
         self.restart_button_bar.setObjectName("restartNavButton")
         self.restart_button_bar.setToolTip("Restart Application")
         self.restart_button_bar.clicked.connect(self.restart_application)
 
         self.power_button = QPushButton()
-        self.power_icon = QIcon(ICON_POWER) # Store icon ref
+        self.power_icon = QIcon(ICON_POWER)
         self.power_button.setIcon(self.power_icon)
         self.power_button.setObjectName("powerNavButton")
-        self.power_button.setToolTip("Exit Application")
+        self.power_button.setToolTip("Exit Application (Ctrl+Q)")
         self.power_button.clicked.connect(self.close)
 
         # --- Add widgets to bottom bar layout ---
         self.bottom_bar_layout.addWidget(self.home_button_bar)
         self.bottom_bar_layout.addWidget(self.settings_button)
-        self.bottom_bar_layout.addStretch(1) # Push status labels towards center
+        self.bottom_bar_layout.addStretch(1)
         self.bottom_bar_layout.addWidget(self.obd_status_label)
         self.bottom_bar_layout.addWidget(self.separator_label)
         self.bottom_bar_layout.addWidget(self.radio_status_label)
         self.bottom_bar_layout.addWidget(self.bt_separator_label)
         self.bottom_bar_layout.addWidget(self.bt_name_label)
         self.bottom_bar_layout.addWidget(self.bt_battery_label)
-        self.bottom_bar_layout.addStretch(2) # More stretch towards center
+        self.bottom_bar_layout.addStretch(2)
         self.bottom_bar_layout.addWidget(self.volume_icon_button)
         self.bottom_bar_layout.addWidget(self.volume_slider)
-        self.bottom_bar_layout.addStretch(2) # Push end buttons right
+        self.bottom_bar_layout.addStretch(2)
         self.bottom_bar_layout.addWidget(self.restart_button_bar)
         self.bottom_bar_layout.addWidget(self.power_button)
 
         # Add bottom bar widget to main layout
-        self.main_layout.addWidget(self.bottom_bar_widget)
-        # self.bottom_bar_widget.setFixedHeight(70) # Height set by scaling
-
+        self.main_layout.addWidget(self.bottom_bar_widget) # Stretch factor 0
 
         # --- Initialize Backend Managers ---
         self.obd_manager = OBDManager(
@@ -178,22 +169,23 @@ class MainWindow(QMainWindow):
         self.radio_manager = RadioManager(
              radio_type=self.settings_manager.get("radio_type"),
              i2c_address=self.settings_manager.get("radio_i2c_address"),
-             initial_freq=self.settings_manager.get("last_fm_station") # Use corrected get()
+             initial_freq=self.settings_manager.get("last_fm_station")
         )
+        # BluetoothManager already instantiated
 
-        # --- Initialize Screens (Keep This - Pass self for navigation) ---
+        # --- Initialize Screens ---
         self.home_screen = HomeScreen(parent=self)
         self.radio_screen = RadioScreen(self.radio_manager, parent=self)
         self.obd_screen = OBDScreen(parent=self)
         self.settings_screen = SettingsScreen(self.settings_manager, self)
 
-        # --- Add Screens to Stack (Keep This) ---
+        # --- Add Screens to Stack ---
         self.stacked_widget.addWidget(self.home_screen)
         self.stacked_widget.addWidget(self.radio_screen)
         self.stacked_widget.addWidget(self.obd_screen)
         self.stacked_widget.addWidget(self.settings_screen)
 
-        # --- Connect Backend Signals to GUI Slots (Keep This) ---
+        # --- Connect Backend Signals ---
         self.obd_manager.connection_status.connect(self.update_obd_status)
         self.obd_manager.data_updated.connect(self.obd_screen.update_data)
         self.radio_manager.radio_status.connect(self.update_radio_status)
@@ -201,23 +193,20 @@ class MainWindow(QMainWindow):
         self.radio_manager.signal_strength.connect(self.radio_screen.update_signal_strength)
         self.bluetooth_manager.connection_changed.connect(self.update_bluetooth_status)
         self.bluetooth_manager.battery_updated.connect(self.update_bluetooth_battery)
-        # Connect media signals directly to HomeScreen slots
         self.bluetooth_manager.media_properties_changed.connect(self.home_screen.update_media_info)
         self.bluetooth_manager.playback_status_changed.connect(self.home_screen.update_playback_status)
 
-        # --- Initialize Volume/Mute States (Moved after widgets are created) ---
+        # --- Initialize Volume/Mute States ---
         initial_system_mute = self.audio_manager.get_mute_status()
         self.is_muted = initial_system_mute if initial_system_mute is not None else False
         self.last_volume_level = self.settings_manager.get("volume") or 50
         if not self.is_muted and self.last_volume_level == 0:
             self.last_volume_level = 50
 
-        # Update volume button based on initial state
         initial_icon = self.volume_muted_icon if self.is_muted else self.volume_normal_icon
         self.volume_icon_button.setIcon(initial_icon)
         self.volume_icon_button.setChecked(self.is_muted)
 
-        # Set initial slider value and sync system volume
         initial_slider_value = self.audio_manager.get_volume()
         if initial_slider_value is None:
             initial_slider_value = 0 if self.is_muted else self.last_volume_level
@@ -227,20 +216,19 @@ class MainWindow(QMainWindow):
         else:
              self.audio_manager.set_mute(True)
 
-        # --- Start Backend Threads (Keep This) ---
+        # --- Start Backend Threads ---
         self.obd_manager.start()
+        if self.radio_manager.radio_type != "none": self.radio_manager.start()
         self.bluetooth_manager.start()
-        if self.radio_manager.radio_type != "none":
-            self.radio_manager.start()
-        else:
-            self.update_radio_status("Disabled")
 
         # Set initial screen
         self.stacked_widget.setCurrentWidget(self.home_screen)
 
         # --- Keyboard Shortcut for Quitting ---
         self.quit_shortcut = QShortcut(QKeySequence("Ctrl+Q"), self)
-        self.quit_shortcut.activated.connect(self.close) # Trigger the same close event as the power button
+        self.quit_shortcut.activated.connect(self.close)
+
+        # Initial scaling/theme applied by first resizeEvent
 
 
     # --- Slots for Bluetooth updates ---
