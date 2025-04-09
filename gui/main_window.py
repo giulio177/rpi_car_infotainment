@@ -46,6 +46,9 @@ class MainWindow(QMainWindow):
         self.audio_manager = AudioManager()
         self.bluetooth_manager = BluetoothManager()
 
+        # --- Flag to track initial scaling ---
+        self._initial_scaling_done = False
+
         # --- Base sizes definition (relative to BASE_RESOLUTION) ---
         self.base_icon_size = QSize(38, 38) # Slightly larger base for 1080p? Adjust.
         self.base_header_icon_size = QSize(28, 28) # Smaller icon for header - Adjust
@@ -330,11 +333,27 @@ class MainWindow(QMainWindow):
     # --- resizeEvent handler ---
     def resizeEvent(self, event):
         """Override resizeEvent to apply scaling when window size changes."""
-        super().resizeEvent(event) # Call base class implementation
-        if event.size().width() < 100 or event.size().height() < 100:
+        super().resizeEvent(event)
+        # Only apply scaling if the initial setup via showEvent is done
+        # and the size is reasonable (avoid tiny intermediate sizes)
+        if not self._initial_scaling_done or event.size().width() < 100 or event.size().height() < 100:
+             print(f"Resize event ignored (Initial scaling done: {self._initial_scaling_done}, Size: {event.size()})")
              return
-        print(f"Window resized to: {event.size().width()}x{event.size().height()}")
+
+        print(f"Window resized to: {event.size().width()}x{event.size().height()} (Applying scaling)")
         self._apply_scaling()
+
+    # --- showEvent ---
+    def showEvent(self, event):
+        """Override showEvent to trigger initial scaling AFTER window is shown fullscreen."""
+        super().showEvent(event)
+        if not self._initial_scaling_done:
+            print("showEvent: Triggering initial scaling...")
+            # Force an immediate scaling calculation based on the now-correct fullscreen size
+            self._apply_scaling()
+            self._initial_scaling_done = True # Prevent resizeEvent from double-scaling initially
+        else:
+            print("showEvent: Initial scaling already done.")
 
     # --- Central scaling logic ---
     def _apply_scaling(self):
@@ -383,29 +402,20 @@ class MainWindow(QMainWindow):
         # Apply to layouts
         self.bottom_bar_layout.setContentsMargins(scaled_margin, scaled_margin, scaled_margin, scaled_margin)
         self.bottom_bar_layout.setSpacing(scaled_spacing)
+        self.main_layout.setContentsMargins(0,0,0,0)
+        self.main_layout.setSpacing(scale_value(5, scale_factor))
 
-        # Main layout margins/spacing (can affect space available for children)
-        self.main_layout.setContentsMargins(0,0,0,0) # Usually main layout has no margins itself
-        self.main_layout.setSpacing(scale_value(5, scale_factor)) # Small spacing between stack and bottom bar
-
-        # --- Re-apply theme/stylesheet with new scale factor ---
-        # This handles font sizes and other QSS-controlled properties
+         # --- Re-apply theme/stylesheet ---
         apply_theme(QApplication.instance(), self.current_theme, scale_factor)
 
-        # --- Update Header Icons (call the update method to apply scaled size) ---
-        self.update_bluetooth_header(self.bluetooth_manager.connected_device_path is not None, "") # Force icon update with new size
-        self.update_bluetooth_header_battery(self.bluetooth_manager.current_battery) # Force battery text update
+        # --- Update Header Icons (remains the same) ---
+        self.update_bluetooth_header(self.bluetooth_manager.connected_device_path is not None, "")
+        self.update_bluetooth_header_battery(self.bluetooth_manager.current_battery)
 
-        # --- Notify Child Screens (Optional but recommended for complex children) ---
-        # Children might need to adjust internal layouts/widgets not covered by QSS
-        if hasattr(self.home_screen, 'update_scaling'):
-            self.home_screen.update_scaling(scale_factor, scaled_main_margin)
-        if hasattr(self.radio_screen, 'update_scaling'):
-            self.radio_screen.update_scaling(scale_factor, scaled_main_margin)
-        if hasattr(self.obd_screen, 'update_scaling'):
-            self.obd_screen.update_scaling(scale_factor, scaled_main_margin)
-        if hasattr(self.settings_screen, 'update_scaling'):
-            self.settings_screen.update_scaling(scale_factor, scaled_main_margin)
+        # --- Notify Child Screens ---
+        for screen in self.all_screens:
+             if hasattr(screen, 'update_scaling'):
+                  screen.update_scaling(scale_factor, scaled_main_margin)
 
     def switch_theme(self, theme_name):
         """Switches theme and re-applies scaling/styling."""
