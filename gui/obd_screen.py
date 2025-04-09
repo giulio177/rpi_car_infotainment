@@ -9,7 +9,7 @@ from .styling import scale_value
 
 class OBDScreen(QWidget):
     # --- ADDED: Screen Title ---
-    screen_title = "OBD"
+    screen_title = "OBD-II Data"
     
     def __init__(self, parent=None): # parent is likely MainWindow
         super().__init__(parent)
@@ -74,19 +74,13 @@ class OBDScreen(QWidget):
 
     def update_scaling(self, scale_factor, scaled_main_margin):
         """Applies scaling to internal layouts."""
-        scaled_top_section_spacing = scale_value(self.base_top_section_spacing, scale_factor)
+        scaled_spacing = scale_value(self.base_spacing, scale_factor)
         scaled_grid_spacing = scale_value(self.base_grid_spacing, scale_factor)
-        scaled_media_spacing = scale_value(self.base_media_spacing, scale_factor)
-        scaled_playback_spacing = scale_value(self.base_media_playback_button_spacing, scale_factor)
 
-        # Apply to layouts
+        # Apply to layouts that EXIST in this screen
         self.main_layout.setContentsMargins(scaled_main_margin, scaled_main_margin, scaled_main_margin, scaled_main_margin)
-        self.main_layout.setSpacing(scaled_main_margin) # Main spacing between top section / (nothing else now)
-
-        self.top_section_layout.setSpacing(scaled_top_section_spacing)
-        self.grid_layout.setSpacing(scaled_grid_spacing)
-        self.media_layout.setSpacing(scaled_media_spacing)
-        self.playback_layout.setSpacing(scaled_playback_spacing)
+        self.main_layout.setSpacing(scaled_spacing)
+        self.grid_layout.setSpacing(scaled_grid_spacing) # Grid layout exists
 
     @pyqtSlot(dict)
     def update_data(self, data_dict):
