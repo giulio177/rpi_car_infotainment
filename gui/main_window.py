@@ -8,16 +8,17 @@ from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                              QSlider) # Keep QPushButton if used elsewhere
 from PyQt6.QtCore import pyqtSlot, Qt, QTimer, QDateTime, QSize, QMargins
 
-from PyQt6.QtGui import QIcon # Added QIcon
+from PyQt6.QtGui import QIcon, QShortcut, QKeySequence
 
 
-# Keep these imports
+# Import screens
 from .home_screen import HomeScreen
 from .radio_screen import RadioScreen
 from .obd_screen import OBDScreen
-from .setting_screen import SettingsScreen # Corrected import name
+from .setting_screen import SettingsScreen
 from .styling import apply_theme, scale_value
 
+# Import backend managers
 from backend.obd_manager import OBDManager
 from backend.radio_manager import RadioManager
 from backend.audio_manager import AudioManager
@@ -68,36 +69,12 @@ class MainWindow(QMainWindow):
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
         self.setWindowTitle("RPi Car Infotainment")
 
-        # --- Apply Resolution from Settings ---
-        try:
-            resolution = self.settings_manager.get("window_resolution")
-            if isinstance(resolution, list) and len(resolution) == 2:
-                 # self.resize(resolution[0], resolution[1]) # DEFER RESIZE until after UI setup
-                 self._initial_width = resolution[0]
-                 self._initial_height = resolution[1]
-                 print(f"Target resolution set to: {resolution[0]}x{resolution[1]}")
-            else:
-                 print("Warning: Invalid resolution setting found, using default.")
-                 default_res = self.settings_manager.defaults.get("window_resolution", [1024, 600])
-                 # self.resize(default_res[0], default_res[1]) # DEFER RESIZE
-                 self._initial_width = default_res[0]
-                 self._initial_height = default_res[1]
-        except Exception as e:
-            print(f"Error applying resolution setting: {e}. Using default.")
-            # self.resize(1024, 600) # DEFER RESIZE
-            self._initial_width = 1024
-            self._initial_height = 600
-
-
         # --- Apply Theme ---
         self.current_theme = self.settings_manager.get("theme")
-        # apply_theme(QApplication.instance(), self.current_theme) # Moved lower
-
+        
         # --- Central Widget Area ---
         self.central_widget = QWidget()
         self.main_layout = QVBoxLayout(self.central_widget)
-        # self.main_layout.setContentsMargins(0, 0, 0, 0) # Margins set by scaling
-        # self.main_layout.setSpacing(0) # Spacing set by scaling
         self.setCentralWidget(self.central_widget)
 
         # --- Stacked Widget for Screens (Keep This) ---
@@ -113,24 +90,20 @@ class MainWindow(QMainWindow):
         self.separator_label = QLabel("|")
         self.separator_label.setObjectName("statusBarSeparator")
 
-        # --- ADDED: Bluetooth Status Labels ---
+        # --- Bluetooth Status Labels ---
         self.bt_name_label = QLabel("BT: -")
         self.bt_name_label.setObjectName("statusBarBtNameLabel")
         self.bt_battery_label = QLabel("") # Initially empty battery label
         self.bt_battery_label.setObjectName("statusBarBtBatteryLabel")
         self.bt_separator_label = QLabel("|") # Separator for BT section
         self.bt_separator_label.setObjectName("statusBarSeparator")
-        # Hide BT labels initially
         self.bt_name_label.hide()
         self.bt_battery_label.hide()
         self.bt_separator_label.hide()
-        # ---
       
         # --- PERSISTENT BOTTOM BAR ---
         self.bottom_bar_widget = QWidget()
         self.bottom_bar_widget.setObjectName("persistentBottomBar")
-
-        # --- MAKE SURE THIS LINE EXISTS AND IS HERE ---
         self.bottom_bar_layout = QHBoxLayout(self.bottom_bar_widget)
 
         # --- Create bottom bar buttons (sizes set by scaling) ---
@@ -265,17 +238,12 @@ class MainWindow(QMainWindow):
         # Set initial screen
         self.stacked_widget.setCurrentWidget(self.home_screen)
 
-        # --- Apply initial scaling and resize ---
-        self._apply_scaling() # Apply scaling based on initial size
-        self.resize(self._initial_width, self._initial_height) # Now resize the window
-
-        # --- Apply Theme (Needs to happen AFTER scaling so QSS uses correct values) ---
-        # We need the scale factor for the theme application now
-        scale_factor = self.height() / self.BASE_RESOLUTION.height() if self.BASE_RESOLUTION.height() > 0 else 1.0
-        apply_theme(QApplication.instance(), self.current_theme, scale_factor)
+        # --- Keyboard Shortcut for Quitting ---
+        self.quit_shortcut = QShortcut(QKeySequence("Ctrl+Q"), self)
+        self.quit_shortcut.activated.connect(self.close) # Trigger the same close event as the power button
 
 
-    # --- ADDED: Slots for Bluetooth updates ---
+    # --- Slots for Bluetooth updates ---
     @pyqtSlot(bool, str)
     def update_bluetooth_status(self, connected, device_name):
         print(f"MainWindow received BT status: Connected={connected}, Name='{device_name}'")
@@ -332,14 +300,16 @@ class MainWindow(QMainWindow):
         self.radio_screen.update_status_display(status)
 
 
-    # --- ADDED: resizeEvent handler ---
+    # --- resizeEvent handler ---
     def resizeEvent(self, event):
         """Override resizeEvent to apply scaling when window size changes."""
         super().resizeEvent(event) # Call base class implementation
+        if event.size().width() < 100 or event.size().height() < 100:
+             return
         print(f"Window resized to: {event.size().width()}x{event.size().height()}")
         self._apply_scaling()
 
-    # --- ADDED: Central scaling logic ---
+    # --- Central scaling logic ---
     def _apply_scaling(self):
         """Applies scaling to UI elements based on current window height."""
         current_height = self.height()
@@ -403,15 +373,14 @@ class MainWindow(QMainWindow):
             self.settings_screen.update_scaling(scale_factor, scaled_main_margin)
 
     def switch_theme(self, theme_name):
+        """Switches theme and re-applies scaling/styling."""
         if theme_name != self.current_theme:
             print(f"Switching theme to: {theme_name}")
             self.current_theme = theme_name
-            # --- MODIFIED: Apply theme using current scale factor ---
-            scale_factor = self.height() / self.BASE_RESOLUTION.height() if self.BASE_RESOLUTION.height() > 0 else 1.0
-            apply_theme(QApplication.instance(), self.current_theme, scale_factor)
-            # ---
+            # Re-apply scaling which now includes re-applying the theme with the correct factor
+            self._apply_scaling()
             self.settings_manager.set("theme", theme_name)
-
+          
     def update_obd_config(self):
         # ... (implementation remains the same) ...
         print("OBD configuration updated. Restarting OBD Manager...")
@@ -487,29 +456,28 @@ class MainWindow(QMainWindow):
             print("Restart cancelled by user.")
 
     def closeEvent(self, event):
-        # Save the last NON-MUTED volume level before closing
-        # Use self.last_volume_level which is updated during interaction
-        if self.last_volume_level > 0:
+        """Handles window close events (triggered by Alt+F4, Ctrl+Q, Power button)."""
+        # ... (Save volume settings logic) ...
+        if self.last_volume_level > 0: # Save last non-muted
              print(f"Saving last non-muted volume: {self.last_volume_level}")
              self.settings_manager.set("volume", self.last_volume_level)
-        # If user manually slid to 0 and it wasn't a mute action, save 0
-        elif self.volume_slider.value() == 0 and not self.is_muted:
+        elif self.volume_slider.value() == 0 and not self.is_muted: # Save 0 if manually set
              print("Saving volume as 0 (manually set)")
              self.settings_manager.set("volume", 0)
-        # Don't save volume if muted (last_volume_level already holds the value to restore)
 
         print("Close event triggered. Stopping background threads...")
-        # ... (rest of closeEvent: stop threads, accept event) ...
+        # Stop threads gracefully
         if hasattr(self, 'radio_manager') and self.radio_manager.isRunning(): self.radio_manager.stop(); self.radio_manager.wait(1500)
         if hasattr(self, 'obd_manager') and self.obd_manager.isRunning(): self.obd_manager.stop(); self.obd_manager.wait(1500)
         if hasattr(self, 'bluetooth_manager') and self.bluetooth_manager.isRunning():
             print("Stopping Bluetooth Manager...")
             self.bluetooth_manager.stop()
-            self.bluetooth_manager.wait(1500) # Wait up to 1.5s
+            self.bluetooth_manager.wait(1500)
             print("Bluetooth Manager stopped.")
+        # Save other settings
         if hasattr(self, 'radio_manager') and self.radio_manager.radio_type != "none": self.settings_manager.set("last_fm_station", self.radio_manager.current_frequency)
         print("Threads stopped. Exiting.")
-        event.accept()
+        event.accept() # Accept the close event
 
 
     # --- toggle_mute to use AudioManager ---
