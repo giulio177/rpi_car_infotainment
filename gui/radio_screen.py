@@ -9,7 +9,7 @@ from .styling import scale_value
 
 class RadioScreen(QWidget):
     # --- ADDED: Screen Title ---
-    screen_title = "Radio FM"
+    screen_title = "FM Radio"
   
     def __init__(self, radio_manager, parent=None): # parent is likely MainWindow
         super().__init__(parent)
@@ -18,10 +18,9 @@ class RadioScreen(QWidget):
 
         # --- Store base sizes ---
         self.base_margin = 10
-        self.base_top_section_spacing = 15
-        self.base_grid_spacing = 8
-        self.base_media_spacing = 10
-        self.base_media_playback_button_spacing = 5
+        self.base_spacing = 10 # General vertical spacing
+        self.base_controls_spacing = 10
+        self.base_presets_spacing = 5
 
         # --- Main Layout (Vertical) ---
         self.main_layout = QVBoxLayout(self)
@@ -86,20 +85,17 @@ class RadioScreen(QWidget):
 
     def update_scaling(self, scale_factor, scaled_main_margin):
         """Applies scaling to internal layouts."""
-        scaled_top_section_spacing = scale_value(self.base_top_section_spacing, scale_factor)
-        scaled_grid_spacing = scale_value(self.base_grid_spacing, scale_factor)
-        scaled_media_spacing = scale_value(self.base_media_spacing, scale_factor)
-        scaled_playback_spacing = scale_value(self.base_media_playback_button_spacing, scale_factor)
+        scaled_spacing = scale_value(self.base_spacing, scale_factor)
+        scaled_controls_spacing = scale_value(self.base_controls_spacing, scale_factor)
+        scaled_presets_spacing = scale_value(self.base_presets_spacing, scale_factor)
 
-        # Apply to layouts
+        # Apply to layouts that EXIST in this screen
         self.main_layout.setContentsMargins(scaled_main_margin, scaled_main_margin, scaled_main_margin, scaled_main_margin)
-        self.main_layout.setSpacing(scaled_main_margin) # Main spacing between top section / (nothing else now)
-      
-        self.top_section_layout.setSpacing(scaled_top_section_spacing)
-        self.grid_layout.setSpacing(scaled_grid_spacing)
-        self.media_layout.setSpacing(scaled_media_spacing)
-        self.playback_layout.setSpacing(scaled_playback_spacing)
+        self.main_layout.setSpacing(scaled_spacing)
+        self.controls_layout.setSpacing(scaled_controls_spacing)
+        self.presets_layout.setSpacing(scaled_presets_spacing)
 
+  
     def preset_clicked(self, index):
         # TODO: Retrieve the frequency associated with this preset index (e.g., from settings)
         # Placeholder: dummy frequency calculation
