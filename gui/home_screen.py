@@ -61,6 +61,9 @@ class HomeScreen(QWidget):
         self.clock_label = QLabel("00:00")
         self.clock_label.setObjectName("headerClock")
         self.header_layout.addWidget(self.clock_label) # Clock is last
+        self.clock_timer = QTimer(self) # Assign to self.clock_timer
+        # ----------------------
+        self.clock_timer.timeout.connect(self._update_clock)
         self.clock_timer.start(10000)
         self._update_clock()
         # --- Add Header to Main Layout (Stretch=0, takes minimal height) ---
