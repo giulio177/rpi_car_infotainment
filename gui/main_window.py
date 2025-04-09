@@ -48,15 +48,16 @@ class MainWindow(QMainWindow):
         self._has_scaled_correctly = False
 
         # --- Base sizes definition ---
-        self.base_icon_size = QSize(38, 38)
-        self.base_header_icon_size = QSize(28, 28)
-        self.base_bottom_bar_button_size = QSize(55, 55)
-        self.base_bottom_bar_height = 80
-        self.base_volume_slider_width = 180
-        self.base_layout_spacing = 12 # General spacing
-        self.base_header_spacing = 15 # Specific spacing for header items
-        self.base_layout_margin = 6 # Bottom bar internal margin
-        self.base_main_margin = 12 # Child screen margin
+        self.base_top_padding = 15 # Added base padding for the very top
+        self.base_icon_size = QSize(42, 42) # Larger icons for bottom bar
+        # self.base_header_icon_size = QSize(28, 28) # Still needed for calculation robustness
+        self.base_bottom_bar_button_size = QSize(65, 65) # Larger buttons
+        self.base_bottom_bar_height = 90 # Taller bottom bar
+        self.base_volume_slider_width = 220 # Wider slider
+        self.base_layout_spacing = 15 # More spacing between widgets generally
+        self.base_header_spacing = 20 # More spacing between header items
+        self.base_layout_margin = 8 # Bottom bar internal margin
+        self.base_main_margin = 15 # Child screen margin
 
         # --- Load Icons (No BT icon needed now) ---
         self.home_icon = QIcon(ICON_HOME)
@@ -84,35 +85,32 @@ class MainWindow(QMainWindow):
         self.main_layout = QVBoxLayout(self.central_widget) # Main vertical layout
         self.setCentralWidget(self.central_widget)
 
-        # --- PERSISTENT HEADER BAR (Moved Here) ---
-        self.header_layout = QHBoxLayout() # Horizontal layout for header
-        # Spacing set by scaling
+        # --- ADDED: Top Padding ---
+        # We'll add the actual spacer item in _apply_scaling
+        # For now, just structure the layout additions correctly
+        # ---
 
-        self.header_title_label = QLabel("Home") # Initial title
+        # --- PERSISTENT HEADER BAR ---
+        self.header_layout = QHBoxLayout()
+        # Spacing set by scaling
+        self.header_title_label = QLabel("Home")
         self.header_title_label.setObjectName("headerTitle")
         self.header_layout.addWidget(self.header_title_label)
-
         header_spacer = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-        self.header_layout.addItem(header_spacer) # Pushes right items
-
-        # Combined BT Status Label (Text: "Device - XX%")
-        self.header_bt_status_label = QLabel("")
-        self.header_bt_status_label.setObjectName("headerBtStatus") # New ID for styling
-        self.header_bt_status_label.hide() # Initially hidden
+        self.header_layout.addItem(header_spacer)
+        self.header_bt_status_label = QLabel("") # Combined BT Status
+        self.header_bt_status_label.setObjectName("headerBtStatus")
+        self.header_bt_status_label.hide()
         self.header_layout.addWidget(self.header_bt_status_label)
-
         self.header_clock_label = QLabel("00:00")
         self.header_clock_label.setObjectName("headerClock")
         self.header_layout.addWidget(self.header_clock_label)
-
-        # Clock Timer now managed by MainWindow
         self.header_clock_timer = QTimer(self)
         self.header_clock_timer.timeout.connect(self._update_header_clock)
-        self.header_clock_timer.start(10000) # Update every 10s
-        self._update_header_clock() # Initial update
-
-        # Add header layout to the top of the main layout
-        self.main_layout.addLayout(self.header_layout, 0) # Stretch = 0
+        self.header_clock_timer.start(10000)
+        self._update_header_clock()
+        # Add header layout to the main layout (AFTER potential top spacer)
+        self.main_layout.addLayout(self.header_layout, 0)
 
         # --- Stacked Widget for Screens ---
         self.stacked_widget = QStackedWidget()
@@ -254,7 +252,6 @@ class MainWindow(QMainWindow):
 
         # Set initial screen & Title
         self.stacked_widget.setCurrentWidget(self.home_screen)
-        self.update_header_title(0) # Set initial title based on home screen index
       
         # --- Keyboard Shortcut for Quitting ---
         self.quit_shortcut = QShortcut(QKeySequence("Ctrl+Q"), self)
@@ -263,7 +260,7 @@ class MainWindow(QMainWindow):
         # Apply initial scaling based on BASE size only
         # We call it once here. resizeEvent will call it again, but the factor should be 1.0
         print("Applying initial scaling based on fixed BASE_RESOLUTION.")
-        self._apply_scaling()
+        
 
 
     # --- Event Handlers ---
@@ -272,54 +269,85 @@ class MainWindow(QMainWindow):
         super().resizeEvent(event)
         current_size = event.size()
         print(f"DEBUG: resizeEvent triggered with Size: {current_size}")
-        is_fullscreen_approx = current_size.width() > 1000 and current_size.height() > 500
-        if is_fullscreen_approx and not self._has_scaled_correctly:
+        # Check if the size matches our target base (allowing for small variations if necessary)
+        is_target_size = abs(current_size.width() - self.BASE_RESOLUTION.width()) < 5 and \
+                         abs(current_size.height() - self.BASE_RESOLUTION.height()) < 5
+
+        if is_target_size and not self._has_scaled_correctly:
             print(f"Applying initial scaling for size: {current_size}")
             self._apply_scaling()
+            self.update_header_title(self.stacked_widget.currentIndex()) # Set title now
             self._has_scaled_correctly = True
-        # Ignoring subsequent or small initial resizes for stability
-
-    # REMOVED showEvent - Relying on resizeEvent check
-
+        elif self._has_scaled_correctly:
+             # Optional: Re-apply scaling if size changes later?
+             # print(f"Subsequent resize event: {current_size}")
+             # self._apply_scaling()
+             pass # Usually ignore in forced fullscreen
+        else:
+            print(f"Ignoring resize event (Size: {current_size}, Scaled Flag: {self._has_scaled_correctly})")
 
     # --- Scaling ---
     def _apply_scaling(self):
         """Applies scaling to UI elements based on the fixed BASE_RESOLUTION."""
-        current_height = self.height() # Use actual height for factor if needed, but base vs base gives 1.0
+        current_height = self.height() # Get current actual height
         if self.BASE_RESOLUTION.height() <= 0: scale_factor = 1.0
-        else: scale_factor = current_height / self.BASE_RESOLUTION.height() # Keep factor based on actual height vs base
+        else: scale_factor = current_height / self.BASE_RESOLUTION.height() # Factor relative to actual screen height
         print(f"DEBUG: _apply_scaling factor: {scale_factor:.3f} (Height: {current_height})")
 
-        # Calculate scaled sizes
+        # Calculate scaled sizes using the NEW base sizes
+        scaled_top_padding = scale_value(self.base_top_padding, scale_factor) # Added
         scaled_icon_size = QSize(scale_value(self.base_icon_size.width(), scale_factor), scale_value(self.base_icon_size.height(), scale_factor))
+        # scaled_header_icon_size = QSize(...) # No longer needed for calculation if icon removed
         scaled_button_size = QSize(scale_value(self.base_bottom_bar_button_size.width(), scale_factor), scale_value(self.base_bottom_bar_button_size.height(), scale_factor))
         scaled_bottom_bar_height = scale_value(self.base_bottom_bar_height, scale_factor)
         scaled_slider_width = scale_value(self.base_volume_slider_width, scale_factor)
         scaled_spacing = scale_value(self.base_layout_spacing, scale_factor)
-        scaled_header_spacing = scale_value(self.base_header_spacing, scale_factor) # Added header spacing
+        scaled_header_spacing = scale_value(self.base_header_spacing, scale_factor)
         scaled_margin = scale_value(self.base_layout_margin, scale_factor)
         scaled_main_margin = scale_value(self.base_main_margin, scale_factor)
 
+        # --- Apply sizes and layouts ---
         # Apply to bottom bar elements
-        # ... (Set sizes/widths for bottom bar) ...
+        self.home_button_bar.setIconSize(scaled_icon_size)
+        self.home_button_bar.setFixedSize(scaled_button_size)
+        self.settings_button.setIconSize(scaled_icon_size)
+        self.settings_button.setFixedSize(scaled_button_size)
+        self.volume_icon_button.setIconSize(scaled_icon_size)
+        self.volume_icon_button.setFixedSize(scaled_button_size)
+        self.restart_button_bar.setIconSize(scaled_icon_size)
+        self.restart_button_bar.setFixedSize(scaled_button_size)
+        self.power_button.setIconSize(scaled_icon_size)
+        self.power_button.setFixedSize(scaled_button_size)
+        self.volume_slider.setFixedWidth(scaled_slider_width)
+        self.bottom_bar_widget.setFixedHeight(scaled_bottom_bar_height)
 
         # Apply to layouts
-        self.header_layout.setSpacing(scaled_header_spacing) # Scale header spacing
+        # Clear layout first to potentially re-order spacing? Simpler to adjust existing.
+        self.main_layout.setContentsMargins(0, 0, 0, 0) # No margin for main layout itself
+        # Set spacing between header, stack, bottom bar
+        self.main_layout.setSpacing(scaled_spacing)
+        # Set top margin for the entire content area
+        self.central_widget.setStyleSheet(f"QWidget#central_widget {{ padding-top: {scaled_top_padding}px; }}")
+        # Or add a spacer item (might be less reliable with theme changes)
+        # if self.main_layout.itemAt(0) is not self.header_layout: # Add spacer only once
+        #      self.main_layout.insertSpacing(0, scaled_top_padding)
+
+
+        self.header_layout.setSpacing(scaled_header_spacing)
         self.bottom_bar_layout.setContentsMargins(scaled_margin, scaled_margin, scaled_margin, scaled_margin)
         self.bottom_bar_layout.setSpacing(scaled_spacing)
-        self.main_layout.setContentsMargins(0,0,0,0)
-        self.main_layout.setSpacing(scale_value(5, scale_factor)) # Spacing between header/stack/bottom
 
-        # Re-apply theme/stylesheet
+        # --- Re-apply theme/stylesheet ---
         apply_theme(QApplication.instance(), self.current_theme, scale_factor)
 
-        # Update Header Bluetooth Status (force refresh after style change)
-        self.update_bluetooth_header_status()
+        # --- Update Header Bluetooth Status ---
+        self.update_bluetooth_header_status() # Update text/visibility
 
-        # Notify Child Screens (pass margin, factor)
+        # --- Notify Child Screens ---
         for screen in self.all_screens:
              if hasattr(screen, 'update_scaling'):
                   screen.update_scaling(scale_factor, scaled_main_margin)
+
 
 
     # --- Header Update Slots ---
@@ -343,32 +371,32 @@ class MainWindow(QMainWindow):
 
 
     # --- Combined Slot for Header BT Status Update ---
-    @pyqtSlot() # Triggered by connection_changed and battery_updated
-    @pyqtSlot(bool) # To handle connection signal directly if needed
-    @pyqtSlot(object) # To handle battery signal directly if needed
+    @pyqtSlot()
+    @pyqtSlot(bool)
+    @pyqtSlot(object)
     def update_bluetooth_header_status(self, *args):
          """Updates the combined Bluetooth status text in the header."""
-         if not self._has_scaled_correctly: return # Don't update before scaling
+         if not self._has_scaled_correctly: return
 
          connected = self.bluetooth_manager.connected_device_path is not None
          device_name = self.bluetooth_manager.connected_device_name if connected else ""
-         battery_level = self.bluetooth_manager.current_battery
+         # battery_level = self.bluetooth_manager.current_battery # Ignore battery for now
 
          status_text = ""
          show_label = False
 
          if connected:
              show_label = True
-             # Use Alias/Name from manager
-             max_len = 20 # Max length for header display
+             max_len = 25 # Max length for header display
              display_name = (device_name[:max_len] + '...') if len(device_name) > max_len else device_name
-             status_text = display_name
-             self.header_bt_status_label.setToolTip(device_name) # Show full name on hover
-
-             if battery_level is not None and isinstance(battery_level, int):
-                  status_text += f" - {battery_level}%" # Append battery if available
-             else:
-                  status_text += " - N/A" # Indicate if battery unavailable
+             status_text = display_name # Just show the name
+             self.header_bt_status_label.setToolTip(device_name)
+             # --- Temporarily removing battery info ---
+             # if battery_level is not None and isinstance(battery_level, int):
+             #      status_text += f" - {battery_level}%"
+             # else:
+             #      status_text += " - N/A"
+             # ---
 
          print(f"DEBUG: Updating header BT status text: '{status_text}', Visible={show_label}")
          self.header_bt_status_label.setText(status_text)
