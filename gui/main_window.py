@@ -49,7 +49,7 @@ class MainWindow(QMainWindow):
 
         # --- Base sizes definition ---
         self.base_icon_size = QSize(38, 38)
-        # self.base_header_icon_size removed
+        self.base_header_icon_size = QSize(28, 28)
         self.base_bottom_bar_button_size = QSize(55, 55)
         self.base_bottom_bar_height = 80
         self.base_volume_slider_width = 180
