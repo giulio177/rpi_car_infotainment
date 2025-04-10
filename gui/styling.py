@@ -10,10 +10,11 @@ def scale_value(base_value, scale_factor):
         print(f"Warning: Could not convert base_value '{base_value}' to number in scale_value. Returning 1.")
         return 1
 
+BASE_SLIDER_THICKNESS = 18  # <<< --- TWEAK THIS SINGLE VALUE --- >>>
 
 # --- Theme Functions accepting scale_factor ---
 
-def get_light_theme(scale_factor=1.0, base_slider_thickness=18):
+def get_light_theme(scale_factor=1.0):
     # Base sizes relative to 1920x1080
     base_font_size_pt = 14
     base_padding_px = 12
@@ -29,11 +30,12 @@ def get_light_theme(scale_factor=1.0, base_slider_thickness=18):
     scaled_button_min_height = scale_value(base_button_min_height_px, scale_factor)
     scaled_border_radius = scale_value(base_border_radius_px, scale_factor)
     scaled_border = scale_value(base_border_px, scale_factor)
-    # --- Calculate DERIVED slider sizes (using base_slider_thickness) ---
-    scaled_slider_thickness = scale_value(base_slider_thickness, scale_factor)
-    scaled_slider_handle_s = max(scaled_slider_thickness + scale_value(10, scale_factor), scale_value(base_slider_thickness * 2.0, scale_factor))
+    # --- Calculate DERIVED slider sizes using the CONSTANT ---
+    scaled_slider_thickness = scale_value(BASE_SLIDER_THICKNESS, scale_factor)
+    # Make handle ~2x groove thickness, ensure it's an even number for centered radius
+    scaled_slider_handle_s = max(scaled_slider_thickness + scale_value(10, scale_factor), scale_value(BASE_SLIDER_THICKNESS * 2.0, scale_factor))
+    scaled_slider_handle_s = int(math.ceil(scaled_slider_handle_s / 2.0)) * 2 # Ensure even number
     scaled_slider_handle_margin = - (scaled_slider_handle_s - scaled_slider_thickness) // 2
-
     # Generate QSS String
     return f"""
     /* ==================== Global Styles ==================== */
@@ -109,11 +111,9 @@ def get_light_theme(scale_factor=1.0, base_slider_thickness=18):
 
     /* --- QSlider Styling (Targeting #volumeSlider) --- */
     QSlider#volumeSlider::groove:horizontal {{
-        border: {scaled_border}px solid #aaaaaa;
-        background: #e8e8e8;
+        border: {scaled_border}px solid #aaaaaa; background: #e8e8e8;
         height: {scaled_slider_thickness}px; /* Use derived scaled thickness */
-        border-radius: {scaled_slider_thickness // 2}px; /* Rounded based on thickness */
-        /* Adjust horizontal margin based on derived handle size */
+        border-radius: {scaled_slider_thickness // 2}px;
         margin: 0px {scaled_slider_handle_s // 3}px;
     }}
     QSlider#volumeSlider::handle:horizontal {{
@@ -293,7 +293,7 @@ def get_light_theme(scale_factor=1.0, base_slider_thickness=18):
     QPushButton#powerNavButton:pressed {{ background-color: #e67373; }}
     """
 
-def get_dark_theme(scale_factor=1.0, base_slider_thickness=18):
+def get_dark_theme(scale_factor=1.0):
     # Base sizes relative to 1920x1080
     base_font_size_pt = 14
     base_padding_px = 12
@@ -309,9 +309,10 @@ def get_dark_theme(scale_factor=1.0, base_slider_thickness=18):
     scaled_button_min_height = scale_value(base_button_min_height_px, scale_factor)
     scaled_border_radius = scale_value(base_border_radius_px, scale_factor)
     scaled_border = scale_value(base_border_px, scale_factor)
-    # --- Calculate DERIVED slider sizes (using base_slider_thickness) ---
-    scaled_slider_thickness = scale_value(base_slider_thickness, scale_factor)
-    scaled_slider_handle_s = max(scaled_slider_thickness + scale_value(10, scale_factor), scale_value(base_slider_thickness * 2.0, scale_factor))
+    # --- Calculate DERIVED slider sizes using the CONSTANT ---
+    scaled_slider_thickness = scale_value(BASE_SLIDER_THICKNESS, scale_factor)
+    scaled_slider_handle_s = max(scaled_slider_thickness + scale_value(10, scale_factor), scale_value(BASE_SLIDER_THICKNESS * 2.0, scale_factor))
+    scaled_slider_handle_s = int(math.ceil(scaled_slider_handle_s / 2.0)) * 2 # Ensure even
     scaled_slider_handle_margin = - (scaled_slider_handle_s - scaled_slider_thickness) // 2
     
     # Generate QSS String
@@ -389,11 +390,10 @@ def get_dark_theme(scale_factor=1.0, base_slider_thickness=18):
 
     /* --- QSlider Styling (Targeting #volumeSlider) --- */
     QSlider#volumeSlider::groove:horizontal {{
-        border: {scaled_border}px solid #555555;
-        background: #444444;
+        border: {scaled_border}px solid #555555; background: #444444;
         height: {scaled_slider_thickness}px; /* Use derived scaled thickness */
-        border-radius: {scaled_slider_thickness // 2}px; /* Rounded based on thickness */
-        margin: 0px {scaled_slider_handle_s // 3}px; /* Horizontal margin */
+        border-radius: {scaled_slider_thickness // 2}px;
+        margin: 0px {scaled_slider_handle_s // 3}px;
     }}
     QSlider#volumeSlider::handle:horizontal {{
         background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #8080ff, stop:1 #6060f0);
@@ -570,14 +570,13 @@ def get_dark_theme(scale_factor=1.0, base_slider_thickness=18):
     """
 
 # --- apply_theme function ---
-def apply_theme(app, theme_name, scale_factor=1.0, base_slider_thickness=18):
-    """Applies the selected theme stylesheet with the given scale factor and base slider thickness."""
-    print(f"DEBUG: apply_theme called. Theme: {theme_name}, Scale: {scale_factor:.2f}, Slider Thick: {base_slider_thickness}") # Debug
+ef apply_theme(app, theme_name, scale_factor=1.0):
+    """Applies the selected theme stylesheet with the given scale factor."""
+    print(f"DEBUG: apply_theme called. Theme: {theme_name}, Scale: {scale_factor:.2f}") # Debug
     if theme_name == "dark":
-        # Pass the base thickness to the theme function
-        style_sheet = get_dark_theme(scale_factor, base_slider_thickness)
+        # Theme function now gets base thickness from the constant
+        style_sheet = get_dark_theme(scale_factor)
     else: # Default to light
-        style_sheet = get_light_theme(scale_factor, base_slider_thickness)
+        style_sheet = get_light_theme(scale_factor)
 
     app.setStyleSheet(style_sheet)
-    # Optional: Add error checking here if possible/needed
