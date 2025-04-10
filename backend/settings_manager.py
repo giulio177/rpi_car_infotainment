@@ -9,8 +9,10 @@ class SettingsManager:
             "theme": "light",
             "obd_port": None,
             "obd_baudrate": None,
+            "obd_enabled": True,
             "radio_type": "none",
             "radio_i2c_address": None,
+            "radio_enabled": True,
             "last_fm_station": 98.5,
             "window_resolution": [1920, 1080]
         }
@@ -24,6 +26,12 @@ class SettingsManager:
                     loaded_settings = json.load(f)
                     updated_settings = self.defaults.copy()
                     updated_settings.update(loaded_settings)
+                    if not isinstance(updated_settings.get("obd_enabled"), bool):
+                        print("Warning: Invalid obd_enabled value in config, using default.")
+                        updated_settings["obd_enabled"] = self.defaults["obd_enabled"]
+                    if not isinstance(updated_settings.get("radio_enabled"), bool):
+                        print("Warning: Invalid radio_enabled value in config, using default.")
+                        updated_settings["radio_enabled"] = self.defaults["radio_enabled"]
                     
                     return updated_settings
             except (json.JSONDecodeError, IOError) as e:
