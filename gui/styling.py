@@ -196,25 +196,6 @@ def get_light_theme(scale_factor=1.0):
 
     /* ==================== Screen Specific Styles ==================== */
 
-    /* --- Header --- */
-    QLabel#headerTitle {{
-        font-size: {scale_value(18, scale_factor)}pt;
-        font-weight: bold;
-        padding-right: {scaled_padding}px;
-    }}
-     QLabel#headerClock {{
-        font-size: {scale_value(18, scale_factor)}pt;
-        padding-left: {scaled_padding // 2}px;
-    }}
-     /* Combined BT Status Label in Header */
-     QLabel#headerBtStatus {{
-         font-size: {scale_value(13, scale_factor)}pt; /* Adjusted base size */
-         font-weight: normal; /* Normal weight */
-         color: #0060c0;
-         padding-left: {scaled_padding}px;
-         padding-right: {scaled_padding}px; /* More padding around BT status */
-     }}
-
     /* --- Home Screen Media --- */
     QLabel#albumArtLabel {{ /* Targets ScrollingLabel */
         border: {scale_value(2, scale_factor)}px solid #a0a0a0;
@@ -472,25 +453,6 @@ def get_dark_theme(scale_factor=1.0):
     }}
 
     /* ==================== Screen Specific Styles ==================== */
-
-    /* --- Header --- */
-    QLabel#headerTitle {{
-        font-size: {scale_value(18, scale_factor)}pt; 
-        font-weight: bold;
-        padding-right: {scaled_padding}px;
-    }}
-    QLabel#headerClock {{
-        font-size: {scale_value(18, scale_factor)}pt; 
-        padding-left: {scaled_padding // 2}px;
-    }}
-    /* Combined BT Status Label in Header */
-    QLabel#headerBtStatus {{
-        font-size: {scale_value(13, scale_factor)}pt; 
-        font-weight: normal;
-        color: #50a0ff; /* Lighter blue */
-        padding-left: {scaled_padding}px; 
-        padding-right: {scaled_padding}px;
-    }}
 
     /* --- Home Screen Media --- */
     QLabel#albumArtLabel {{ /* Targets ScrollingLabel */
