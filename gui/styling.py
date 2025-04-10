@@ -39,10 +39,32 @@ def get_light_theme(scale_factor=1.0):
     }}
     QMainWindow, QStackedWidget {{ background-color: #f0f0f0; }}
     QWidget#central_widget {{
-         background-color: #f0f0f0;
+         background-color: #f0f0f0;\
          /* padding-top set dynamically */
      }}
     QWidget#settingsScrollContent {{ background-color: #f0f0f0; }}
+    QCheckBox {
+        spacing: {scale_value(8, scale_factor)}px;
+    }
+    QCheckBox::indicator {{
+        width: {scale_value(20, scale_factor)}px; /* Size of the checkbox */
+        height: {scale_value(20, scale_factor)}px;
+        border-radius: {scale_value(4, scale_factor)}px;
+    }}
+    /* Light Theme Checkbox */
+    QCheckBox::indicator {{
+        border: {scaled_border}px solid #888888;
+        background-color: #f8f8f8;
+    }}
+    QCheckBox::indicator:checked {{
+        background-color: #007bff; /* Blue when checked */
+        border-color: #0056b3;
+        image: url(assets/icons/checkmark_light.png); /* Provide checkmark icon */
+    }}
+    QCheckBox::indicator:disabled {{
+         border-color: #c0c0c0;
+         background-color: #e0e0e0;
+    }}
 
     /* ==================== Bottom Bar ==================== */
     QWidget#persistentBottomBar {{
@@ -286,6 +308,29 @@ def get_dark_theme(scale_factor=1.0):
     QWidget {{ color: #e0e0e0; font-size: {scaled_font_size}pt; }}
     QMainWindow, QStackedWidget {{ background-color: #2e2e2e; }}
     QWidget#central_widget, QWidget#settingsScrollContent {{ background-color: #2e2e2e; }}
+
+    QCheckBox {
+        spacing: {scale_value(8, scale_factor)}px;
+    }
+    QCheckBox::indicator {{
+        width: {scale_value(20, scale_factor)}px; /* Size of the checkbox */
+        height: {scale_value(20, scale_factor)}px;
+        border-radius: {scale_value(4, scale_factor)}px;
+    }}
+    /* Dark Theme Checkbox */
+    QCheckBox::indicator {{
+        border: {scaled_border}px solid #aaaaaa;
+        background-color: #444444;
+    }}
+    QCheckBox::indicator:checked {{
+        background-color: #34a4ff;
+        border-color: #2080d0;
+        image: url(assets/icons/checkmark_dark.png); // Provide checkmark icon
+    }}
+    QCheckBox::indicator:disabled {{
+         border-color: #606060;
+         background-color: #505050;
+    }}
 
     /* ==================== Bottom Bar ==================== */
     QWidget#persistentBottomBar {{ background-color: #3a3a3a; border-top: {scaled_border}px solid #505050; }}
