@@ -38,10 +38,7 @@ def get_light_theme(scale_factor=1.0):
         font-size: {scaled_font_size}pt;
     }}
     QMainWindow, QStackedWidget {{ background-color: #f0f0f0; }}
-    QWidget#central_widget {{
-         background-color: #f0f0f0;\
-         /* padding-top set dynamically */
-     }}
+    QWidget#central_widget {{background-color: #f0f0f0;}}
     QWidget#settingsScrollContent {{ background-color: #f0f0f0; }}
     QCheckBox::indicator {{
         width: {scale_value(20, scale_factor)}px; /* Size of the checkbox */
@@ -67,7 +64,6 @@ def get_light_theme(scale_factor=1.0):
     QWidget#persistentBottomBar {{
         background-color: #e0e0e0;
         border-top: {scaled_border}px solid #b0b0b0;
-        /* Height set dynamically */
     }}
     /* Status labels in bottom bar */
     QLabel#statusBarObdLabel, QLabel#statusBarRadioLabel,
@@ -198,8 +194,6 @@ def get_light_theme(scale_factor=1.0):
          color: #0060c0;
          padding-left: {scaled_padding}px;
          padding-right: {scaled_padding}px; /* More padding around BT status */
-         /* Ensure alignment if needed, though layout should handle it */
-         /* qproperty-alignment: 'AlignVCenter'; */
      }}
 
     /* --- Home Screen Media --- */
@@ -224,15 +218,12 @@ def get_light_theme(scale_factor=1.0):
         font-size: {scale_value(base_font_size_pt + 4, scale_factor)}pt;
         font-weight: bold;
         color: #222222; /* Explicit dark color for light theme */
-        /* Alignment set in code (AlignCenter) */
-        /* qproperty-alignment: 'AlignCenter'; */
         margin-bottom: {scaled_padding // 4}px; /* Small margin below title */
     }}
      QLabel#trackArtistLabel {{ /* Targets ScrollingLabel */
         min-height: {scale_value(30, scale_factor)}px;
         font-size: {scale_value(base_font_size_pt + 2, scale_factor)}pt;
         color: #444444; /* Explicit color */
-        /* Alignment set in code (AlignCenter) */
         margin-bottom: {scaled_padding // 2}px; /* More margin below artist */
      }}
      QLabel#trackTimeLabel {{
@@ -246,7 +237,6 @@ def get_light_theme(scale_factor=1.0):
      QPushButton#mediaPrevButton, QPushButton#mediaPlayPauseButton, QPushButton#mediaNextButton {{
         min-width: {scale_value(65, scale_factor)}px;
         padding: {scale_value(base_padding_px * 0.7, scale_factor)}px;
-        /* min-height defined globally or specifically if needed */
      }}
      QPushButton#mediaPlayPauseButton {{
          font-size: {scale_value(base_font_size_pt + 8, scale_factor)}pt;
@@ -300,29 +290,65 @@ def get_dark_theme(scale_factor=1.0):
     scaled_border_radius = scale_value(base_border_radius_px, scale_factor)
     scaled_border = scale_value(base_border_px, scale_factor)
 
+    # Generate QSS String
     return f"""
     /* ==================== Global Styles ==================== */
-    QWidget {{ color: #e0e0e0; font-size: {scaled_font_size}pt; }}
+    QWidget {{ 
+        color: #e0e0e0;
+        font-size: {scaled_font_size}pt; 
+    }}
     QMainWindow, QStackedWidget {{ background-color: #2e2e2e; }}
-    QWidget#central_widget, QWidget#settingsScrollContent {{ background-color: #2e2e2e; }}
+    QWidget#central_widget{{ background-color: #2e2e2e; }}
+    QWidget#settingsScrollContent {{ background-color: #2e2e2e; }}
+    QCheckBox::indicator {{
+        width: {scale_value(20, scale_factor)}px; /* Size of the checkbox */
+        height: {scale_value(20, scale_factor)}px;
+        border-radius: {scale_value(4, scale_factor)}px;
+    }}
+    /* Dark Theme Checkbox */
+    QCheckBox::indicator {{
+        border: {scaled_border}px solid #aaaaaa;
+        background-color: #444444;
+    }}
+    QCheckBox::indicator:checked {{
+        background-color: #34a4ff;
+        border-color: #2080d0;
+        image: url(assets/icons/checkmark_dark.png); /* Provide checkmark icon*/
+    }}
+    QCheckBox::indicator:disabled {{
+         border-color: #606060;
+         background-color: #505050;
+    }}
 
     /* ==================== Bottom Bar ==================== */
-    QWidget#persistentBottomBar {{ background-color: #3a3a3a; border-top: {scaled_border}px solid #505050; }}
+    QWidget#persistentBottomBar {{
+        background-color: #3a3a3a;
+        border-top: {scaled_border}px solid #505050; 
+    }}
+    /* Status labels in bottom bar */
     QLabel#statusBarObdLabel, QLabel#statusBarRadioLabel,
     QLabel#statusBarBtNameLabel, QLabel#statusBarBtBatteryLabel {{
-        font-size: {scale_value(11, scale_factor)}pt; padding: {scale_value(4, scale_factor)}px;
+        font-size: {scale_value(11, scale_factor)}pt;
+        padding: {scale_value(4, scale_factor)}px;
     }}
-    QLabel#statusBarBtBatteryLabel {{ padding-left: {scale_value(5, scale_factor)}px; font-weight: bold; }}
+    QLabel#statusBarBtBatteryLabel {{
+        padding-left: {scale_value(5, scale_factor)}px;
+        font-weight: bold; 
+    }}
     QLabel#statusBarSeparator {{
-        font-size: {scale_value(11, scale_factor)}pt; color: #888888;
-        padding-left: {scaled_padding // 2}px; padding-right: {scaled_padding // 2}px;
+        font-size: {scale_value(11, scale_factor)}pt;
+        color: #888888;
+        padding-left: {scaled_padding // 2}px;
+        padding-right: {scaled_padding // 2}px;
     }}
 
     /* ==================== General Widgets ==================== */
     QPushButton {{
-        background-color: #505050; border: {scaled_border}px solid #707070; color: #e0e0e0;
+        background-color: #505050; 
+        border: {scaled_border}px solid #707070; color: #e0e0e0;
         padding: {scale_value(base_padding_px * 0.6, scale_factor)}px {scale_value(base_padding_px * 1.2, scale_factor)}px;
-        border-radius: {scaled_border_radius}px; min-height: {scaled_button_min_height}px;
+        border-radius: {scaled_border_radius}px; 
+        min-height: {scaled_button_min_height}px;
     }}
     QPushButton:pressed {{ background-color: #606060; }}
     QPushButton:disabled {{ background-color: #404040; color: #808080; border-color: #555555; }}
@@ -330,14 +356,17 @@ def get_dark_theme(scale_factor=1.0):
     QLabel {{ padding: {scaled_padding // 4}px; background-color: transparent; }}
 
     QLineEdit, QComboBox {{
-        background-color: #404040; border: {scaled_border}px solid #707070; color: #e0e0e0;
-        padding: {scale_value(base_padding_px * 0.6, scale_factor)}px; border-radius: {scaled_border_radius // 2}px;
+        background-color: #404040; 
+        border: {scaled_border}px solid #707070; color: #e0e0e0;
+        padding: {scale_value(base_padding_px * 0.6, scale_factor)}px; 
+        border-radius: {scaled_border_radius // 2}px;
         min-height: {scale_value(base_button_min_height_px * 0.9, scale_factor)}px;
     }}
 
     QSlider::groove:horizontal {{
         border: {scaled_border}px solid #666; background: #555555;
-        height: {scale_value(10, scale_factor)}px; border-radius: {scaled_border_radius // 2}px;
+        height: {scale_value(10, scale_factor)}px; 
+        border-radius: {scaled_border_radius // 2}px;
     }}
     QSlider::handle:horizontal {{
         background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #9090ff, stop:1 #7070f0);
@@ -348,11 +377,13 @@ def get_dark_theme(scale_factor=1.0):
 
      QProgressBar {{
         border: {scaled_border}px solid #555555; border-radius: {scaled_border_radius // 2}px;
-        background-color: #444444; text-align: center; height: {scale_value(18, scale_factor)}px;
+        background-color: #444444; text-align: center; 
+        height: {scale_value(18, scale_factor)}px;
     }}
     QProgressBar::chunk {{
         background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #2dc8dd, stop:1 #1db8cc);
-        margin: {scale_value(2, scale_factor)}px; border-radius: {scale_value(base_border_radius_px // 3, scale_factor)}px;
+        margin: {scale_value(2, scale_factor)}px; 
+        border-radius: {scale_value(base_border_radius_px // 3, scale_factor)}px;
     }}
      QGroupBox {{
         font-size: {scale_value(base_font_size_pt + 1, scale_factor)}pt;
@@ -406,16 +437,21 @@ def get_dark_theme(scale_factor=1.0):
 
     /* --- Header --- */
     QLabel#headerTitle {{
-        font-size: {scale_value(18, scale_factor)}pt; font-weight: bold;
+        font-size: {scale_value(18, scale_factor)}pt; 
+        font-weight: bold;
         padding-right: {scaled_padding}px;
     }}
     QLabel#headerClock {{
-        font-size: {scale_value(18, scale_factor)}pt; padding-left: {scaled_padding // 2}px;
+        font-size: {scale_value(18, scale_factor)}pt; 
+        padding-left: {scaled_padding // 2}px;
     }}
+    /* Combined BT Status Label in Header */
     QLabel#headerBtStatus {{
-        font-size: {scale_value(13, scale_factor)}pt; font-weight: normal;
+        font-size: {scale_value(13, scale_factor)}pt; 
+        font-weight: normal;
         color: #50a0ff; /* Lighter blue */
-        padding-left: {scaled_padding}px; padding-right: {scaled_padding}px;
+        padding-left: {scaled_padding}px; 
+        padding-right: {scaled_padding}px;
     }}
 
     /* --- Home Screen Media --- */
@@ -473,19 +509,20 @@ def get_dark_theme(scale_factor=1.0):
 
     /* --- Radio Screen --- */
     QLabel#freq_display {{
-        font-size: {scale_value(44, scale_factor)}pt; font-weight: bold;
-        color: #20c9d6; qproperty-alignment: 'AlignCenter';
+        font-size: {scale_value(44, scale_factor)}pt; 
+        font-weight: bold; color: #20c9d6; qproperty-alignment: 'AlignCenter';
         margin-top: {scaled_padding}px; margin-bottom: {scaled_padding // 2}px;
     }}
     QLabel#radioStatusLabel {{
-        font-size: {scale_value(base_font_size_pt, scale_factor)}pt; color: #aaaaaa;
-        qproperty-alignment: 'AlignCenter';
+        font-size: {scale_value(base_font_size_pt, scale_factor)}pt; 
+        color: #aaaaaa; qproperty-alignment: 'AlignCenter';
     }}
 
     /* --- Settings Screen --- */
     QPushButton#settingsSaveButton, QPushButton#settingsRestartButton {{
         padding: {scale_value(base_padding_px * 0.9, scale_factor)}px {scale_value(base_padding_px * 2.0, scale_factor)}px;
-        min-width: {scale_value(200, scale_factor)}px; font-size: {scale_value(base_font_size_pt + 2, scale_factor)}pt;
+        min-width: {scale_value(200, scale_factor)}px; 
+        font-size: {scale_value(base_font_size_pt + 2, scale_factor)}pt;
         margin-top: {scaled_padding // 2}px; margin-bottom: {scaled_padding // 2}px;
     }}
 
