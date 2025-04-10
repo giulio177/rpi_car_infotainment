@@ -21,6 +21,8 @@ def get_light_theme(scale_factor=1.0):
     base_button_min_height_px = 45 # Base for normal buttons
     base_border_radius_px = 6
     base_border_px = 1
+    base_volume_slider_groove_height = 18 # Make groove thicker
+    base_volume_slider_handle_size = 36  # Make handle significantly larger
 
     # Calculate scaled sizes
     scaled_font_size = scale_value(base_font_size_pt, scale_factor)
@@ -29,6 +31,9 @@ def get_light_theme(scale_factor=1.0):
     scaled_button_min_height = scale_value(base_button_min_height_px, scale_factor)
     scaled_border_radius = scale_value(base_border_radius_px, scale_factor)
     scaled_border = scale_value(base_border_px, scale_factor)
+    scaled_slider_groove_h = scale_value(base_volume_slider_groove_height, scale_factor)
+    scaled_slider_handle_s = scale_value(base_volume_slider_handle_size, scale_factor)
+    scaled_slider_handle_margin = - (scaled_slider_handle_s - scaled_slider_groove_h) // 2
 
     # Generate QSS String
     return f"""
@@ -103,19 +108,30 @@ def get_light_theme(scale_factor=1.0):
         min-height: {scale_value(base_button_min_height_px * 0.9, scale_factor)}px;
     }}
 
-    QSlider::groove:horizontal {{
-        border: {scaled_border}px solid #bbb; background: #ffffff;
-        height: {scale_value(10, scale_factor)}px;
-        border-radius: {scaled_border_radius // 2}px;
+    /* --- QSlider Styling (Targeting #volumeSlider) --- */
+    QSlider#volumeSlider::groove:horizontal {{
+        border: {scaled_border}px solid #aaaaaa; /* Slightly darker border */
+        background: #e8e8e8; /* Light grey groove */
+        height: {scaled_slider_groove_h}px; /* Use scaled height */
+        border-radius: {scaled_slider_groove_h // 2}px; /* Rounded ends */
+        margin: 0px {scaled_slider_handle_s // 3}px; /* Add horizontal margin to prevent handle clipping at ends */
     }}
-    QSlider::handle:horizontal {{
-        background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #6e6efa, stop:1 #4040fa);
+    QSlider#volumeSlider::handle:horizontal {{
+        background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #7070ff, stop:1 #4040fa); /* Nice blue gradient */
         border: {scaled_border}px solid #3030cc;
-        width: {scale_value(22, scale_factor)}px;
-        margin: -{scale_value(7, scale_factor)}px 0;
-        border-radius: {scale_value(base_border_radius_px * 0.8, scale_factor)}px;
+        width: {scaled_slider_handle_s}px; /* Use scaled size */
+        height: {scaled_slider_handle_s}px; /* Use scaled size */
+        margin: {scaled_slider_handle_margin}px 0; /* Use calculated negative margin for vertical centering */
+        border-radius: {scaled_slider_handle_s // 2}px; /* Make it circular */
     }}
-    QSlider::handle:horizontal:hover {{ background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #8e8efa, stop:1 #6060fa); }}
+    QSlider#volumeSlider::handle:horizontal:hover {{
+        background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #8e8efa, stop:1 #6060fa);
+        border-color: #2020aa;
+    }}
+    QSlider#volumeSlider::handle:horizontal:pressed {{
+        background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #6060fa, stop:1 #3030e0);
+        border-color: #101088;
+    }}
 
     QProgressBar {{
         border: {scaled_border}px solid grey; border-radius: {scaled_border_radius // 2}px;
@@ -283,6 +299,8 @@ def get_dark_theme(scale_factor=1.0):
     base_button_min_height_px = 45 # Base for normal buttons
     base_border_radius_px = 6
     base_border_px = 1
+    base_volume_slider_groove_height = 18
+    base_volume_slider_handle_size = 36
 
     # Calculate scaled sizes
     scaled_font_size = scale_value(base_font_size_pt, scale_factor)
@@ -291,6 +309,9 @@ def get_dark_theme(scale_factor=1.0):
     scaled_button_min_height = scale_value(base_button_min_height_px, scale_factor)
     scaled_border_radius = scale_value(base_border_radius_px, scale_factor)
     scaled_border = scale_value(base_border_px, scale_factor)
+    scaled_slider_groove_h = scale_value(base_volume_slider_groove_height, scale_factor)
+    scaled_slider_handle_s = scale_value(base_volume_slider_handle_size, scale_factor)
+    scaled_slider_handle_margin = - (scaled_slider_handle_s - scaled_slider_groove_h) // 2
 
     # Generate QSS String
     return f"""
@@ -365,17 +386,30 @@ def get_dark_theme(scale_factor=1.0):
         min-height: {scale_value(base_button_min_height_px * 0.9, scale_factor)}px;
     }}
 
-    QSlider::groove:horizontal {{
-        border: {scaled_border}px solid #666; background: #555555;
-        height: {scale_value(10, scale_factor)}px; 
-        border-radius: {scaled_border_radius // 2}px;
+    /* --- QSlider Styling (Targeting #volumeSlider) --- */
+    QSlider#volumeSlider::groove:horizontal {{
+        border: {scaled_border}px solid #555555; /* Dark border */
+        background: #444444; /* Dark grey groove */
+        height: {scaled_slider_groove_h}px;
+        border-radius: {scaled_slider_groove_h // 2}px;
+        margin: 0px {scaled_slider_handle_s // 3}px;
     }}
-    QSlider::handle:horizontal {{
+    QSlider#volumeSlider::handle:horizontal {{
+        background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #8080ff, stop:1 #6060f0); /* Lighter blue gradient */
+        border: {scaled_border}px solid #5050dd;
+        width: {scaled_slider_handle_s}px;
+        height: {scaled_slider_handle_s}px;
+        margin: {scaled_slider_handle_margin}px 0;
+        border-radius: {scaled_slider_handle_s // 2}px; /* Circular */
+    }}
+    QSlider#volumeSlider::handle:horizontal:hover {{
         background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #9090ff, stop:1 #7070f0);
-        border: {scaled_border}px solid #5050dd; width: {scale_value(22, scale_factor)}px;
-        margin: -{scale_value(7, scale_factor)}px 0; border-radius: {scale_value(base_border_radius_px * 0.8, scale_factor)}px;
+        border-color: #4040cc;
     }}
-    QSlider::handle:horizontal:hover {{ background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #a0a0ff, stop:1 #8080f0); }}
+    QSlider#volumeSlider::handle:horizontal:pressed {{
+        background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #7070f0, stop:1 #5050d0);
+        border-color: #3030aa;
+    }}
 
      QProgressBar {{
         border: {scaled_border}px solid #555555; border-radius: {scaled_border_radius // 2}px;
