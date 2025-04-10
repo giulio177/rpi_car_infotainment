@@ -287,15 +287,15 @@ def get_dark_theme(scale_factor=1.0):
     # Base sizes relative to 1920x1080
     base_font_size_pt = 14
     base_padding_px = 12
-    base_album_art_size_px = 160 # Base size for square side
-    base_button_min_height_px = 45
+    base_album_art_size_px = 160 # Base size for square side (adjust as needed for 1080p)
+    base_button_min_height_px = 45 # Base for normal buttons
     base_border_radius_px = 6
     base_border_px = 1
 
     # Calculate scaled sizes
     scaled_font_size = scale_value(base_font_size_pt, scale_factor)
     scaled_padding = scale_value(base_padding_px, scale_factor)
-    scaled_album_art_size = scale_value(base_album_art_size_px, scale_factor)
+    scaled_album_art_size = scale_value(base_album_art_size_px, scale_factor) # Scaled square size
     scaled_button_min_height = scale_value(base_button_min_height_px, scale_factor)
     scaled_border_radius = scale_value(base_border_radius_px, scale_factor)
     scaled_border = scale_value(base_border_px, scale_factor)
@@ -305,26 +305,6 @@ def get_dark_theme(scale_factor=1.0):
     QWidget {{ color: #e0e0e0; font-size: {scaled_font_size}pt; }}
     QMainWindow, QStackedWidget {{ background-color: #2e2e2e; }}
     QWidget#central_widget, QWidget#settingsScrollContent {{ background-color: #2e2e2e; }}
-
-    QCheckBox::indicator {{
-        width: {scale_value(20, scale_factor)}px; /* Size of the checkbox */
-        height: {scale_value(20, scale_factor)}px;
-        border-radius: {scale_value(4, scale_factor)}px;
-    }}
-    /* Dark Theme Checkbox */
-    QCheckBox::indicator {{
-        border: {scaled_border}px solid #aaaaaa;
-        background-color: #444444;
-    }}
-    QCheckBox::indicator:checked {{
-        background-color: #34a4ff;
-        border-color: #2080d0;
-        image: url(assets/icons/checkmark_dark.png); // Provide checkmark icon
-    }}
-    QCheckBox::indicator:disabled {{
-         border-color: #606060;
-         background-color: #505050;
-    }}
 
     /* ==================== Bottom Bar ==================== */
     QWidget#persistentBottomBar {{ background-color: #3a3a3a; border-top: {scaled_border}px solid #505050; }}
