@@ -299,16 +299,27 @@ class MainWindow(QMainWindow):
     def _apply_scaling(self):
         """Applies scaling to UI elements based on the fixed BASE_RESOLUTION."""
         # ... (Calculate scale_factor) ...
-        # ... (Calculate scaled sizes - base_header_icon_size no longer needed) ...
-        scaled_icon_size = QSize(...) # bottom bar
-        scaled_button_size = QSize(...) # bottom bar
+        print(f"DEBUG: _apply_scaling factor: {scale_factor:.3f} (Height: {current_height})")
+
+        # --- Calculate scaled sizes (COMPLETE THESE) ---
+        scaled_top_padding = scale_value(self.base_top_padding, scale_factor)
+        # --- Use self.base_icon_size ---
+        scaled_icon_size = QSize( # For bottom bar icons
+            scale_value(self.base_icon_size.width(), scale_factor),
+            scale_value(self.base_icon_size.height(), scale_factor)
+        )
+        # --- Use self.base_bottom_bar_button_size ---
+        scaled_button_size = QSize( # For bottom bar buttons
+             scale_value(self.base_bottom_bar_button_size.width(), scale_factor),
+             scale_value(self.base_bottom_bar_button_size.height(), scale_factor)
+        )
+        # ---
         scaled_bottom_bar_height = scale_value(self.base_bottom_bar_height, scale_factor)
         scaled_slider_width = scale_value(self.base_volume_slider_width, scale_factor)
         scaled_spacing = scale_value(self.base_layout_spacing, scale_factor)
         scaled_header_spacing = scale_value(self.base_header_spacing, scale_factor)
         scaled_margin = scale_value(self.base_layout_margin, scale_factor)
         scaled_main_margin = scale_value(self.base_main_margin, scale_factor)
-        scaled_top_padding = scale_value(self.base_top_padding, scale_factor) # Padding
 
         # --- Apply sizes and layouts ---
         # Apply to bottom bar elements
