@@ -153,6 +153,25 @@ def get_light_theme(scale_factor=1.0):
     QScrollBar::handle:vertical:hover {{ background: #909090; }}
     QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ border: none; background: none; height: 0px; }}
 
+    /* ==================== Header Bar Styles ==================== */
+    QLabel#headerTitle {{
+        font-size: {scale_value(18, scale_factor)}pt;
+        font-weight: bold;
+        padding-right: {scaled_padding}px; /* More space after title */
+    }}
+     QLabel#headerClock {{
+        font-size: {scale_value(18, scale_factor)}pt;
+        padding-left: {scaled_padding // 2}px;
+    }}
+     /* Combined BT Status Label in Header */
+     QLabel#headerBtStatus {{
+         font-size: {scale_value(12, scale_factor)}pt; /* Consistent size */
+         font-weight: bold;
+         color: #0060c0; /* Adjusted blue */
+         padding-left: {scaled_padding}px; /* Space before BT status */
+         padding-right: {scaled_padding // 2}px; /* Space between BT and Clock */
+     }}
+
     /* --- ComboBox Dropdown --- */
     QComboBox QAbstractItemView {{
         background-color: #ffffff; color: #333333; border: {scaled_border}px solid #b0b0b0;
@@ -409,6 +428,25 @@ def get_dark_theme(scale_factor=1.0):
     }}
     QScrollBar::handle:vertical:hover {{ background: #787878; }}
     QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ border: none; background: none; height: 0px; }}
+
+    /* ==================== Header Bar Styles ==================== */
+    QLabel#headerTitle {{
+        font-size: {scale_value(18, scale_factor)}pt;
+        font-weight: bold;
+        padding-right: {scaled_padding}px;
+    }}
+     QLabel#headerClock {{
+        font-size: {scale_value(18, scale_factor)}pt;
+        padding-left: {scaled_padding // 2}px;
+    }}
+     /* Combined BT Status Label in Header */
+     QLabel#headerBtStatus {{
+         font-size: {scale_value(12, scale_factor)}pt;
+         font-weight: bold;
+         color: #50a0ff; /* Adjusted light blue */
+         padding-left: {scaled_padding}px;
+         padding-right: {scaled_padding // 2}px;
+     }}
 
     /* --- ComboBox Dropdown --- */
     QComboBox {{ selection-background-color: #6060a0; }} /* Selection inside the box */
