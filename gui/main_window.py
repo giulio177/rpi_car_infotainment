@@ -298,8 +298,12 @@ class MainWindow(QMainWindow):
     # --- Scaling ---
     def _apply_scaling(self):
         """Applies scaling to UI elements based on the fixed BASE_RESOLUTION."""
-        # ... (Calculate scale_factor) ...
-        print(f"DEBUG: _apply_scaling factor: {scale_factor:.3f} (Height: {current_height})")
+        current_height = self.height() # Get current actual height
+        if self.BASE_RESOLUTION.height() <= 0: scale_factor = 1.0
+        else: scale_factor = current_height / self.BASE_RESOLUTION.height() # Calculated here
+
+        # --- MOVED print statement to AFTER calculation ---
+        print(f"DEBUG: _apply_scaling factor: {scale_factor:.3f} (Height: {current_height})") # Now it works
 
         # --- Calculate scaled sizes (COMPLETE THESE) ---
         scaled_top_padding = scale_value(self.base_top_padding, scale_factor)
