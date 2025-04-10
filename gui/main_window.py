@@ -53,7 +53,9 @@ class MainWindow(QMainWindow):
         # self.base_header_icon_size = QSize(28, 28) # Still needed for calculation robustness
         self.base_bottom_bar_button_size = QSize(65, 65) # Larger buttons
         self.base_bottom_bar_height = 90 # Taller bottom bar
-        self.base_volume_slider_width = 220 # Wider slider
+        self.base_volume_slider_width = 250 # Wider slider
+        self.base_volume_slider_groove_height = 16 # Base height for the groove (track)
+        self.base_volume_slider_handle_size = 32 # Base size (width & height) for the handle
         self.base_layout_spacing = 15 # More spacing between widgets generally
         self.base_header_spacing = 20 # More spacing between header items
         self.base_layout_margin = 8 # Bottom bar internal margin
@@ -159,6 +161,7 @@ class MainWindow(QMainWindow):
         self.volume_icon_button.clicked.connect(self.toggle_mute)
 
         self.volume_slider = QSlider(Qt.Orientation.Horizontal)
+        self.volume_slider.setObjectName("volumeSlider")
         self.volume_slider.setRange(0, 100)
         self.volume_slider.valueChanged.connect(self.volume_slider_changed)
 
