@@ -355,9 +355,7 @@ class MainWindow(QMainWindow):
         self.bottom_bar_layout.setSpacing(scaled_spacing)
 
         # --- Re-apply theme/stylesheet ---
-        apply_theme(QApplication.instance(), self.current_theme, scale_factor)
-        # Re-apply padding style after theme potentially overwrites it
-        self.central_widget.setStyleSheet(padding_style + self.central_widget.styleSheet())
+        apply_theme(QApplication.instance(), self.current_theme, scale_factor, self.base_volume_slider_thickness)
 
         # --- Update Header Bluetooth Status ---
         self.update_bluetooth_header_status() # Update text/visibility
