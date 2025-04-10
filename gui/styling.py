@@ -157,7 +157,7 @@ def get_light_theme(scale_factor=1.0):
     QLabel#headerTitle {{
         font-size: {scale_value(18, scale_factor)}pt;
         font-weight: bold;
-        padding-right: {scaled_padding}px; /* More space after title */
+        padding-right: {scaled_padding}px;
     }}
      QLabel#headerClock {{
         font-size: {scale_value(18, scale_factor)}pt;
@@ -165,11 +165,13 @@ def get_light_theme(scale_factor=1.0):
     }}
      /* Combined BT Status Label in Header */
      QLabel#headerBtStatus {{
-         font-size: {scale_value(12, scale_factor)}pt; /* Consistent size */
-         font-weight: bold;
+         font-size: {scale_value(13, scale_factor)}pt; /* Consistent size */
+         font-weight: normal; /* Normal weight */
          color: #0060c0; /* Adjusted blue */
          padding-left: {scaled_padding}px; /* Space before BT status */
-         padding-right: {scaled_padding // 2}px; /* Space between BT and Clock */
+         padding-right: {scaled_padding}px; /* Space after BT status */
+         /* Align vertically if needed, though layout should center */
+         /* margin-top: ...; margin-bottom: ...; */
      }}
 
     /* --- ComboBox Dropdown --- */
@@ -422,11 +424,11 @@ def get_dark_theme(scale_factor=1.0):
     }}
      /* Combined BT Status Label in Header */
      QLabel#headerBtStatus {{
-         font-size: {scale_value(12, scale_factor)}pt;
-         font-weight: bold;
+         font-size: {scale_value(13, scale_factor)}pt;
+         font-weight: normal;
          color: #50a0ff; /* Adjusted light blue */
          padding-left: {scaled_padding}px;
-         padding-right: {scaled_padding // 2}px;
+         padding-right: {scaled_padding}px;
      }}
 
     /* --- ComboBox Dropdown --- */
