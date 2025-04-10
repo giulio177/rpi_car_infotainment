@@ -570,8 +570,9 @@ def get_dark_theme(scale_factor=1.0):
     """
 
 # --- apply_theme function ---
-def apply_theme(app, theme_name, scale_factor=1.0, base_slider_thickness=18): # Added base_slider_thickness
+def apply_theme(app, theme_name, scale_factor=1.0, base_slider_thickness=18):
     """Applies the selected theme stylesheet with the given scale factor and base slider thickness."""
+    print(f"DEBUG: apply_theme called. Theme: {theme_name}, Scale: {scale_factor:.2f}, Slider Thick: {base_slider_thickness}") # Debug
     if theme_name == "dark":
         # Pass the base thickness to the theme function
         style_sheet = get_dark_theme(scale_factor, base_slider_thickness)
@@ -579,4 +580,4 @@ def apply_theme(app, theme_name, scale_factor=1.0, base_slider_thickness=18): # 
         style_sheet = get_light_theme(scale_factor, base_slider_thickness)
 
     app.setStyleSheet(style_sheet)
-    # Check for parsing errors if possible (manual inspection often required)
+    # Optional: Add error checking here if possible/needed
