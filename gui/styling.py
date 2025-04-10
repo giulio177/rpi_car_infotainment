@@ -21,8 +21,6 @@ def get_light_theme(scale_factor=1.0):
     base_button_min_height_px = 45 # Base for normal buttons
     base_border_radius_px = 6
     base_border_px = 1
-    base_volume_slider_groove_height = 18 # Make groove thicker
-    base_volume_slider_handle_size = 36  # Make handle significantly larger
 
     # Calculate scaled sizes
     scaled_font_size = scale_value(base_font_size_pt, scale_factor)
@@ -31,9 +29,11 @@ def get_light_theme(scale_factor=1.0):
     scaled_button_min_height = scale_value(base_button_min_height_px, scale_factor)
     scaled_border_radius = scale_value(base_border_radius_px, scale_factor)
     scaled_border = scale_value(base_border_px, scale_factor)
-    scaled_slider_groove_h = scale_value(base_volume_slider_groove_height, scale_factor)
-    scaled_slider_handle_s = scale_value(base_volume_slider_handle_size, scale_factor)
-    scaled_slider_handle_margin = - (scaled_slider_handle_s - scaled_slider_groove_h) // 2
+    scaled_slider_thickness = scale_value(base_slider_thickness, scale_factor)
+    # Handle size based on groove thickness (e.g., 2x thickness, ensure minimum size)
+    scaled_slider_handle_s = max(scaled_slider_thickness + scale_value(10, scale_factor), scale_value(base_slider_thickness * 2.0, scale_factor)) # Make handle ~2x groove, at least 10px larger
+    # Recalculate margin based on derived sizes
+    scaled_slider_handle_margin = - (scaled_slider_handle_s - scaled_slider_thickness) // 2
 
     # Generate QSS String
     return f"""
@@ -110,18 +110,19 @@ def get_light_theme(scale_factor=1.0):
 
     /* --- QSlider Styling (Targeting #volumeSlider) --- */
     QSlider#volumeSlider::groove:horizontal {{
-        border: {scaled_border}px solid #aaaaaa; /* Slightly darker border */
-        background: #e8e8e8; /* Light grey groove */
-        height: {scaled_slider_groove_h}px; /* Use scaled height */
-        border-radius: {scaled_slider_groove_h // 2}px; /* Rounded ends */
-        margin: 0px {scaled_slider_handle_s // 3}px; /* Add horizontal margin to prevent handle clipping at ends */
+        border: {scaled_border}px solid #aaaaaa;
+        background: #e8e8e8;
+        height: {scaled_slider_thickness}px; /* Use derived scaled thickness */
+        border-radius: {scaled_slider_thickness // 2}px; /* Rounded based on thickness */
+        /* Adjust horizontal margin based on derived handle size */
+        margin: 0px {scaled_slider_handle_s // 3}px;
     }}
     QSlider#volumeSlider::handle:horizontal {{
-        background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #7070ff, stop:1 #4040fa); /* Nice blue gradient */
+        background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #7070ff, stop:1 #4040fa);
         border: {scaled_border}px solid #3030cc;
-        width: {scaled_slider_handle_s}px; /* Use scaled size */
-        height: {scaled_slider_handle_s}px; /* Use scaled size */
-        margin: {scaled_slider_handle_margin}px 0; /* Use calculated negative margin for vertical centering */
+        width: {scaled_slider_handle_s}px; /* Use derived scaled handle size */
+        height: {scaled_slider_handle_s}px; /* Use derived scaled handle size */
+        margin: {scaled_slider_handle_margin}px 0; /* Use derived calculated margin */
         border-radius: {scaled_slider_handle_s // 2}px; /* Make it circular */
     }}
     QSlider#volumeSlider::handle:horizontal:hover {{
@@ -132,6 +133,8 @@ def get_light_theme(scale_factor=1.0):
         background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #6060fa, stop:1 #3030e0);
         border-color: #101088;
     }}
+
+    
 
     QProgressBar {{
         border: {scaled_border}px solid grey; border-radius: {scaled_border_radius // 2}px;
@@ -299,9 +302,7 @@ def get_dark_theme(scale_factor=1.0):
     base_button_min_height_px = 45 # Base for normal buttons
     base_border_radius_px = 6
     base_border_px = 1
-    base_volume_slider_groove_height = 18
-    base_volume_slider_handle_size = 36
-
+    
     # Calculate scaled sizes
     scaled_font_size = scale_value(base_font_size_pt, scale_factor)
     scaled_padding = scale_value(base_padding_px, scale_factor)
@@ -309,9 +310,9 @@ def get_dark_theme(scale_factor=1.0):
     scaled_button_min_height = scale_value(base_button_min_height_px, scale_factor)
     scaled_border_radius = scale_value(base_border_radius_px, scale_factor)
     scaled_border = scale_value(base_border_px, scale_factor)
-    scaled_slider_groove_h = scale_value(base_volume_slider_groove_height, scale_factor)
-    scaled_slider_handle_s = scale_value(base_volume_slider_handle_size, scale_factor)
-    scaled_slider_handle_margin = - (scaled_slider_handle_s - scaled_slider_groove_h) // 2
+    scaled_slider_thickness = scale_value(base_slider_thickness, scale_factor)
+    scaled_slider_handle_s = max(scaled_slider_thickness + scale_value(10, scale_factor), scale_value(base_slider_thickness * 2.0, scale_factor))
+    scaled_slider_handle_margin = - (scaled_slider_handle_s - scaled_slider_thickness) // 2
 
     # Generate QSS String
     return f"""
@@ -388,19 +389,19 @@ def get_dark_theme(scale_factor=1.0):
 
     /* --- QSlider Styling (Targeting #volumeSlider) --- */
     QSlider#volumeSlider::groove:horizontal {{
-        border: {scaled_border}px solid #555555; /* Dark border */
-        background: #444444; /* Dark grey groove */
-        height: {scaled_slider_groove_h}px;
-        border-radius: {scaled_slider_groove_h // 2}px;
-        margin: 0px {scaled_slider_handle_s // 3}px;
+        border: {scaled_border}px solid #555555;
+        background: #444444;
+        height: {scaled_slider_thickness}px; /* Use derived scaled thickness */
+        border-radius: {scaled_slider_thickness // 2}px; /* Rounded based on thickness */
+        margin: 0px {scaled_slider_handle_s // 3}px; /* Horizontal margin */
     }}
     QSlider#volumeSlider::handle:horizontal {{
-        background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #8080ff, stop:1 #6060f0); /* Lighter blue gradient */
+        background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #8080ff, stop:1 #6060f0);
         border: {scaled_border}px solid #5050dd;
-        width: {scaled_slider_handle_s}px;
-        height: {scaled_slider_handle_s}px;
-        margin: {scaled_slider_handle_margin}px 0;
-        border-radius: {scaled_slider_handle_s // 2}px; /* Circular */
+        width: {scaled_slider_handle_s}px; /* Use derived scaled handle size */
+        height: {scaled_slider_handle_s}px; /* Use derived scaled handle size */
+        margin: {scaled_slider_handle_margin}px 0; /* Use derived calculated margin */
+        border-radius: {scaled_slider_handle_s // 2}px; /* Make it circular */
     }}
     QSlider#volumeSlider::handle:horizontal:hover {{
         background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #9090ff, stop:1 #7070f0);
@@ -410,6 +411,7 @@ def get_dark_theme(scale_factor=1.0):
         background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #7070f0, stop:1 #5050d0);
         border-color: #3030aa;
     }}
+    
 
      QProgressBar {{
         border: {scaled_border}px solid #555555; border-radius: {scaled_border_radius // 2}px;
@@ -568,21 +570,13 @@ def get_dark_theme(scale_factor=1.0):
     """
 
 # --- apply_theme function ---
-def apply_theme(app, theme_name, scale_factor=1.0):
-    """Applies the selected theme stylesheet with the given scale factor."""
+def apply_theme(app, theme_name, scale_factor=1.0, base_slider_thickness=18): # Added base_slider_thickness
+    """Applies the selected theme stylesheet with the given scale factor and base slider thickness."""
     if theme_name == "dark":
-        style_sheet = get_dark_theme(scale_factor)
+        # Pass the base thickness to the theme function
+        style_sheet = get_dark_theme(scale_factor, base_slider_thickness)
     else: # Default to light
-        style_sheet = get_light_theme(scale_factor)
+        style_sheet = get_light_theme(scale_factor, base_slider_thickness)
 
-    # Debug: Print the generated stylesheet to check syntax
-    # print("--- Applying Stylesheet ---")
-    # print(style_sheet)
-    # print("--------------------------")
     app.setStyleSheet(style_sheet)
-    # Check for parsing errors after applying
-    # This check might not exist directly in PyQt, manual inspection is often needed
-    # if not app.styleSheet(): # This doesn't reliably indicate parsing failure
-    #     print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-    #     print("WARNING: Stylesheet might not have parsed correctly!")
-    #     print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+    # Check for parsing errors if possible (manual inspection often required)
