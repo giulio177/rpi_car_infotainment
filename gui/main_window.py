@@ -246,8 +246,20 @@ class MainWindow(QMainWindow):
         else: self.audio_manager.set_mute(True)
 
         # --- Start Backend Threads ---
-        self.obd_manager.start()
-        if self.radio_manager.radio_type != "none": self.radio_manager.start()
+        if self.settings_manager.get("obd_enabled"):
+            print("Starting OBD Manager (enabled in settings)...")
+            self.obd_manager.start()
+        else:
+            self.update_obd_status(False, "Disabled") # Initial status update
+
+        if self.settings_manager.get("radio_enabled") and self.radio_manager.radio_type != "none":
+            print("Starting Radio Manager (enabled in settings)...")
+            self.radio_manager.start()
+        else:
+            radio_status = "Disabled" if not self.settings_manager.get("radio_enabled") else "No HW"
+            self.update_radio_status(radio_status) # Initial status update
+
+        print("Starting Bluetooth Manager...") # Always start BT manager
         self.bluetooth_manager.start()
 
         # Set initial screen & Title
@@ -492,18 +504,36 @@ class MainWindow(QMainWindow):
     # --- Keep Methods like update_obd_status, update_radio_status, etc. ---
     @pyqtSlot(bool, str)
     def update_obd_status(self, connected, message):
-        # ... (implementation remains the same) ...
-        status_text = f"OBD: {message}"
+        if not self.settings_manager.get("obd_enabled"):
+            status_text = "OBD: Disabled"
+            style = "color: gray;" # Or theme specific dim color
+        else:
+            status_text = f"OBD: {message}"
+            style = "color: green;" if connected else "color: red;" # Or theme specific colors
+
         self.obd_status_label.setText(status_text)
-        style = "color: green;" if connected else "color: red;"
         self.obd_status_label.setStyleSheet(style)
-        self.obd_screen.update_connection_status(status_text)
+        if hasattr(self.obd_screen, 'update_connection_status'):
+             # Send the raw status text, screen might handle "Disabled" differently if needed
+             self.obd_screen.update_connection_status(status_text.replace("OBD: ", ""))
+
 
     @pyqtSlot(str)
     def update_radio_status(self, status):
-        # ... (implementation remains the same) ...
-        self.radio_status_label.setText(f"Radio: {status}")
-        self.radio_screen.update_status_display(status)
+        if not self.settings_manager.get("radio_enabled"):
+             status_text = "Radio: Disabled"
+        else:
+             # Add "No HW" check if type is none but enabled
+             radio_type = self.settings_manager.get("radio_type")
+             if radio_type == "none":
+                  status_text = "Radio: No HW"
+             else:
+                  status_text = f"Radio: {status}"
+
+        self.radio_status_label.setText(status_text)
+        if hasattr(self.radio_screen, 'update_status_display'):
+             # Send the raw status text
+             self.radio_screen.update_status_display(status_text.replace("Radio: ", ""))
 
 
     def switch_theme(self, theme_name):
@@ -516,38 +546,114 @@ class MainWindow(QMainWindow):
             self.settings_manager.set("theme", theme_name)
           
     def update_obd_config(self):
-        # ... (implementation remains the same) ...
-        print("OBD configuration updated. Restarting OBD Manager...")
-        # ... (stop, wait, create new, reconnect, start) ...
-        self.obd_manager.stop()
-        self.obd_manager.wait()
-        self.obd_manager = OBDManager(
-            port=self.settings_manager.get("obd_port"),
-            baudrate=self.settings_manager.get("obd_baudrate")
-        )
-        self.obd_manager.connection_status.connect(self.update_obd_status)
-        self.obd_manager.data_updated.connect(self.obd_screen.update_data)
-        self.obd_manager.start()
+        """Restarts OBD Manager with new connection settings."""
+        # Only restart if OBD is currently enabled
+        if self.settings_manager.get("obd_enabled"):
+            print("OBD connection configuration updated. Restarting OBD Manager...")
+            if hasattr(self, 'obd_manager') and self.obd_manager.isRunning():
+                self.obd_manager.stop()
+                self.obd_manager.wait()
+            # Recreate and start
+            self.obd_manager = OBDManager(
+                port=self.settings_manager.get("obd_port"),
+                baudrate=self.settings_manager.get("obd_baudrate")
+            )
+            self.obd_manager.connection_status.connect(self.update_obd_status)
+            self.obd_manager.data_updated.connect(self.obd_screen.update_data)
+            self.obd_manager.start()
+        else:
+            print("OBD connection settings saved, but OBD manager remains disabled.")
 
 
     def update_radio_config(self):
-        # ... (implementation remains the same) ...
-        print("Radio configuration updated. Restarting Radio Manager...")
-        # ... (stop, wait, create new, reconnect, start) ...
-        self.radio_manager.stop()
-        self.radio_manager.wait()
-        self.radio_manager = RadioManager(
-             radio_type=self.settings_manager.get("radio_type"),
-             i2c_address=self.settings_manager.get("radio_i2c_address"),
-             initial_freq=self.settings_manager.get("last_fm_station")
-        )
-        self.radio_manager.radio_status.connect(self.update_radio_status)
-        self.radio_manager.frequency_updated.connect(self.radio_screen.update_frequency)
-        self.radio_manager.signal_strength.connect(self.radio_screen.update_signal_strength)
-        if self.radio_manager.radio_type != "none":
-            self.radio_manager.start()
+        """Restarts Radio Manager with new type/address settings."""
+         # Only restart if Radio is currently enabled
+        if self.settings_manager.get("radio_enabled"):
+            print("Radio configuration updated. Restarting Radio Manager...")
+            if hasattr(self, 'radio_manager') and self.radio_manager.isRunning():
+                last_freq = self.radio_manager.current_frequency
+                self.radio_manager.stop()
+                self.radio_manager.wait()
+            else:
+                last_freq = self.settings_manager.get("last_fm_station") # Use saved if not running
+
+            # Recreate
+            self.radio_manager = RadioManager(
+                 radio_type=self.settings_manager.get("radio_type"),
+                 i2c_address=self.settings_manager.get("radio_i2c_address"),
+                 initial_freq=last_freq
+            )
+            # Reconnect signals
+            self.radio_manager.radio_status.connect(self.update_radio_status)
+            self.radio_manager.frequency_updated.connect(self.radio_screen.update_frequency)
+            self.radio_manager.signal_strength.connect(self.radio_screen.update_signal_strength)
+            # Start only if type is valid
+            if self.radio_manager.radio_type != "none":
+                self.radio_manager.start()
+            else:
+                 self.update_radio_status("No HW") # Update status if type is none
         else:
-             self.update_radio_status("Disabled")
+            print("Radio connection settings saved, but Radio manager remains disabled.")
+
+  
+    # --- Methods to Toggle Managers ---
+    def toggle_obd_manager(self, enable):
+        """Starts or stops the OBD manager based on the enable flag."""
+        if enable:
+            if not hasattr(self, 'obd_manager') or not self.obd_manager.isRunning():
+                print("Enabling and starting OBD Manager...")
+                # Ensure manager exists or recreate if needed
+                if not hasattr(self, 'obd_manager'):
+                     self.obd_manager = OBDManager(
+                         port=self.settings_manager.get("obd_port"),
+                         baudrate=self.settings_manager.get("obd_baudrate")
+                     )
+                     self.obd_manager.connection_status.connect(self.update_obd_status)
+                     self.obd_manager.data_updated.connect(self.obd_screen.update_data)
+                # Start the thread
+                self.obd_manager.start()
+                # Initial status will be emitted by the manager
+            else:
+                 print("OBD Manager already running.")
+        else: # Disable
+             if hasattr(self, 'obd_manager') and self.obd_manager.isRunning():
+                print("Disabling and stopping OBD Manager...")
+                self.obd_manager.stop()
+                self.obd_manager.wait(1000) # Wait briefly
+                # Update status immediately
+                self.update_obd_status(False, "Disabled")
+             else:
+                print("OBD Manager already stopped or not initialized.")
+                self.update_obd_status(False, "Disabled") # Ensure status is correct
+
+    def toggle_radio_manager(self, enable):
+         """Starts or stops the Radio manager based on the enable flag."""
+         radio_type = self.settings_manager.get("radio_type")
+         if enable and radio_type != "none":
+             if not hasattr(self, 'radio_manager') or not self.radio_manager.isRunning():
+                 print("Enabling and starting Radio Manager...")
+                 if not hasattr(self, 'radio_manager'):
+                     self.radio_manager = RadioManager(
+                         radio_type=radio_type,
+                         i2c_address=self.settings_manager.get("radio_i2c_address"),
+                         initial_freq=self.settings_manager.get("last_fm_station")
+                     )
+                     self.radio_manager.radio_status.connect(self.update_radio_status)
+                     self.radio_manager.frequency_updated.connect(self.radio_screen.update_frequency)
+                     self.radio_manager.signal_strength.connect(self.radio_screen.update_signal_strength)
+                 self.radio_manager.start()
+             else:
+                 print("Radio Manager already running.")
+         else: # Disable or radio_type is "none"
+             if hasattr(self, 'radio_manager') and self.radio_manager.isRunning():
+                 print("Disabling and stopping Radio Manager...")
+                 self.radio_manager.stop()
+                 self.radio_manager.wait(1000)
+                 self.update_radio_status("Disabled") # Update status
+             else:
+                 status = "Disabled" if not enable else "No HW"
+                 print(f"Radio Manager already stopped or hardware type is '{radio_type}'.")
+                 self.update_radio_status(status) # Ensure status reflects disabled or no hw
 
     def restart_application(self):
         """Gracefully stops threads and restarts the current Python application."""
