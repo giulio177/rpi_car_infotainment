@@ -3,13 +3,12 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QPushButton, QComboBox, QLineEdit, QFormLayout,
                              QGroupBox, QSpacerItem, QSizePolicy,
-                             QScrollArea)
+                             QScrollArea, QCheckBox)
 from PyQt6.QtCore import QTimer, QDateTime, pyqtSlot, Qt
 
 from .styling import scale_value
 
 class SettingsScreen(QWidget):
-    # --- ADDED: Screen Title ---
     screen_title = "Settings"
 
     def __init__(self, settings_manager, main_window_ref, parent=None):
@@ -57,15 +56,6 @@ class SettingsScreen(QWidget):
         self.theme_combo.setCurrentText(self.settings_manager.get("theme"))
         self.general_layout.addRow("UI Theme:", self.theme_combo)
 
-        # --- REMOVED Resolution Setting ---
-        # self.resolution_combo = QComboBox()
-        # self.resolution_note_label = QLabel("(Restart required)")
-        # resolution_layout = QHBoxLayout()
-        # resolution_layout.addWidget(self.resolution_combo, 1)
-        # resolution_layout.addWidget(self.resolution_note_label)
-        # self.general_layout.addRow("Resolution:", resolution_layout)
-        # ---
-
         self.scroll_layout.addWidget(self.general_group) # Add group to scroll area
 
         # --- OBD Settings Group ---
@@ -74,7 +64,13 @@ class SettingsScreen(QWidget):
         self.obd_layout = QFormLayout()
         # Spacing set by update_scaling
         self.obd_group.setLayout(self.obd_layout)
-        # ... (OBD Port/Baud setup) ...
+        # --- OBD Enable Checkbox ---
+        self.obd_enable_checkbox = QCheckBox("Enable OBD Features")
+        self.obd_enable_checkbox.setObjectName("obdEnableCheckbox")
+        self.obd_enable_checkbox.setChecked(self.settings_manager.get("obd_enabled"))
+        # Add checkbox spanning both columns for prominence
+        self.obd_layout.addRow(self.obd_enable_checkbox)
+        # --- OBD Port/Baud setup ---
         self.obd_port_edit = QLineEdit()
         self.obd_port_edit.setObjectName("obdPortEdit")
         self.obd_port_edit.setPlaceholderText("e.g., /dev/rfcomm0 or /dev/ttyUSB0 (leave blank for auto)")
@@ -96,7 +92,13 @@ class SettingsScreen(QWidget):
         self.radio_layout = QFormLayout()
         # Spacing set by update_scaling
         self.radio_group.setLayout(self.radio_layout)
-        # ... (Radio Type/Address setup) ...
+        # --- Radio Enable Checkbox ---
+        self.radio_enable_checkbox = QCheckBox("Enable Radio Features")
+        self.radio_enable_checkbox.setObjectName("radioEnableCheckbox")
+        self.radio_enable_checkbox.setChecked(self.settings_manager.get("radio_enabled"))
+        # Add checkbox spanning both columns
+        self.radio_layout.addRow(self.radio_enable_checkbox)
+        # --- Radio Type/Address setup ---
         self.radio_type_combo = QComboBox()
         self.radio_type_combo.setObjectName("radioTypeCombo")
         self.radio_type_combo.addItems(["none", "sdr", "si4703", "si4735"])
@@ -188,34 +190,60 @@ class SettingsScreen(QWidget):
         # ---
 
         # Apply OBD Settings
+        new_obd_enabled = self.obd_enable_checkbox.isChecked()
+        if new_obd_enabled != self.settings_manager.get("obd_enabled"):
+            print(f"OBD Enabled state changed to: {new_obd_enabled}")
+            self.settings_manager.set("obd_enabled", new_obd_enabled)
+            settings_changed = True
+            # Notify MainWindow to start/stop the manager
+            if self.main_window and hasattr(self.main_window, 'toggle_obd_manager'):
+                self.main_window.toggle_obd_manager(new_obd_enabled)
+            else: print("ERROR: Cannot toggle OBD manager - MainWindow reference invalid.")
         obd_port = self.obd_port_edit.text().strip() or None
         obd_baud_str = self.obd_baud_edit.text().strip(); obd_baud = None
         try:
              if obd_baud_str: obd_baud = int(obd_baud_str)
         except ValueError: pass
-        obd_changed = (self.settings_manager.get("obd_port") != obd_port or
-                       self.settings_manager.get("obd_baudrate") != obd_baud)
-        if obd_changed:
+        obd_conn_changed = (self.settings_manager.get("obd_port") != obd_port or
+                            self.settings_manager.get("obd_baudrate") != obd_baud)
+        if obd_conn_changed:
             self.settings_manager.set("obd_port", obd_port)
             self.settings_manager.set("obd_baudrate", obd_baud)
-            if self.main_window is not None and hasattr(self.main_window, 'update_obd_config'):
-                 self.main_window.update_obd_config()
-                 settings_changed = True
+            settings_changed = True
+            # Notify MainWindow ONLY if OBD is currently enabled
+            if self.settings_manager.get("obd_enabled"):
+                if self.main_window and hasattr(self.main_window, 'update_obd_config'):
+                     self.main_window.update_obd_config()
+                else: print("Warning: Could not update OBD config - main window reference invalid.")
+            else: print("OBD connection settings saved, but OBD is disabled.")
 
         # Apply Radio Settings
+        new_radio_enabled = self.radio_enable_checkbox.isChecked()
+        if new_radio_enabled != self.settings_manager.get("radio_enabled"):
+            print(f"Radio Enabled state changed to: {new_radio_enabled}")
+            self.settings_manager.set("radio_enabled", new_radio_enabled)
+            settings_changed = True
+            # Notify MainWindow to start/stop the manager
+            if self.main_window and hasattr(self.main_window, 'toggle_radio_manager'):
+                 self.main_window.toggle_radio_manager(new_radio_enabled)
+            else: print("ERROR: Cannot toggle Radio manager - MainWindow reference invalid.")
         radio_type = self.radio_type_combo.currentText()
         i2c_addr_str = self.radio_i2c_addr_edit.text().strip(); i2c_addr = None
         try:
             if i2c_addr_str: i2c_addr = int(i2c_addr_str, 0)
         except ValueError: pass
-        radio_changed = (self.settings_manager.get("radio_type") != radio_type or
-                         self.settings_manager.get("radio_i2c_address") != i2c_addr)
-        if radio_changed:
+        radio_conn_changed = (self.settings_manager.get("radio_type") != radio_type or
+                              self.settings_manager.get("radio_i2c_address") != i2c_addr)
+        if radio_conn_changed:
             self.settings_manager.set("radio_type", radio_type)
             self.settings_manager.set("radio_i2c_address", i2c_addr)
-            if self.main_window is not None and hasattr(self.main_window, 'update_radio_config'):
-                 self.main_window.update_radio_config()
-                 settings_changed = True
+            settings_changed = True
+             # Notify MainWindow ONLY if Radio is currently enabled
+            if self.settings_manager.get("radio_enabled"):
+                if self.main_window and hasattr(self.main_window, 'update_radio_config'):
+                     self.main_window.update_radio_config()
+                else: print("Warning: Could not update Radio config - main window reference invalid.")
+            else: print("Radio connection settings saved, but Radio is disabled.")
 
         # Feedback logic
         if show_feedback:
