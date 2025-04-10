@@ -397,6 +397,7 @@ class MainWindow(QMainWindow):
 
          connected = self.bluetooth_manager.connected_device_path is not None
          device_name = self.bluetooth_manager.connected_device_name if connected else ""
+         # Get the latest battery level from the manager's state
          battery_level = self.bluetooth_manager.current_battery
 
          status_text = ""
@@ -409,11 +410,15 @@ class MainWindow(QMainWindow):
              status_text = display_name
              self.header_bt_status_label.setToolTip(device_name) # Tooltip shows full name
 
-             # Append battery level if available
+             # --- RESTORED: Append battery level if available ---
              if battery_level is not None and isinstance(battery_level, int):
+                  # Ensure level is within expected 0-100 range
+                  battery_level = max(0, min(100, battery_level))
                   status_text += f" - {battery_level}%"
-             # else: status_text += " - N/A" # Optionally show N/A if needed
-
+             # Optionally indicate if battery unknown explicitly?
+             else:
+                  status_text += " - Batt: N/A"
+             
          print(f"DEBUG: Updating header BT status text: '{status_text}', Visible={show_label}")
          self.header_bt_status_label.setText(status_text)
          self.header_bt_status_label.setVisible(show_label)
