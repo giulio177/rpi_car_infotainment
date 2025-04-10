@@ -29,10 +29,9 @@ def get_light_theme(scale_factor=1.0):
     scaled_button_min_height = scale_value(base_button_min_height_px, scale_factor)
     scaled_border_radius = scale_value(base_border_radius_px, scale_factor)
     scaled_border = scale_value(base_border_px, scale_factor)
+    # --- Calculate DERIVED slider sizes (using base_slider_thickness) ---
     scaled_slider_thickness = scale_value(base_slider_thickness, scale_factor)
-    # Handle size based on groove thickness (e.g., 2x thickness, ensure minimum size)
-    scaled_slider_handle_s = max(scaled_slider_thickness + scale_value(10, scale_factor), scale_value(base_slider_thickness * 2.0, scale_factor)) # Make handle ~2x groove, at least 10px larger
-    # Recalculate margin based on derived sizes
+    scaled_slider_handle_s = max(scaled_slider_thickness + scale_value(10, scale_factor), scale_value(base_slider_thickness * 2.0, scale_factor))
     scaled_slider_handle_margin = - (scaled_slider_handle_s - scaled_slider_thickness) // 2
 
     # Generate QSS String
@@ -310,10 +309,11 @@ def get_dark_theme(scale_factor=1.0):
     scaled_button_min_height = scale_value(base_button_min_height_px, scale_factor)
     scaled_border_radius = scale_value(base_border_radius_px, scale_factor)
     scaled_border = scale_value(base_border_px, scale_factor)
+    # --- Calculate DERIVED slider sizes (using base_slider_thickness) ---
     scaled_slider_thickness = scale_value(base_slider_thickness, scale_factor)
     scaled_slider_handle_s = max(scaled_slider_thickness + scale_value(10, scale_factor), scale_value(base_slider_thickness * 2.0, scale_factor))
     scaled_slider_handle_margin = - (scaled_slider_handle_s - scaled_slider_thickness) // 2
-
+    
     # Generate QSS String
     return f"""
     /* ==================== Global Styles ==================== */
