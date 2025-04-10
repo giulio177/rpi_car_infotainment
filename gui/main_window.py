@@ -53,7 +53,7 @@ class MainWindow(QMainWindow):
         # self.base_header_icon_size = QSize(28, 28) # Still needed for calculation robustness
         self.base_bottom_bar_button_size = QSize(65, 65) # Larger buttons
         self.base_bottom_bar_height = 90 # Taller bottom bar
-        self.base_volume_slider_width = 300 # Wider slider
+        self.base_volume_slider_width = 250 # Wider slider
         self.base_layout_spacing = 15 # More spacing between widgets generally
         self.base_header_spacing = 20 # More spacing between header items
         self.base_layout_margin = 8 # Bottom bar internal margin
