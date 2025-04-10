@@ -1,5 +1,7 @@
 # gui/styling.py
 
+import math
+
 # --- Helper function to calculate scaled int ---
 def scale_value(base_value, scale_factor):
     """Calculates scaled integer value, ensuring minimum of 1."""
