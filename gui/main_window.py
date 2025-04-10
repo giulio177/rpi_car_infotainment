@@ -98,10 +98,12 @@ class MainWindow(QMainWindow):
         self.header_layout.addWidget(self.header_title_label)
         header_spacer = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
         self.header_layout.addItem(header_spacer)
-        self.header_bt_status_label = QLabel("iPhone") # Combined BT Status
+        # Combined BT Status
+        self.header_bt_status_label = QLabel("")
         self.header_bt_status_label.setObjectName("headerBtStatus")
         self.header_bt_status_label.hide()
         self.header_layout.addWidget(self.header_bt_status_label)
+        # Clock
         self.header_clock_label = QLabel("00:00")
         self.header_clock_label.setObjectName("headerClock")
         self.header_layout.addWidget(self.header_clock_label)
@@ -127,12 +129,9 @@ class MainWindow(QMainWindow):
         self.separator_label.setObjectName("statusBarSeparator")
         self.bt_name_label = QLabel("BT: -")
         self.bt_name_label.setObjectName("statusBarBtNameLabel")
-        self.bt_battery_label = QLabel("")
-        self.bt_battery_label.setObjectName("statusBarBtBatteryLabel")
         self.bt_separator_label = QLabel("|")
         self.bt_separator_label.setObjectName("statusBarSeparator")
         self.bt_name_label.hide()
-        self.bt_battery_label.hide()
         self.bt_separator_label.hide()
 
         # --- PERSISTENT BOTTOM BAR ---
@@ -184,7 +183,6 @@ class MainWindow(QMainWindow):
         self.bottom_bar_layout.addWidget(self.radio_status_label)
         self.bottom_bar_layout.addWidget(self.bt_separator_label)
         self.bottom_bar_layout.addWidget(self.bt_name_label)
-        self.bottom_bar_layout.addWidget(self.bt_battery_label)
         self.bottom_bar_layout.addStretch(2)
         self.bottom_bar_layout.addWidget(self.volume_icon_button)
         self.bottom_bar_layout.addWidget(self.volume_slider)
@@ -225,9 +223,8 @@ class MainWindow(QMainWindow):
         self.radio_manager.frequency_updated.connect(self.radio_screen.update_frequency)
         self.radio_manager.signal_strength.connect(self.radio_screen.update_signal_strength)
         self.bluetooth_manager.connection_changed.connect(self.update_bluetooth_statusbar)
-        self.bluetooth_manager.battery_updated.connect(self.update_bluetooth_statusbar_battery)
-        self.bluetooth_manager.connection_changed.connect(self.update_bluetooth_header)
-        self.bluetooth_manager.battery_updated.connect(self.update_bluetooth_header_battery)
+        self.bluetooth_manager.connection_changed.connect(self.update_bluetooth_header_status)
+        self.bluetooth_manager.battery_updated.connect(self.update_bluetooth_header_status)
         self.bluetooth_manager.media_properties_changed.connect(self.home_screen.update_media_info)
         self.bluetooth_manager.playback_status_changed.connect(self.home_screen.update_playback_status)
 
@@ -301,22 +298,17 @@ class MainWindow(QMainWindow):
     # --- Scaling ---
     def _apply_scaling(self):
         """Applies scaling to UI elements based on the fixed BASE_RESOLUTION."""
-        current_height = self.height() # Get current actual height
-        if self.BASE_RESOLUTION.height() <= 0: scale_factor = 1.0
-        else: scale_factor = current_height / self.BASE_RESOLUTION.height() # Factor relative to actual screen height
-        print(f"DEBUG: _apply_scaling factor: {scale_factor:.3f} (Height: {current_height})")
-
-        # Calculate scaled sizes using the NEW base sizes
-        scaled_top_padding = scale_value(self.base_top_padding, scale_factor) # Added
-        scaled_icon_size = QSize(scale_value(self.base_icon_size.width(), scale_factor), scale_value(self.base_icon_size.height(), scale_factor))
-        # scaled_header_icon_size = QSize(...) # No longer needed for calculation if icon removed
-        scaled_button_size = QSize(scale_value(self.base_bottom_bar_button_size.width(), scale_factor), scale_value(self.base_bottom_bar_button_size.height(), scale_factor))
+        # ... (Calculate scale_factor) ...
+        # ... (Calculate scaled sizes - base_header_icon_size no longer needed) ...
+        scaled_icon_size = QSize(...) # bottom bar
+        scaled_button_size = QSize(...) # bottom bar
         scaled_bottom_bar_height = scale_value(self.base_bottom_bar_height, scale_factor)
         scaled_slider_width = scale_value(self.base_volume_slider_width, scale_factor)
         scaled_spacing = scale_value(self.base_layout_spacing, scale_factor)
         scaled_header_spacing = scale_value(self.base_header_spacing, scale_factor)
         scaled_margin = scale_value(self.base_layout_margin, scale_factor)
         scaled_main_margin = scale_value(self.base_main_margin, scale_factor)
+        scaled_top_padding = scale_value(self.base_top_padding, scale_factor) # Padding
 
         # --- Apply sizes and layouts ---
         # Apply to bottom bar elements
@@ -334,15 +326,11 @@ class MainWindow(QMainWindow):
         self.bottom_bar_widget.setFixedHeight(scaled_bottom_bar_height)
 
         # Apply to layouts
-        # Clear layout first to potentially re-order spacing? Simpler to adjust existing.
-        self.main_layout.setContentsMargins(0, 0, 0, 0) # No margin for main layout itself
-        # Set spacing between header, stack, bottom bar
         self.main_layout.setSpacing(scaled_spacing)
-        # Set top margin for the entire content area
-        self.central_widget.setStyleSheet(f"QWidget#central_widget {{ padding-top: {scaled_top_padding}px; }}")
-        # Or add a spacer item (might be less reliable with theme changes)
-        # if self.main_layout.itemAt(0) is not self.header_layout: # Add spacer only once
-        #      self.main_layout.insertSpacing(0, scaled_top_padding)
+        # Add top padding via stylesheet on central widget
+        padding_style = f"QWidget#central_widget {{ padding-top: {scaled_top_padding}px; }}"
+        # Combine with existing stylesheet if any, or just set it
+        current_style = self.central_widget.styleSheet()
 
 
         self.header_layout.setSpacing(scaled_header_spacing)
@@ -351,6 +339,8 @@ class MainWindow(QMainWindow):
 
         # --- Re-apply theme/stylesheet ---
         apply_theme(QApplication.instance(), self.current_theme, scale_factor)
+        # Re-apply padding style after theme potentially overwrites it
+        self.central_widget.setStyleSheet(padding_style + self.central_widget.styleSheet())
 
         # --- Update Header Bluetooth Status ---
         self.update_bluetooth_header_status() # Update text/visibility
@@ -387,33 +377,32 @@ class MainWindow(QMainWindow):
     @pyqtSlot(bool)
     @pyqtSlot(object)
     def update_bluetooth_header_status(self, *args):
-         """Updates the combined Bluetooth status text and visibility in the header."""
-         # ... (Implementation remains the same - sets text and visibility of header_bt_status_label) ...
+         """Updates the combined Bluetooth status text (Name + Battery) in the header."""
          if not self._has_scaled_correctly: return
 
          connected = self.bluetooth_manager.connected_device_path is not None
          device_name = self.bluetooth_manager.connected_device_name if connected else ""
-         battery_level = self.bluetooth_manager.current_battery # Store battery level
+         battery_level = self.bluetooth_manager.current_battery
 
          status_text = ""
          show_label = False
 
          if connected:
              show_label = True
-             max_len = 50 # Max length for header display
+             max_len = 25 # Max length for header display name part
              display_name = (device_name[:max_len] + '...') if len(device_name) > max_len else device_name
-             status_text = display_name # Just show the name for now
-             self.header_bt_status_label.setToolTip(device_name)
-             # --- Temporarily removed battery display ---
-             # if battery_level is not None and isinstance(battery_level, int):
-             #      status_text += f" - {battery_level}%"
-             # else:
-             #      status_text += " - N/A" # Indicate if battery unavailable
-             # ---
+             status_text = display_name
+             self.header_bt_status_label.setToolTip(device_name) # Tooltip shows full name
+
+             # Append battery level if available
+             if battery_level is not None and isinstance(battery_level, int):
+                  status_text += f" - {battery_level}%"
+             # else: status_text += " - N/A" # Optionally show N/A if needed
 
          print(f"DEBUG: Updating header BT status text: '{status_text}', Visible={show_label}")
          self.header_bt_status_label.setText(status_text)
          self.header_bt_status_label.setVisible(show_label)
+      
 
     # --- Status Update Slots ---
     @pyqtSlot(bool, str)
@@ -424,82 +413,16 @@ class MainWindow(QMainWindow):
              max_len = 20 # Max length for status bar display
              display_name = (device_name[:max_len] + '...') if len(device_name) > max_len else device_name
              self.bt_name_label.setText(f"BT: {display_name}")
-             self.bt_name_label.setToolTip(device_name) # Show full name on hover
-             # Show name and separator, battery visibility handled by its own slot
+             self.bt_name_label.setToolTip(device_name)
              self.bt_name_label.show()
              self.bt_separator_label.show()
         else:
-             # Hide all BT elements in status bar on disconnect
              self.bt_name_label.hide()
-             self.bt_battery_label.hide() # Hide battery too
+             # self.bt_battery_label.hide() # No longer exists
              self.bt_separator_label.hide()
-             # Clear media info on home screen
              if hasattr(self.home_screen, 'clear_media_info'):
                  self.home_screen.clear_media_info()
-
-    @pyqtSlot(object) # Slot receives int or None
-    def update_bluetooth_statusbar_battery(self, level):
-        """Updates the Bluetooth battery percentage in the BOTTOM status bar."""
-        print(f"DEBUG: Updating status bar BT battery, Level={level}")
-        # Show battery only if level is valid AND the name label is visible (meaning device connected)
-        show_battery = level is not None and isinstance(level, int) and self.bt_name_label.isVisible()
-
-        if show_battery:
-             battery_text = f"({level}%)"
-             self.bt_battery_label.setText(battery_text)
-             self.bt_battery_label.show()
-        else:
-             self.bt_battery_label.setText("") # Clear text
-             self.bt_battery_label.hide()
-
-
-    # --- Header Bluetooth Update Slots ---
-    @pyqtSlot(bool, str)
-    def update_bluetooth_header(self, connected, device_name=""):
-        """DEPRECATED (Visibility handled by update_bluetooth_header_status). Kept for signal connection safety."""
-        # This method is now effectively redundant because update_bluetooth_header_status
-        # handles both the text AND visibility of the header_bt_status_label.
-        # We keep it connected to connection_changed just in case, but it doesn't
-        # need to do anything anymore regarding the icon.
-        print(f"DEBUG: update_bluetooth_header called (now redundant), Connected={connected}")
-        # --- REMOVE/COMMENT OUT ---
-        # if not self._has_scaled_correctly: return
-        # show_icon = connected and hasattr(self, 'bt_connected_icon') and not self.bt_connected_icon.isNull()
-        # if scaled_size is None:
-        #     scale_factor = self.height() / self.BASE_RESOLUTION.height() if self.BASE_RESOLUTION.height() > 0 else 1.0
-        #     scaled_size = QSize(
-        #         scale_value(self.base_header_icon_size.width(), scale_factor), # <--- Error originated here
-        #         scale_value(self.base_header_icon_size.height(), scale_factor)
-        #     )
-        # print(f"DEBUG: Icon Target Size: {scaled_size}")
-        # pixmap = self.bt_connected_icon.pixmap(scaled_size) if show_icon else QPixmap()
-        # print(f"DEBUG: Header Pixmap isNull: {pixmap.isNull()}")
-        # for screen in self.all_screens:
-        #     if hasattr(screen, 'bt_icon_label'):
-        #         if show_icon and not pixmap.isNull():
-        #             screen.bt_icon_label.setPixmap(pixmap)
-        #             screen.bt_icon_label.setFixedSize(scaled_size)
-        #             screen.bt_icon_label.show()
-        #         else:
-        #             screen.bt_icon_label.hide()
-        #             screen.bt_icon_label.clear()
-        # --- END REMOVAL ---
-        pass # Method does nothing now
-
                   
-
-    @pyqtSlot(object)
-    def update_bluetooth_header_battery(self, level):
-        """Updates the Bluetooth battery text in ALL screen headers."""
-        # No need to check _has_scaled_correctly anymore
-        manager_connected = hasattr(self, 'bluetooth_manager') and self.bluetooth_manager.connected_device_path is not None
-        print(f"DEBUG: Updating header BT battery, Level={level}, Manager Connected={manager_connected}")
-        show_battery = level is not None and isinstance(level, int) and manager_connected
-        battery_text = f"{level}%" if show_battery else ""
-        for screen in self.all_screens:
-            if hasattr(screen, 'bt_battery_label'):
-                screen.bt_battery_label.setText(battery_text)
-                screen.bt_battery_label.setVisible(show_battery)
 
     # --- Keep Methods like update_obd_status, update_radio_status, etc. ---
     @pyqtSlot(bool, str)
