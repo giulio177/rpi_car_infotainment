@@ -93,6 +93,45 @@ class BluetoothManager(QThread):
         print("BT Manager: No Bluetooth adapter found.")
         return None
 
+    def _get_upower_device_path(self, device_bluez_path):
+        """Tries to find the corresponding UPower D-Bus path for a BlueZ device path."""
+        if not device_bluez_path: return None
+        try:
+            mac_suffix = device_bluez_path.split('/')[-1] # Gets 'dev_XX_XX_XX_XX_XX_XX'
+
+            # --- MODIFIED: Construct path based on observed format ---
+            # Use "phone_" prefix instead of "bluetooth_"
+            upower_path = f"/org/freedesktop/UPower/devices/phone_{mac_suffix}"
+            # --- END MODIFICATION ---
+
+            print(f"DEBUG: Constructed UPower path guess: {upower_path}")
+
+            # Verify the path exists on UPower's D-Bus interface
+            upower_obj = QDBusInterface(UPOWER_SERVICE, upower_path, DBUS_PROP_IFACE, self.bus)
+            # Try getting a property to see if the object exists
+            reply = upower_obj.call("Get", UPOWER_DEVICE_IFACE, "Type")
+
+            if reply.type() != QDBusMessage.MessageType.ErrorMessage:
+                print(f"DEBUG: Found matching UPower device path: {upower_path}")
+                return upower_path
+            else:
+                 # If the primary guess failed, you could still try other formats here if needed
+                 # print(f"DEBUG: Primary UPower path {upower_path} failed: {reply.errorMessage()}")
+                 # Try the bluetooth_dev format just in case?
+                 upower_path_alt = f"/org/freedesktop/UPower/devices/bluetooth_{mac_suffix}"
+                 print(f"DEBUG: Trying alternative UPower path guess: {upower_path_alt}")
+                 upower_obj_alt = QDBusInterface(UPOWER_SERVICE, upower_path_alt, DBUS_PROP_IFACE, self.bus)
+                 reply_alt = upower_obj_alt.call("Get", UPOWER_DEVICE_IFACE, "Type")
+                 if reply_alt.type() != QDBusMessage.MessageType.ErrorMessage:
+                     print(f"DEBUG: Found matching alternative (bluetooth_dev) UPower device path: {upower_path_alt}")
+                     return upower_path_alt
+
+                 print(f"DEBUG: UPower path {upower_path} (or alternatives) not found/valid for {mac_suffix}")
+                 return None
+        except Exception as e:
+            print(f"ERROR finding UPower path: {e}")
+            return None
+
     def process_device_properties(self, path, properties):
         """Checks device properties for connection and battery. Assumes 'properties' is a Python dict."""
         try:
