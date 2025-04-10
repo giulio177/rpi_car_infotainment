@@ -43,9 +43,6 @@ def get_light_theme(scale_factor=1.0):
          /* padding-top set dynamically */
      }}
     QWidget#settingsScrollContent {{ background-color: #f0f0f0; }}
-    QCheckBox {
-        spacing: {scale_value(8, scale_factor)}px;
-    }
     QCheckBox::indicator {{
         width: {scale_value(20, scale_factor)}px; /* Size of the checkbox */
         height: {scale_value(20, scale_factor)}px;
@@ -309,9 +306,6 @@ def get_dark_theme(scale_factor=1.0):
     QMainWindow, QStackedWidget {{ background-color: #2e2e2e; }}
     QWidget#central_widget, QWidget#settingsScrollContent {{ background-color: #2e2e2e; }}
 
-    QCheckBox {
-        spacing: {scale_value(8, scale_factor)}px;
-    }
     QCheckBox::indicator {{
         width: {scale_value(20, scale_factor)}px; /* Size of the checkbox */
         height: {scale_value(20, scale_factor)}px;
