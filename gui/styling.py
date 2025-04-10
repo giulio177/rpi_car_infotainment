@@ -13,7 +13,7 @@ def scale_value(base_value, scale_factor):
 
 # --- Theme Functions accepting scale_factor ---
 
-def get_light_theme(scale_factor=1.0):
+def get_light_theme(scale_factor=1.0, base_slider_thickness=18):
     # Base sizes relative to 1920x1080
     base_font_size_pt = 14
     base_padding_px = 12
@@ -293,7 +293,7 @@ def get_light_theme(scale_factor=1.0):
     QPushButton#powerNavButton:pressed {{ background-color: #e67373; }}
     """
 
-def get_dark_theme(scale_factor=1.0):
+def get_dark_theme(scale_factor=1.0, base_slider_thickness=18):
     # Base sizes relative to 1920x1080
     base_font_size_pt = 14
     base_padding_px = 12
