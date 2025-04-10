@@ -2,7 +2,7 @@
 
 import sys
 import signal
-from PyQt6.QtCore import QTimer
+from PyQt6.QtCore import QTimer, Qt
 from PyQt6.QtWidgets import QApplication
 from gui.main_window import MainWindow
 from backend.settings_manager import SettingsManager
@@ -17,6 +17,8 @@ if __name__ == "__main__":
 
     app = QApplication(sys.argv)
 
+    app.setOverrideCursor(Qt.CursorShape.BlankCursor)
+
     settings_manager = SettingsManager('config.json')
     main_win = MainWindow(settings_manager)
 
@@ -24,10 +26,6 @@ if __name__ == "__main__":
     target_height = 1080
     print(f"Setting fixed window size to: {target_width}x{target_height}")
     main_win.resize(target_width, target_height)
-    # Optional: Force position to top-left if needed, although fullscreen usually handles this
-    # main_win.move(0, 0)
-
-    # Now show it fullscreen, attempting to use the size we just set
     main_win.showFullScreen()
 
     # Timer for reliable Ctrl+C handling in Qt loop
