@@ -570,7 +570,7 @@ def get_dark_theme(scale_factor=1.0):
     """
 
 # --- apply_theme function ---
-ef apply_theme(app, theme_name, scale_factor=1.0):
+def apply_theme(app, theme_name, scale_factor=1.0):
     """Applies the selected theme stylesheet with the given scale factor."""
     print(f"DEBUG: apply_theme called. Theme: {theme_name}, Scale: {scale_factor:.2f}") # Debug
     if theme_name == "dark":
