@@ -95,19 +95,19 @@ class HomeScreen(QWidget):
         self.album_art_label.setObjectName("albumArtLabel")
         self.album_art_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         # Give it a larger stretch factor (e.g., 4 or 5)
-        self.media_layout.addWidget(self.album_art_label, 5, Qt.AlignmentFlag.AlignHCenter)
+        self.media_layout.addWidget(self.album_art_label, 0, Qt.AlignmentFlag.AlignHCenter)
 
         # Title Label (Scrolling, less vertical space)
         self.track_title_label = ScrollingLabel()
         self.track_title_label.setObjectName("trackTitleLabel")
         self.track_title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.media_layout.addWidget(self.track_title_label, 1) # Smaller stretch factor (e.g., 1)
+        self.media_layout.addWidget(self.track_title_label, 0) # Smaller stretch factor (e.g., 1)
 
         # Artist Label (Scrolling, less vertical space)
         self.track_artist_label = ScrollingLabel()
         self.track_artist_label.setObjectName("trackArtistLabel")
         self.track_artist_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.media_layout.addWidget(self.track_artist_label, 1) # Smaller stretch factor (e.g., 1)
+        self.media_layout.addWidget(self.track_artist_label, 0) # Smaller stretch factor (e.g., 1)
 
         # Time Label (Standard, minimal vertical space)
         self.track_time_label = QLabel("--:-- / --:--")
@@ -131,6 +131,12 @@ class HomeScreen(QWidget):
         self.playback_layout.addWidget(self.btn_next)
         self.playback_layout.addStretch(1)
         self.media_layout.addLayout(self.playback_layout) # Added with default stretch 0
+
+        # --- Stretch at the end ---
+        # This pushes all the above widgets upwards in the media_layout
+        self.media_layout.addStretch(1)
+
+      
 
         # Connect control buttons
         self.btn_prev.clicked.connect(self.on_previous_clicked)
