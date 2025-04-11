@@ -118,7 +118,7 @@ def get_light_theme(scale_factor=1.0):
     /* --- QSlider Styling (Targeting #volumeSlider) --- */
     QSlider#volumeSlider {{ /* Style the slider widget itself */
         min-height: {scaled_slider_handle_s + scale_value(4, scale_factor)}px; /* Ensure widget is tall enough for handle + small buffer */
-        /* background-color: rgba(255,0,0,0.1); /* DEBUG: Set background to see widget bounds */ */
+         background-color: rgba(255,0,0,0.1); /* DEBUG: Set background to see widget bounds */ 
     }}
 
     QSlider#volumeSlider::groove:horizontal {{
