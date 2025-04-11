@@ -244,6 +244,7 @@ def get_light_theme(scale_factor=1.0):
         min-height: {scaled_album_art_size}px;
         max-height: {scaled_album_art_size // 2}px;
         /* --- */
+        margin-bottom: {scaled_padding}px; /* Use full scaled padding or adjust (e.g., * 1.5) */
     }}
     QLabel#trackTitleLabel {{ /* Targets ScrollingLabel */
         min-height: {scale_value(30, scale_factor)}px; /* INCREASED min-height for larger font */
@@ -527,20 +528,21 @@ def get_dark_theme(scale_factor=1.0):
         min-height: {scaled_album_art_size}px;
         max-height: {scaled_album_art_size // 2}px;
         /* --- */
+        margin-bottom: {scaled_padding}px; /* Use full scaled padding or adjust (e.g., * 1.5) */
     }}
     QLabel#trackTitleLabel {{ /* Targets ScrollingLabel */
         min-height: {scale_value(20, scale_factor)}px; /* INCREASED min-height */
         font-size: {scale_value(base_font_size_pt + 4, scale_factor)}pt; /* RESTORED/ADJUSTED larger font size */
         font-weight: bold; /* RESTORED bold */
         color: #eeeeee; /* Explicit light color for dark theme */
-        background-color: rgba(255,0,0,0.1);
+        /* background-color: rgba(255,0,0,0.1); */
         margin-bottom: {scaled_padding // 3}px;
     }}
      QLabel#trackArtistLabel {{ /* Targets ScrollingLabel */
         min-height: {scale_value(26, scale_factor)}px; /* INCREASED min-height */
         font-size: {scale_value(base_font_size_pt + 2, scale_factor)}pt; /* RESTORED/ADJUSTED font size */
         color: #cccccc; /* Explicit color */
-        background-color: rgba(255,0,0,0.1);
+        /* background-color: rgba(255,0,0,0.1); */
         margin-bottom: {scaled_padding // 2}px;
      }}
      QLabel#trackTimeLabel {{
