@@ -32,7 +32,7 @@ class HomeScreen(QWidget):
         self.base_margin = 10
         self.base_top_section_spacing = 15
         self.base_grid_spacing = 8
-        self.base_media_spacing = 8 # Vertical spacing in media player
+        self.base_media_spacing = 5 # Vertical spacing in media player
         self.base_media_playback_button_spacing = 5
 
         # --- Main Layout (Vertical) ---
