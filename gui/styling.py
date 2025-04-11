@@ -32,12 +32,16 @@ def get_light_theme(scale_factor=1.0):
     scaled_button_min_height = scale_value(base_button_min_height_px, scale_factor)
     scaled_border_radius = scale_value(base_border_radius_px, scale_factor)
     scaled_border = scale_value(base_border_px, scale_factor)
-    # --- Calculate DERIVED slider sizes using the CONSTANT ---
+    # --- Calculate DERIVED slider sizes ---
     scaled_slider_thickness = scale_value(BASE_SLIDER_THICKNESS, scale_factor)
-    # Make handle ~2x groove thickness, ensure it's an even number for centered radius
-    scaled_slider_handle_s = max(scaled_slider_thickness + scale_value(10, scale_factor), scale_value(BASE_SLIDER_THICKNESS * 2.0, scale_factor))
+    # Handle size based on groove thickness (e.g., 1.8x thickness, ensure minimum size)
+    scaled_slider_handle_s = max(scaled_slider_thickness + scale_value(10, scale_factor), scale_value(BASE_SLIDER_THICKNESS * 1.8, scale_factor)) # Slightly smaller ratio?
     scaled_slider_handle_s = int(math.ceil(scaled_slider_handle_s / 2.0)) * 2 # Ensure even number
-    scaled_slider_handle_margin = - (scaled_slider_handle_s - scaled_slider_thickness) // 2
+    # Calculate margin to center handle vertically on groove
+    scaled_slider_handle_margin_v = - (scaled_slider_handle_s - scaled_slider_thickness) // 2 # Vertical margin
+    scaled_slider_handle_margin_h = scaled_slider_handle_s // 4 # Horizontal margin based on handle size (prevents clipping groove too much)
+
+    
     # Generate QSS String
     return f"""
     /* ==================== Global Styles ==================== */
@@ -112,18 +116,25 @@ def get_light_theme(scale_factor=1.0):
     }}
 
     /* --- QSlider Styling (Targeting #volumeSlider) --- */
+    QSlider#volumeSlider {{ /* Style the slider widget itself */
+        min-height: {scaled_slider_handle_s + scale_value(4, scale_factor)}px; /* Ensure widget is tall enough for handle + small buffer */
+        /* background-color: rgba(255,0,0,0.1); /* DEBUG: Set background to see widget bounds */ */
+    }}
+
     QSlider#volumeSlider::groove:horizontal {{
-        border: {scaled_border}px solid #aaaaaa; background: #e8e8e8;
+        border: {scaled_border}px solid #aaaaaa;
+        background: #e8e8e8;
         height: {scaled_slider_thickness}px; /* Use derived scaled thickness */
         border-radius: {scaled_slider_thickness // 2}px;
-        margin: 0px {scaled_padding // 2}px;
+        /* Adjust horizontal margin based on derived handle size to avoid clipping */
+        margin: 0px {scaled_slider_handle_margin_h}px;
     }}
     QSlider#volumeSlider::handle:horizontal {{
         background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #7070ff, stop:1 #4040fa);
         border: {scaled_border}px solid #3030cc;
-        width: {scaled_slider_handle_s}px; /* Use derived scaled handle size */
-        height: {scaled_slider_handle_s}px; /* Use derived scaled handle size */
-        margin: {scaled_slider_handle_margin}px 0; /* Use derived calculated margin */
+        width: {scaled_slider_handle_s}px;
+        height: {scaled_slider_handle_s}px;
+        margin: {scaled_slider_handle_margin_v}px 0; /* Apply calculated vertical margin */
         border-radius: {scaled_slider_handle_s // 2}px; /* Make it circular */
     }}
     QSlider#volumeSlider::handle:horizontal:hover {{
@@ -311,11 +322,12 @@ def get_dark_theme(scale_factor=1.0):
     scaled_button_min_height = scale_value(base_button_min_height_px, scale_factor)
     scaled_border_radius = scale_value(base_border_radius_px, scale_factor)
     scaled_border = scale_value(base_border_px, scale_factor)
-    # --- Calculate DERIVED slider sizes using the CONSTANT ---
+    # --- Calculate DERIVED slider sizes ---
     scaled_slider_thickness = scale_value(BASE_SLIDER_THICKNESS, scale_factor)
-    scaled_slider_handle_s = max(scaled_slider_thickness + scale_value(10, scale_factor), scale_value(BASE_SLIDER_THICKNESS * 2.0, scale_factor))
-    scaled_slider_handle_s = int(math.ceil(scaled_slider_handle_s / 2.0)) * 2 # Ensure even
-    scaled_slider_handle_margin = - (scaled_slider_handle_s - scaled_slider_thickness) // 2
+    scaled_slider_handle_s = max(scaled_slider_thickness + scale_value(10, scale_factor), scale_value(BASE_SLIDER_THICKNESS * 1.8, scale_factor))
+    scaled_slider_handle_s = int(math.ceil(scaled_slider_handle_s / 2.0)) * 2
+    scaled_slider_handle_margin_v = - (scaled_slider_handle_s - scaled_slider_thickness) // 2
+    scaled_slider_handle_margin_h = scaled_slider_handle_s // 4
     
     # Generate QSS String
     return f"""
@@ -391,19 +403,24 @@ def get_dark_theme(scale_factor=1.0):
     }}
 
     /* --- QSlider Styling (Targeting #volumeSlider) --- */
+    QSlider#volumeSlider {{
+        min-height: {scaled_slider_handle_s + scale_value(4, scale_factor)}px;
+        /* background-color: rgba(255,0,0,0.1); /* DEBUG */ */
+    }}
+
     QSlider#volumeSlider::groove:horizontal {{
         border: {scaled_border}px solid #555555; background: #444444;
-        height: {scaled_slider_thickness}px; /* Use derived scaled thickness */
+        height: {scaled_slider_thickness}px;
         border-radius: {scaled_slider_thickness // 2}px;
-        margin: 0px {scaled_padding // 2}px;
+        margin: 0px {scaled_slider_handle_margin_h}px; /* Use derived horizontal margin */
     }}
     QSlider#volumeSlider::handle:horizontal {{
         background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #8080ff, stop:1 #6060f0);
         border: {scaled_border}px solid #5050dd;
-        width: {scaled_slider_handle_s}px; /* Use derived scaled handle size */
-        height: {scaled_slider_handle_s}px; /* Use derived scaled handle size */
-        margin: {scaled_slider_handle_margin}px 0; /* Use derived calculated margin */
-        border-radius: {scaled_slider_handle_s // 2}px; /* Make it circular */
+        width: {scaled_slider_handle_s}px;
+        height: {scaled_slider_handle_s}px;
+        margin: {scaled_slider_handle_margin_v}px 0; /* Use derived vertical margin */
+        border-radius: {scaled_slider_handle_s // 2}px;
     }}
     QSlider#volumeSlider::handle:horizontal:hover {{
         background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #9090ff, stop:1 #7070f0);
