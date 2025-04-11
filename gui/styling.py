@@ -244,7 +244,7 @@ def get_light_theme(scale_factor=1.0):
         min-height: {scaled_album_art_size}px;
         max-height: {scaled_album_art_size // 2}px;
         /* --- */
-        margin-bottom: {scaled_padding}px; /* Use full scaled padding or adjust (e.g., * 1.5) */
+        margin-bottom: {20}px; /* Use full scaled padding or adjust (e.g., * 1.5) */
     }}
     QLabel#trackTitleLabel {{ /* Targets ScrollingLabel */
         min-height: {scale_value(30, scale_factor)}px; /* INCREASED min-height for larger font */
@@ -528,7 +528,7 @@ def get_dark_theme(scale_factor=1.0):
         min-height: {scaled_album_art_size}px;
         max-height: {scaled_album_art_size // 2}px;
         /* --- */
-        margin-bottom: {scaled_padding}px; /* Use full scaled padding or adjust (e.g., * 1.5) */
+        margin-bottom: {20}px; /* Use full scaled padding or adjust (e.g., * 1.5) */
     }}
     QLabel#trackTitleLabel {{ /* Targets ScrollingLabel */
         min-height: {scale_value(20, scale_factor)}px; /* INCREASED min-height */
