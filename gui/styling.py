@@ -12,7 +12,7 @@ def scale_value(base_value, scale_factor):
         print(f"Warning: Could not convert base_value '{base_value}' to number in scale_value. Returning 1.")
         return 1
 
-BASE_SLIDER_THICKNESS = 30 # <<< --- TWEAK THIS SINGLE VALUE --- >>>
+BASE_SLIDER_THICKNESS = 25 # <<< --- TWEAK THIS SINGLE VALUE --- >>>
 
 # --- Theme Functions accepting scale_factor ---
 
@@ -118,7 +118,6 @@ def get_light_theme(scale_factor=1.0):
     /* --- QSlider Styling (Targeting #volumeSlider) --- */
     QSlider#volumeSlider {{ /* Style the slider widget itself */
         min-height: {scaled_slider_handle_s + scale_value(4, scale_factor)}px; /* Ensure widget is tall enough for handle + small buffer */
-         background-color: rgba(255,0,0,0.1); /* DEBUG: Set background to see widget bounds */ 
     }}
 
     QSlider#volumeSlider::groove:horizontal {{
