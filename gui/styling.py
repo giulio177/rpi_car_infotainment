@@ -533,14 +533,14 @@ def get_dark_theme(scale_factor=1.0):
         font-size: {scale_value(base_font_size_pt + 4, scale_factor)}pt; /* RESTORED/ADJUSTED larger font size */
         font-weight: bold; /* RESTORED bold */
         color: #eeeeee; /* Explicit light color for dark theme */
-        /* REMOVED debug background/border */
+        background-color: rgba(255,0,0,0.1);
         margin-bottom: {scaled_padding // 3}px;
     }}
      QLabel#trackArtistLabel {{ /* Targets ScrollingLabel */
         min-height: {scale_value(26, scale_factor)}px; /* INCREASED min-height */
         font-size: {scale_value(base_font_size_pt + 2, scale_factor)}pt; /* RESTORED/ADJUSTED font size */
         color: #cccccc; /* Explicit color */
-        /* REMOVED debug background/border */
+        background-color: rgba(255,0,0,0.1);
         margin-bottom: {scaled_padding // 2}px;
      }}
      QLabel#trackTimeLabel {{
