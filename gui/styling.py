@@ -246,23 +246,21 @@ def get_light_theme(scale_factor=1.0):
         /* --- */
     }}
     QLabel#trackTitleLabel {{ /* Targets ScrollingLabel */
-        min-height: {scale_value(35, scale_factor)}px;
-        font-size: {scale_value(base_font_size_pt + 4, scale_factor)}pt;
-        font-weight: bold;
-        /* --- MAKE COLORS OBVIOUS FOR DEBUGGING --- */
-        color: red; /* Was #222222 or #eeeeee */
-        background-color: rgba(0, 255, 0, 0.2); /* Light green background */
-        /* --- */
+        min-height: {scale_value(40, scale_factor)}px; /* INCREASE min-height further */
+        /* font-size: {scale_value(base_font_size_pt + 4, scale_factor)}pt; /* Temporarily remove specific font size */ */
+        /* font-weight: bold; /* Temporarily remove bold */ */
+        color: red !important; /* Try forcing color */
+        background-color: rgba(0, 255, 0, 0.2);
         margin-bottom: {scaled_padding // 4}px;
+        border: 1px dashed red; /* Add border to see exact bounds */
     }}
      QLabel#trackArtistLabel {{ /* Targets ScrollingLabel */
-        min-height: {scale_value(30, scale_factor)}px;
-        font-size: {scale_value(base_font_size_pt + 2, scale_factor)}pt;
-        /* --- MAKE COLORS OBVIOUS FOR DEBUGGING --- */
-        color: blue; /* Was #444444 or #cccccc */
-        background-color: rgba(255, 255, 0, 0.2); /* Light yellow background */
-        /* --- */
+        min-height: {scale_value(35, scale_factor)}px; /* INCREASE min-height further */
+        /* font-size: {scale_value(base_font_size_pt + 2, scale_factor)}pt; /* Temporarily remove specific font size */ */
+        color: blue !important; /* Try forcing color */
+        background-color: rgba(255, 255, 0, 0.2);
         margin-bottom: {scaled_padding // 2}px;
+        border: 1px dashed blue; /* Add border to see exact bounds */
      }}
      QLabel#trackTimeLabel {{
         min-height: {scale_value(24, scale_factor)}px;
@@ -533,23 +531,21 @@ def get_dark_theme(scale_factor=1.0):
         /* --- */
     }}
     QLabel#trackTitleLabel {{ /* Targets ScrollingLabel */
-        min-height: {scale_value(35, scale_factor)}px;
-        font-size: {scale_value(base_font_size_pt + 4, scale_factor)}pt;
-        font-weight: bold;
-        /* --- MAKE COLORS OBVIOUS FOR DEBUGGING --- */
-        color: red; /* Was #222222 or #eeeeee */
-        background-color: rgba(0, 255, 0, 0.2); /* Light green background */
-        /* --- */
+        min-height: {scale_value(40, scale_factor)}px; /* INCREASE min-height further */
+        /* font-size: {scale_value(base_font_size_pt + 4, scale_factor)}pt; /* Temporarily remove specific font size */ */
+        /* font-weight: bold; /* Temporarily remove bold */ */
+        color: red !important; /* Try forcing color */
+        background-color: rgba(0, 255, 0, 0.2);
         margin-bottom: {scaled_padding // 4}px;
+        border: 1px dashed red; /* Add border to see exact bounds */
     }}
      QLabel#trackArtistLabel {{ /* Targets ScrollingLabel */
-        min-height: {scale_value(30, scale_factor)}px;
-        font-size: {scale_value(base_font_size_pt + 2, scale_factor)}pt;
-        /* --- MAKE COLORS OBVIOUS FOR DEBUGGING --- */
-        color: blue; /* Was #444444 or #cccccc */
-        background-color: rgba(255, 255, 0, 0.2); /* Light yellow background */
-        /* --- */
+        min-height: {scale_value(35, scale_factor)}px; /* INCREASE min-height further */
+        /* font-size: {scale_value(base_font_size_pt + 2, scale_factor)}pt; /* Temporarily remove specific font size */ */
+        color: blue !important; /* Try forcing color */
+        background-color: rgba(255, 255, 0, 0.2);
         margin-bottom: {scaled_padding // 2}px;
+        border: 1px dashed blue; /* Add border to see exact bounds */
      }}
      QLabel#trackTimeLabel {{
         min-height: {scale_value(24, scale_factor)}px;
