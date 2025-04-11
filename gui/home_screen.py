@@ -32,7 +32,7 @@ class HomeScreen(QWidget):
         self.base_margin = 10
         self.base_top_section_spacing = 15
         self.base_grid_spacing = 8
-        self.base_media_spacing = 10 # Vertical spacing in media player
+        self.base_media_spacing = 30 # Vertical spacing in media player
         self.base_media_playback_button_spacing = 5
 
         # --- Main Layout (Vertical) ---
@@ -95,7 +95,7 @@ class HomeScreen(QWidget):
         self.album_art_label.setObjectName("albumArtLabel")
         self.album_art_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         # Give it a larger stretch factor (e.g., 4 or 5)
-        self.media_layout.addWidget(self.album_art_label, 9, Qt.AlignmentFlag.AlignHCenter)
+        self.media_layout.addWidget(self.album_art_label, 0, Qt.AlignmentFlag.AlignHCenter)
 
         # Title Label (Scrolling, less vertical space)
         self.track_title_label = ScrollingLabel()
