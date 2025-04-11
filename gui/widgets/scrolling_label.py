@@ -130,29 +130,45 @@ class ScrollingLabel(QLabel):
 
 
     def paintEvent(self, event):
-        """Overrides paintEvent to draw scrolling or static text."""
         painter = QPainter(self)
         fm = painter.fontMetrics()
         widget_width = self.width()
+        widget_height = self.height() # Get widget height
         text_height = fm.height()
-        # Calculate y for vertical centering
-        y = (self.height() - text_height) // 2 + fm.ascent()
+        # --- Check calculated Y ---
+        # Original: y = (widget_height - text_height) // 2 + fm.ascent()
+        # Try simpler top alignment first:
+        y = fm.ascent() # Draw near the top
+        # Or just a fixed value for testing:
+        # y = 20
+        print(f"DEBUG Paint: Text='{self._text[:10]}', Widget H={widget_height}, Text H={text_height}, Ascent={fm.ascent()}, Draw Y={y}")
+        # ---
 
-        # If not scrolling or text fits, use default QLabel paint (respects alignment)
         if self._state != ScrollState.SCROLLING or self._full_text_width <= widget_width:
-            super().paintEvent(event)
+            # --- Modify static paint too ---
+            # super().paintEvent(event) # Default painting might have issues too
+            # Manually paint static text respecting alignment
+            align_flags = self.alignment()
+            text_rect = fm.boundingRect(0, 0, widget_width, widget_height, int(align_flags), self._text)
+            # Adjust rectangle based on alignment (simplified example for center)
+            if align_flags & Qt.AlignmentFlag.AlignHCenter:
+                 draw_x = (widget_width - text_rect.width()) // 2
+            else: # Default left
+                 draw_x = 0 # Or add padding from QSS margins/padding?
+            # Use calculated y for vertical centering
+            draw_y = (widget_height - text_rect.height()) // 2 + fm.ascent()
+
+            # Ensure draw position is within bounds (basic clip)
+            if draw_y > fm.ascent(): # Don't draw if baseline is below top
+                 painter.drawText(draw_x, draw_y, self._text)
+            # ---
             return
 
         # --- Scrolling Paint Logic ---
-        # Starting x position based on the negative offset
         x = -self._offset
-
-        # Draw text repeatedly until it goes past the right edge of the widget
         while x < widget_width:
-            painter.drawText(x, y, self._text)
-            # Move x for the next repetition (full text width + padding)
+            painter.drawText(x, y, self._text) # Use calculated y
             x += self._full_text_width + self._padding
-            # Optimization: Stop drawing if we've already covered the widget width
             if x >= widget_width and (x - self._full_text_width - self._padding) < 0:
                  break
 
