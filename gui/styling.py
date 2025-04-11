@@ -404,7 +404,6 @@ def get_dark_theme(scale_factor=1.0):
     /* --- QSlider Styling (Targeting #volumeSlider) --- */
     QSlider#volumeSlider {{
         min-height: {scaled_slider_handle_s + scale_value(4, scale_factor)}px;
-        /* background-color: rgba(255,0,0,0.1); /* DEBUG */ */
     }}
 
     QSlider#volumeSlider::groove:horizontal {{
