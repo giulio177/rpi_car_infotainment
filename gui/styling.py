@@ -529,7 +529,7 @@ def get_dark_theme(scale_factor=1.0):
         /* --- */
     }}
     QLabel#trackTitleLabel {{ /* Targets ScrollingLabel */
-        min-height: {scale_value(30, scale_factor)}px; /* INCREASED min-height */
+        min-height: {scale_value(20, scale_factor)}px; /* INCREASED min-height */
         font-size: {scale_value(base_font_size_pt + 4, scale_factor)}pt; /* RESTORED/ADJUSTED larger font size */
         font-weight: bold; /* RESTORED bold */
         color: #eeeeee; /* Explicit light color for dark theme */
