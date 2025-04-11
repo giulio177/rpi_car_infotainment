@@ -101,7 +101,7 @@ class HomeScreen(QWidget):
         self.track_title_label = ScrollingLabel()
         self.track_title_label.setObjectName("trackTitleLabel")
         self.track_title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.media_layout.addWidget(self.track_title_label, 3) # Smaller stretch factor (e.g., 1)
+        self.media_layout.addWidget(self.track_title_label, 1) # Smaller stretch factor (e.g., 1)
 
         # Artist Label (Scrolling, less vertical space)
         self.track_artist_label = ScrollingLabel()
