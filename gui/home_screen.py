@@ -93,7 +93,7 @@ class HomeScreen(QWidget):
         # Album Label (Scrolling, square via QSS, takes most vertical space)
         self.album_art_label = ScrollingLabel("(Album)")
         self.album_art_label.setObjectName("albumArtLabel")
-        self.album_art_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.album_art_label.setAlignment(Qt.AlignmentFlag.AlignBottom)
         # Give it a larger stretch factor (e.g., 4 or 5)
         self.media_layout.addWidget(self.album_art_label, 0, Qt.AlignmentFlag.AlignHCenter)
 
