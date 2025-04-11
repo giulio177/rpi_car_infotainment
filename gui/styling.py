@@ -12,7 +12,7 @@ def scale_value(base_value, scale_factor):
         print(f"Warning: Could not convert base_value '{base_value}' to number in scale_value. Returning 1.")
         return 1
 
-BASE_SLIDER_THICKNESS = 5 # <<< --- TWEAK THIS SINGLE VALUE --- >>>
+BASE_SLIDER_THICKNESS = 20 # <<< --- TWEAK THIS SINGLE VALUE --- >>>
 
 # --- Theme Functions accepting scale_factor ---
 
