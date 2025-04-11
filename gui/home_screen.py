@@ -95,13 +95,13 @@ class HomeScreen(QWidget):
         self.album_art_label.setObjectName("albumArtLabel")
         self.album_art_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         # Give it a larger stretch factor (e.g., 4 or 5)
-        self.media_layout.addWidget(self.album_art_label, 1, Qt.AlignmentFlag.AlignHCenter)
+        self.media_layout.addWidget(self.album_art_label, 9, Qt.AlignmentFlag.AlignHCenter)
 
         # Title Label (Scrolling, less vertical space)
         self.track_title_label = ScrollingLabel()
         self.track_title_label.setObjectName("trackTitleLabel")
         self.track_title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.media_layout.addWidget(self.track_title_label, 0.4) # Smaller stretch factor (e.g., 1)
+        self.media_layout.addWidget(self.track_title_label, 0) # Smaller stretch factor (e.g., 1)
 
         # Artist Label (Scrolling, less vertical space)
         self.track_artist_label = ScrollingLabel()
