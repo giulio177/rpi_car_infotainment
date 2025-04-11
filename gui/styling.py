@@ -242,31 +242,31 @@ def get_light_theme(scale_factor=1.0):
         min-width: {scaled_album_art_size}px;
         max-width: {scaled_album_art_size}px;
         min-height: {scaled_album_art_size}px;
-        max-height: {scaled_album_art_size}px;
+        max-height: {scaled_album_art_size // 2}px;
         /* --- */
     }}
     QLabel#trackTitleLabel {{ /* Targets ScrollingLabel */
-        min-height: {scale_value(40, scale_factor)}px; /* INCREASED min-height for larger font */
-        font-size: {scale_value(base_font_size_pt + 6, scale_factor)}pt; /* RESTORED/ADJUSTED larger font size */
-        font-weight: bold; /* RESTORED bold */
+        min-height: {scale_value(30, scale_factor)}px; /* INCREASED min-height for larger font */
+        font-size: {scale_value(base_font_size_pt + 4, scale_factor)}pt; /* RESTORED/ADJUSTED larger font size */
+        font-weight: bold;
         color: #222222; /* Explicit dark color for light theme */
         /* REMOVED debug background/border */
         margin-bottom: {scaled_padding // 4}px;
     }}
      QLabel#trackArtistLabel {{ /* Targets ScrollingLabel */
-        min-height: {scale_value(35, scale_factor)}px; /* INCREASED min-height */
-        font-size: {scale_value(base_font_size_pt + 3, scale_factor)}pt; /* RESTORED/ADJUSTED font size */
+        min-height: {scale_value(26, scale_factor)}px; /* INCREASED min-height */
+        font-size: {scale_value(base_font_size_pt + 2, scale_factor)}pt; /* RESTORED/ADJUSTED font size */
         color: #444444; /* Explicit color */
         /* REMOVED debug background/border */
         margin-bottom: {scaled_padding // 2}px;
      }}
      QLabel#trackTimeLabel {{
-        min-height: {scale_value(24, scale_factor)}px;
+        min-height: {scale_value(22, scale_factor)}px;
         font-size: {scale_value(base_font_size_pt, scale_factor)}pt;
         color: #666666;
         qproperty-alignment: 'AlignCenter';
-        margin-top: {scaled_padding // 2}px; /* Increased margin above time */
-        margin-bottom: {scaled_padding}px; /* Increased margin below time */
+        margin-top: {scaled_padding // 3}px; /* Increased margin above time */
+        margin-bottom: {scaled_padding // 2}px; /* Increased margin below time */
      }}
      QPushButton#mediaPrevButton, QPushButton#mediaPlayPauseButton, QPushButton#mediaNextButton {{
         min-width: {scale_value(65, scale_factor)}px;
@@ -525,31 +525,31 @@ def get_dark_theme(scale_factor=1.0):
         min-width: {scaled_album_art_size}px;
         max-width: {scaled_album_art_size}px;
         min-height: {scaled_album_art_size}px;
-        max-height: {scaled_album_art_size}px;
+        max-height: {scaled_album_art_size // 2}px;
         /* --- */
     }}
     QLabel#trackTitleLabel {{ /* Targets ScrollingLabel */
-        min-height: {scale_value(40, scale_factor)}px; /* INCREASED min-height */
-        font-size: {scale_value(base_font_size_pt + 6, scale_factor)}pt; /* RESTORED/ADJUSTED larger font size */
+        min-height: {scale_value(30, scale_factor)}px; /* INCREASED min-height */
+        font-size: {scale_value(base_font_size_pt + 4, scale_factor)}pt; /* RESTORED/ADJUSTED larger font size */
         font-weight: bold; /* RESTORED bold */
         color: #eeeeee; /* Explicit light color for dark theme */
         /* REMOVED debug background/border */
-        margin-bottom: {scaled_padding // 4}px;
+        margin-bottom: {scaled_padding // 3}px;
     }}
      QLabel#trackArtistLabel {{ /* Targets ScrollingLabel */
-        min-height: {scale_value(35, scale_factor)}px; /* INCREASED min-height */
-        font-size: {scale_value(base_font_size_pt + 3, scale_factor)}pt; /* RESTORED/ADJUSTED font size */
+        min-height: {scale_value(26, scale_factor)}px; /* INCREASED min-height */
+        font-size: {scale_value(base_font_size_pt + 2, scale_factor)}pt; /* RESTORED/ADJUSTED font size */
         color: #cccccc; /* Explicit color */
         /* REMOVED debug background/border */
         margin-bottom: {scaled_padding // 2}px;
      }}
      QLabel#trackTimeLabel {{
-        min-height: {scale_value(24, scale_factor)}px;
+        min-height: {scale_value(22, scale_factor)}px;
         font-size: {scale_value(base_font_size_pt, scale_factor)}pt;
         color: #aaaaaa;
         qproperty-alignment: 'AlignCenter';
-        margin-top: {scaled_padding // 2}px;
-        margin-bottom: {scaled_padding}px;
+        margin-top: {scaled_padding // 3}px;
+        margin-bottom: {scaled_padding // 2}px;
      }}
      QPushButton#mediaPrevButton, QPushButton#mediaPlayPauseButton, QPushButton#mediaNextButton {{
         min-width: {scale_value(65, scale_factor)}px;
