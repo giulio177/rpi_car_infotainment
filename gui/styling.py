@@ -116,7 +116,7 @@ def get_light_theme(scale_factor=1.0):
         border: {scaled_border}px solid #aaaaaa; background: #e8e8e8;
         height: {scaled_slider_thickness}px; /* Use derived scaled thickness */
         border-radius: {scaled_slider_thickness // 2}px;
-        margin: 0px {scaled_slider_handle_s // 3}px;
+        margin: 0px {scaled_padding // 2}px;
     }}
     QSlider#volumeSlider::handle:horizontal {{
         background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #7070ff, stop:1 #4040fa);
@@ -395,7 +395,7 @@ def get_dark_theme(scale_factor=1.0):
         border: {scaled_border}px solid #555555; background: #444444;
         height: {scaled_slider_thickness}px; /* Use derived scaled thickness */
         border-radius: {scaled_slider_thickness // 2}px;
-        margin: 0px {scaled_slider_handle_s // 3}px;
+        margin: 0px {scaled_padding // 2}px;
     }}
     QSlider#volumeSlider::handle:horizontal {{
         background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #8080ff, stop:1 #6060f0);
