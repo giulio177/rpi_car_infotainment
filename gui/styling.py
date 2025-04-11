@@ -246,17 +246,23 @@ def get_light_theme(scale_factor=1.0):
         /* --- */
     }}
     QLabel#trackTitleLabel {{ /* Targets ScrollingLabel */
-        min-height: {scale_value(35, scale_factor)}px; /* Ensure enough height */
+        min-height: {scale_value(35, scale_factor)}px;
         font-size: {scale_value(base_font_size_pt + 4, scale_factor)}pt;
         font-weight: bold;
-        color: #222222; /* Explicit dark color for light theme */
-        margin-bottom: {scaled_padding // 4}px; /* Small margin below title */
+        /* --- MAKE COLORS OBVIOUS FOR DEBUGGING --- */
+        color: red; /* Was #222222 or #eeeeee */
+        background-color: rgba(0, 255, 0, 0.2); /* Light green background */
+        /* --- */
+        margin-bottom: {scaled_padding // 4}px;
     }}
      QLabel#trackArtistLabel {{ /* Targets ScrollingLabel */
         min-height: {scale_value(30, scale_factor)}px;
         font-size: {scale_value(base_font_size_pt + 2, scale_factor)}pt;
-        color: #444444; /* Explicit color */
-        margin-bottom: {scaled_padding // 2}px; /* More margin below artist */
+        /* --- MAKE COLORS OBVIOUS FOR DEBUGGING --- */
+        color: blue; /* Was #444444 or #cccccc */
+        background-color: rgba(255, 255, 0, 0.2); /* Light yellow background */
+        /* --- */
+        margin-bottom: {scaled_padding // 2}px;
      }}
      QLabel#trackTimeLabel {{
         min-height: {scale_value(24, scale_factor)}px;
@@ -530,13 +536,19 @@ def get_dark_theme(scale_factor=1.0):
         min-height: {scale_value(35, scale_factor)}px;
         font-size: {scale_value(base_font_size_pt + 4, scale_factor)}pt;
         font-weight: bold;
-        color: #eeeeee; /* Explicit light color for dark theme */
+        /* --- MAKE COLORS OBVIOUS FOR DEBUGGING --- */
+        color: red; /* Was #222222 or #eeeeee */
+        background-color: rgba(0, 255, 0, 0.2); /* Light green background */
+        /* --- */
         margin-bottom: {scaled_padding // 4}px;
     }}
      QLabel#trackArtistLabel {{ /* Targets ScrollingLabel */
         min-height: {scale_value(30, scale_factor)}px;
         font-size: {scale_value(base_font_size_pt + 2, scale_factor)}pt;
-        color: #cccccc; /* Explicit color */
+        /* --- MAKE COLORS OBVIOUS FOR DEBUGGING --- */
+        color: blue; /* Was #444444 or #cccccc */
+        background-color: rgba(255, 255, 0, 0.2); /* Light yellow background */
+        /* --- */
         margin-bottom: {scaled_padding // 2}px;
      }}
      QLabel#trackTimeLabel {{
