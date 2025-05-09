@@ -304,56 +304,115 @@ class MainWindow(QMainWindow):
         # Get the UI scale mode from settings
         ui_scale_mode = self.settings_manager.get("ui_scale_mode")
 
-        # Determine the scale factor based on the UI scale mode
+        # Define base sizes for different UI modes
+        ui_mode_settings = {
+            "fixed_small": {  # Optimized for 1024x600
+                "scale_factor": 1.0,
+                "top_padding": 120,
+                "icon_size": QSize(32, 32),
+                "button_size": QSize(50, 50),
+                "bottom_bar_height": 70,
+                "slider_width": 180,
+                "spacing": 10,
+                "header_spacing": 15,
+                "margin": 6,
+                "main_margin": 10
+            },
+            "fixed_medium": {  # Optimized for 1280x720
+                "scale_factor": 1.2,
+                "top_padding": 150,
+                "icon_size": QSize(38, 38),
+                "button_size": QSize(60, 60),
+                "bottom_bar_height": 80,
+                "slider_width": 220,
+                "spacing": 12,
+                "header_spacing": 18,
+                "margin": 8,
+                "main_margin": 12
+            },
+            "fixed_large": {  # Optimized for 1920x1080
+                "scale_factor": 1.8,
+                "top_padding": 220,
+                "icon_size": QSize(42, 42),
+                "button_size": QSize(65, 65),
+                "bottom_bar_height": 90,
+                "slider_width": 300,
+                "spacing": 15,
+                "header_spacing": 20,
+                "margin": 10,
+                "main_margin": 15
+            }
+        }
+
+        # Determine the scale factor and UI settings based on the UI scale mode
         if ui_scale_mode == "auto":
             # Auto mode: Calculate scale factor based on current resolution
             if self.BASE_RESOLUTION.height() <= 0:
                 scale_factor = 1.0
             else:
                 scale_factor = current_height / self.BASE_RESOLUTION.height()
+
+            # Use the base sizes defined in the class
+            scaled_top_padding = scale_value(self.base_top_padding, scale_factor)
+            scaled_icon_size = QSize(
+                scale_value(self.base_icon_size.width(), scale_factor),
+                scale_value(self.base_icon_size.height(), scale_factor)
+            )
+            scaled_button_size = QSize(
+                scale_value(self.base_bottom_bar_button_size.width(), scale_factor),
+                scale_value(self.base_bottom_bar_button_size.height(), scale_factor)
+            )
+            scaled_bottom_bar_height = scale_value(self.base_bottom_bar_height, scale_factor)
+            scaled_slider_width = scale_value(self.base_volume_slider_width, scale_factor)
+            scaled_spacing = scale_value(self.base_layout_spacing, scale_factor)
+            scaled_header_spacing = scale_value(self.base_header_spacing, scale_factor)
+            scaled_margin = scale_value(self.base_layout_margin, scale_factor)
+            scaled_main_margin = scale_value(self.base_main_margin, scale_factor)
+
             print(f"DEBUG: Using AUTO scaling mode. Scale factor: {scale_factor:.3f}")
-        elif ui_scale_mode == "fixed_small":
-            # Small UI mode: Optimized for 1024x600
-            scale_factor = 1.0
-            print(f"DEBUG: Using SMALL UI mode (fixed scale factor: {scale_factor:.3f})")
-        elif ui_scale_mode == "fixed_medium":
-            # Medium UI mode: Optimized for 1280x720
-            scale_factor = 1.2
-            print(f"DEBUG: Using MEDIUM UI mode (fixed scale factor: {scale_factor:.3f})")
-        elif ui_scale_mode == "fixed_large":
-            # Large UI mode: Optimized for 1920x1080
-            scale_factor = 1.8
-            print(f"DEBUG: Using LARGE UI mode (fixed scale factor: {scale_factor:.3f})")
+        elif ui_scale_mode in ui_mode_settings:
+            # Use predefined settings for the selected UI mode
+            settings = ui_mode_settings[ui_scale_mode]
+            scale_factor = settings["scale_factor"]
+            scaled_top_padding = settings["top_padding"]
+            scaled_icon_size = settings["icon_size"]
+            scaled_button_size = settings["button_size"]
+            scaled_bottom_bar_height = settings["bottom_bar_height"]
+            scaled_slider_width = settings["slider_width"]
+            scaled_spacing = settings["spacing"]
+            scaled_header_spacing = settings["header_spacing"]
+            scaled_margin = settings["margin"]
+            scaled_main_margin = settings["main_margin"]
+
+            print(f"DEBUG: Using {ui_scale_mode.upper().replace('_', ' ')} UI mode (fixed scale factor: {scale_factor:.3f})")
         else:
             # Fallback to auto mode if the setting is invalid
             if self.BASE_RESOLUTION.height() <= 0:
                 scale_factor = 1.0
             else:
                 scale_factor = current_height / self.BASE_RESOLUTION.height()
+
+            # Use the base sizes defined in the class
+            scaled_top_padding = scale_value(self.base_top_padding, scale_factor)
+            scaled_icon_size = QSize(
+                scale_value(self.base_icon_size.width(), scale_factor),
+                scale_value(self.base_icon_size.height(), scale_factor)
+            )
+            scaled_button_size = QSize(
+                scale_value(self.base_bottom_bar_button_size.width(), scale_factor),
+                scale_value(self.base_bottom_bar_button_size.height(), scale_factor)
+            )
+            scaled_bottom_bar_height = scale_value(self.base_bottom_bar_height, scale_factor)
+            scaled_slider_width = scale_value(self.base_volume_slider_width, scale_factor)
+            scaled_spacing = scale_value(self.base_layout_spacing, scale_factor)
+            scaled_header_spacing = scale_value(self.base_header_spacing, scale_factor)
+            scaled_margin = scale_value(self.base_layout_margin, scale_factor)
+            scaled_main_margin = scale_value(self.base_main_margin, scale_factor)
+
             print(f"DEBUG: Invalid UI scale mode '{ui_scale_mode}'. Using auto scaling: {scale_factor:.3f}")
 
         # Print the final scaling information
         print(f"DEBUG: _apply_scaling factor: {scale_factor:.3f} (Height: {current_height})")
-
-        # --- Calculate scaled sizes (COMPLETE THESE) ---
-        scaled_top_padding = scale_value(self.base_top_padding, scale_factor)
-        # --- Use self.base_icon_size ---
-        scaled_icon_size = QSize( # For bottom bar icons
-            scale_value(self.base_icon_size.width(), scale_factor),
-            scale_value(self.base_icon_size.height(), scale_factor)
-        )
-        # --- Use self.base_bottom_bar_button_size ---
-        scaled_button_size = QSize( # For bottom bar buttons
-             scale_value(self.base_bottom_bar_button_size.width(), scale_factor),
-             scale_value(self.base_bottom_bar_button_size.height(), scale_factor)
-        )
-        # ---
-        scaled_bottom_bar_height = scale_value(self.base_bottom_bar_height, scale_factor)
-        scaled_slider_width = scale_value(self.base_volume_slider_width, scale_factor) # Scale width
-        scaled_spacing = scale_value(self.base_layout_spacing, scale_factor)
-        scaled_header_spacing = scale_value(self.base_header_spacing, scale_factor)
-        scaled_margin = scale_value(self.base_layout_margin, scale_factor)
-        scaled_main_margin = scale_value(self.base_main_margin, scale_factor)
 
         # --- Apply sizes and layouts ---
         # Apply to bottom bar elements
@@ -374,9 +433,8 @@ class MainWindow(QMainWindow):
         self.main_layout.setSpacing(scaled_spacing)
         # Add top padding via stylesheet on central widget
         padding_style = f"QWidget#central_widget {{ padding-top: {scaled_top_padding}px; }}"
-        # Combine with existing stylesheet if any, or just set it
-        current_style = self.central_widget.styleSheet()
-
+        # Apply the padding style to the central widget
+        self.central_widget.setStyleSheet(padding_style)
 
         self.header_layout.setSpacing(scaled_header_spacing)
         self.bottom_bar_layout.setContentsMargins(scaled_margin, scaled_margin, scaled_margin, scaled_margin)
@@ -384,6 +442,19 @@ class MainWindow(QMainWindow):
 
         # --- Re-apply theme/stylesheet ---
         apply_theme(QApplication.instance(), self.current_theme, scale_factor)
+
+        # --- Force style update on specific buttons to ensure custom styles are applied ---
+        # This helps prevent system default styles from being used at higher resolutions
+        self.home_button_bar.style().unpolish(self.home_button_bar)
+        self.home_button_bar.style().polish(self.home_button_bar)
+        self.settings_button.style().unpolish(self.settings_button)
+        self.settings_button.style().polish(self.settings_button)
+        self.volume_icon_button.style().unpolish(self.volume_icon_button)
+        self.volume_icon_button.style().polish(self.volume_icon_button)
+        self.restart_button_bar.style().unpolish(self.restart_button_bar)
+        self.restart_button_bar.style().polish(self.restart_button_bar)
+        self.power_button.style().unpolish(self.power_button)
+        self.power_button.style().polish(self.power_button)
 
         # --- Update Header Bluetooth Status ---
         self.update_bluetooth_header_status() # Update text/visibility

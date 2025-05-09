@@ -70,17 +70,17 @@ class SettingsScreen(QWidget):
         self.ui_scale_combo.setObjectName("uiScaleCombo")
         self.ui_scale_combo.addItems([
             "Auto (Scale with Resolution)",
-            "Small (Optimized for 1024x600)",
-            "Medium (Optimized for 1280x720)",
-            "Large (Optimized for 1920x1080)"
+            "Small UI (Fixed Style)",
+            "Medium UI (Fixed Style)",
+            "Large UI (Fixed Style)"
         ])
 
         # Map the stored value to the display text
         scale_mode_map = {
             "auto": "Auto (Scale with Resolution)",
-            "fixed_small": "Small (Optimized for 1024x600)",
-            "fixed_medium": "Medium (Optimized for 1280x720)",
-            "fixed_large": "Large (Optimized for 1920x1080)"
+            "fixed_small": "Small UI (Fixed Style)",
+            "fixed_medium": "Medium UI (Fixed Style)",
+            "fixed_large": "Large UI (Fixed Style)"
         }
         current_scale_mode = self.settings_manager.get("ui_scale_mode")
         if current_scale_mode in scale_mode_map:
@@ -253,9 +253,9 @@ class SettingsScreen(QWidget):
         # Reverse map from display text to stored value
         reverse_scale_map = {
             "Auto (Scale with Resolution)": "auto",
-            "Small (Optimized for 1024x600)": "fixed_small",
-            "Medium (Optimized for 1280x720)": "fixed_medium",
-            "Large (Optimized for 1920x1080)": "fixed_large"
+            "Small UI (Fixed Style)": "fixed_small",
+            "Medium UI (Fixed Style)": "fixed_medium",
+            "Large UI (Fixed Style)": "fixed_large"
         }
 
         if scale_mode_display in reverse_scale_map:

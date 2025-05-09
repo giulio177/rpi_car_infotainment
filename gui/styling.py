@@ -602,4 +602,11 @@ def apply_theme(app, theme_name, scale_factor=1.0):
     else: # Default to light
         style_sheet = get_light_theme(scale_factor)
 
+    # Clear the existing stylesheet first to ensure clean application
+    app.setStyleSheet("")
+    # Apply the new stylesheet
     app.setStyleSheet(style_sheet)
+
+    # Force style update on the application
+    app.style().unpolish(app)
+    app.style().polish(app)
