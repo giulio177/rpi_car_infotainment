@@ -14,7 +14,9 @@ class SettingsManager:
             "radio_i2c_address": None,
             "radio_enabled": True,
             "last_fm_station": 98.5,
-            "window_resolution": [1920, 1080]
+            "window_resolution": [1024, 600],
+            "show_cursor": False,
+            "position_bottom_right": True
         }
         self.settings = self._load_settings()
 
@@ -32,7 +34,7 @@ class SettingsManager:
                     if not isinstance(updated_settings.get("radio_enabled"), bool):
                         print("Warning: Invalid radio_enabled value in config, using default.")
                         updated_settings["radio_enabled"] = self.defaults["radio_enabled"]
-                    
+
                     return updated_settings
             except (json.JSONDecodeError, IOError) as e:
                 print(f"Error loading settings file {self.config_file}: {e}")

@@ -41,7 +41,7 @@ class SettingsScreen(QWidget):
         self.scroll_layout = QVBoxLayout(self.scroll_content_widget)
         # Spacing set by update_scaling
 
-        
+
 
         # --- General Settings Group ---
         self.general_group = QGroupBox("General")
@@ -55,6 +55,27 @@ class SettingsScreen(QWidget):
         self.theme_combo.addItems(["light", "dark"])
         self.theme_combo.setCurrentText(self.settings_manager.get("theme"))
         self.general_layout.addRow("UI Theme:", self.theme_combo)
+
+        # --- Resolution Setting ---
+        self.resolution_combo = QComboBox()
+        self.resolution_combo.setObjectName("resolutionCombo")
+        self.resolution_combo.addItems(["1024x600", "1280x720", "1920x1080"])
+        current_res = self.settings_manager.get("window_resolution")
+        current_res_str = f"{current_res[0]}x{current_res[1]}" if current_res else "1024x600"
+        self.resolution_combo.setCurrentText(current_res_str)
+        self.general_layout.addRow("Resolution:", self.resolution_combo)
+
+        # --- Cursor Visibility Setting ---
+        self.cursor_checkbox = QCheckBox("Show Cursor")
+        self.cursor_checkbox.setObjectName("cursorCheckbox")
+        self.cursor_checkbox.setChecked(self.settings_manager.get("show_cursor"))
+        self.general_layout.addRow(self.cursor_checkbox)
+
+        # --- Bottom-Right Corner Setting ---
+        self.position_checkbox = QCheckBox("Fix Bottom-Right Corner")
+        self.position_checkbox.setObjectName("positionCheckbox")
+        self.position_checkbox.setChecked(self.settings_manager.get("position_bottom_right"))
+        self.general_layout.addRow(self.position_checkbox)
 
         self.scroll_layout.addWidget(self.general_group) # Add group to scroll area
 
@@ -178,16 +199,31 @@ class SettingsScreen(QWidget):
                  self.main_window.switch_theme(new_theme)
                  settings_changed = True
 
-        # REMOVED Resolution Setting Logic
-        # selected_res_str = self.resolution_combo.currentText()
-        # try:
-        #     # ... parsing logic ...
-        #     if new_resolution != self.settings_manager.get("window_resolution"):
-        #          self.settings_manager.set("window_resolution", new_resolution)
-        #          settings_changed = True
-        #          restart_required = True # This was the only restart trigger
-        # except: pass
-        # ---
+        # Resolution Setting Logic
+        selected_res_str = self.resolution_combo.currentText()
+        try:
+            width, height = map(int, selected_res_str.split('x'))
+            new_resolution = [width, height]
+            if new_resolution != self.settings_manager.get("window_resolution"):
+                self.settings_manager.set("window_resolution", new_resolution)
+                settings_changed = True
+                restart_required = True
+        except Exception as e:
+            print(f"Error parsing resolution: {e}")
+
+        # Cursor Visibility Setting
+        new_show_cursor = self.cursor_checkbox.isChecked()
+        if new_show_cursor != self.settings_manager.get("show_cursor"):
+            self.settings_manager.set("show_cursor", new_show_cursor)
+            settings_changed = True
+            restart_required = True
+
+        # Bottom-Right Corner Setting
+        new_position_bottom_right = self.position_checkbox.isChecked()
+        if new_position_bottom_right != self.settings_manager.get("position_bottom_right"):
+            self.settings_manager.set("position_bottom_right", new_position_bottom_right)
+            settings_changed = True
+            restart_required = True
 
         # Apply OBD Settings
         new_obd_enabled = self.obd_enable_checkbox.isChecked()
@@ -249,10 +285,9 @@ class SettingsScreen(QWidget):
         if show_feedback:
             if settings_changed:
                 status_message = "Settings applied."
-                # No need to mention restart for resolution anymore
-                # if restart_required: status_message += " Restart required."
+                if restart_required:
+                    status_message += " Restart required for resolution, cursor, or position changes."
                 print(status_message)
-                original_text = self.save_button.text()
                 self.save_button.setText("Applied!"); self.restart_button.setText("Applied!")
                 self.save_button.setEnabled(False); self.restart_button.setEnabled(False)
                 QTimer.singleShot(2000, lambda: (
@@ -261,7 +296,6 @@ class SettingsScreen(QWidget):
                 ))
             else:
                 print("Settings applied (No changes detected).")
-                original_text = self.save_button.text()
                 self.save_button.setText("No Changes"); self.restart_button.setText("No Changes")
                 self.save_button.setEnabled(False); self.restart_button.setEnabled(False)
                 QTimer.singleShot(1500, lambda: (
@@ -269,7 +303,7 @@ class SettingsScreen(QWidget):
                     self.save_button.setEnabled(True), self.restart_button.setEnabled(True)
                 ))
 
-        return restart_required # Will always return False now
+        return restart_required
 
 
     def apply_and_restart(self):

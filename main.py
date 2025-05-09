@@ -17,15 +17,39 @@ if __name__ == "__main__":
 
     app = QApplication(sys.argv)
 
-    app.setOverrideCursor(Qt.CursorShape.BlankCursor)
-
     settings_manager = SettingsManager('config.json')
+
+    # Apply cursor visibility setting
+    show_cursor = settings_manager.get("show_cursor")
+    if not show_cursor:
+        app.setOverrideCursor(Qt.CursorShape.BlankCursor)
+        print("Cursor hidden based on settings")
+    else:
+        print("Cursor visible based on settings")
+
     main_win = MainWindow(settings_manager)
 
-    target_width = 1024
-    target_height = 600
-    print(f"Setting fixed window size to: {target_width}x{target_height}")
-    main_win.resize(target_width, target_height)
+    # Get resolution from settings
+    resolution = settings_manager.get("window_resolution")
+    target_width = resolution[0]
+    target_height = resolution[1]
+    print(f"Setting window size to: {target_width}x{target_height}")
+
+    # Position the window
+    position_bottom_right = settings_manager.get("position_bottom_right")
+    desktop = app.primaryScreen().geometry()
+
+    if position_bottom_right:
+        # Calculate position to align bottom-right corner
+        x = desktop.width() - target_width
+        y = desktop.height() - target_height
+        print(f"Positioning window at bottom-right corner: ({x}, {y})")
+        main_win.setGeometry(x, y, target_width, target_height)
+    else:
+        # Default top-left positioning
+        print("Positioning window at top-left corner")
+        main_win.resize(target_width, target_height)
+
     main_win.showFullScreen()
 
     # Timer for reliable Ctrl+C handling in Qt loop
