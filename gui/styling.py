@@ -12,17 +12,17 @@ def scale_value(base_value, scale_factor):
         print(f"Warning: Could not convert base_value '{base_value}' to number in scale_value. Returning 1.")
         return 1
 
-BASE_SLIDER_THICKNESS = 25 # <<< --- TWEAK THIS SINGLE VALUE --- >>>
+BASE_SLIDER_THICKNESS = 15 # <<< --- ADJUSTED FOR 1024x600 RESOLUTION --- >>>
 
 # --- Theme Functions accepting scale_factor ---
 
 def get_light_theme(scale_factor=1.0):
-    # Base sizes relative to 1920x1080
-    base_font_size_pt = 14
-    base_padding_px = 12
-    base_album_art_size_px = 160 # Base size for square side (adjust as needed for 1080p)
-    base_button_min_height_px = 45 # Base for normal buttons
-    base_border_radius_px = 6
+    # Base sizes relative to 1024x600
+    base_font_size_pt = 12
+    base_padding_px = 8
+    base_album_art_size_px = 120 # Base size for square side (adjusted for 1024x600)
+    base_button_min_height_px = 35 # Base for normal buttons (adjusted for 1024x600)
+    base_border_radius_px = 4
     base_border_px = 1
 
     # Calculate scaled sizes
@@ -41,7 +41,7 @@ def get_light_theme(scale_factor=1.0):
     scaled_slider_handle_margin_v = - (scaled_slider_handle_s - scaled_slider_thickness) // 2 # Vertical margin
     scaled_slider_handle_margin_h = scaled_slider_handle_s // 4 # Horizontal margin based on handle size (prevents clipping groove too much)
 
-    
+
     # Generate QSS String
     return f"""
     /* ==================== Global Styles ==================== */
@@ -145,7 +145,7 @@ def get_light_theme(scale_factor=1.0):
         border-color: #101088;
     }}
 
-    
+
 
     QProgressBar {{
         border: {scaled_border}px solid grey; border-radius: {scaled_border_radius // 2}px;
@@ -309,14 +309,14 @@ def get_light_theme(scale_factor=1.0):
     """
 
 def get_dark_theme(scale_factor=1.0):
-    # Base sizes relative to 1920x1080
-    base_font_size_pt = 14
-    base_padding_px = 12
-    base_album_art_size_px = 160 # Base size for square side (adjust as needed for 1080p)
-    base_button_min_height_px = 45 # Base for normal buttons
-    base_border_radius_px = 6
+    # Base sizes relative to 1024x600
+    base_font_size_pt = 12
+    base_padding_px = 8
+    base_album_art_size_px = 120 # Base size for square side (adjusted for 1024x600)
+    base_button_min_height_px = 35 # Base for normal buttons (adjusted for 1024x600)
+    base_border_radius_px = 4
     base_border_px = 1
-    
+
     # Calculate scaled sizes
     scaled_font_size = scale_value(base_font_size_pt, scale_factor)
     scaled_padding = scale_value(base_padding_px, scale_factor)
@@ -330,13 +330,13 @@ def get_dark_theme(scale_factor=1.0):
     scaled_slider_handle_s = int(math.ceil(scaled_slider_handle_s / 2.0)) * 2
     scaled_slider_handle_margin_v = - (scaled_slider_handle_s - scaled_slider_thickness) // 2
     scaled_slider_handle_margin_h = scaled_slider_handle_s // 4
-    
+
     # Generate QSS String
     return f"""
     /* ==================== Global Styles ==================== */
-    QWidget {{ 
+    QWidget {{
         color: #e0e0e0;
-        font-size: {scaled_font_size}pt; 
+        font-size: {scaled_font_size}pt;
     }}
     QMainWindow, QStackedWidget {{ background-color: #2e2e2e; }}
     QWidget#central_widget{{ background-color: #2e2e2e; }}
@@ -364,7 +364,7 @@ def get_dark_theme(scale_factor=1.0):
     /* ==================== Bottom Bar ==================== */
     QWidget#persistentBottomBar {{
         background-color: #3a3a3a;
-        border-top: {scaled_border}px solid #505050; 
+        border-top: {scaled_border}px solid #505050;
     }}
     /* Status labels in bottom bar */
     QLabel#statusBarObdLabel, QLabel#statusBarRadioLabel,
@@ -374,7 +374,7 @@ def get_dark_theme(scale_factor=1.0):
     }}
     QLabel#statusBarBtBatteryLabel {{
         padding-left: {scale_value(5, scale_factor)}px;
-        font-weight: bold; 
+        font-weight: bold;
     }}
     QLabel#statusBarSeparator {{
         font-size: {scale_value(11, scale_factor)}pt;
@@ -385,10 +385,10 @@ def get_dark_theme(scale_factor=1.0):
 
     /* ==================== General Widgets ==================== */
     QPushButton {{
-        background-color: #505050; 
+        background-color: #505050;
         border: {scaled_border}px solid #707070; color: #e0e0e0;
         padding: {scale_value(base_padding_px * 0.6, scale_factor)}px {scale_value(base_padding_px * 1.2, scale_factor)}px;
-        border-radius: {scaled_border_radius}px; 
+        border-radius: {scaled_border_radius}px;
         min-height: {scaled_button_min_height}px;
     }}
     QPushButton:pressed {{ background-color: #606060; }}
@@ -397,9 +397,9 @@ def get_dark_theme(scale_factor=1.0):
     QLabel {{ padding: {scaled_padding // 4}px; background-color: transparent; }}
 
     QLineEdit, QComboBox {{
-        background-color: #404040; 
+        background-color: #404040;
         border: {scaled_border}px solid #707070; color: #e0e0e0;
-        padding: {scale_value(base_padding_px * 0.6, scale_factor)}px; 
+        padding: {scale_value(base_padding_px * 0.6, scale_factor)}px;
         border-radius: {scaled_border_radius // 2}px;
         min-height: {scale_value(base_button_min_height_px * 0.9, scale_factor)}px;
     }}
@@ -431,16 +431,16 @@ def get_dark_theme(scale_factor=1.0):
         background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #7070f0, stop:1 #5050d0);
         border-color: #3030aa;
     }}
-    
+
 
      QProgressBar {{
         border: {scaled_border}px solid #555555; border-radius: {scaled_border_radius // 2}px;
-        background-color: #444444; text-align: center; 
+        background-color: #444444; text-align: center;
         height: {scale_value(18, scale_factor)}px;
     }}
     QProgressBar::chunk {{
         background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #2dc8dd, stop:1 #1db8cc);
-        margin: {scale_value(2, scale_factor)}px; 
+        margin: {scale_value(2, scale_factor)}px;
         border-radius: {scale_value(base_border_radius_px // 3, scale_factor)}px;
     }}
      QGroupBox {{
@@ -570,19 +570,19 @@ def get_dark_theme(scale_factor=1.0):
 
     /* --- Radio Screen --- */
     QLabel#freq_display {{
-        font-size: {scale_value(44, scale_factor)}pt; 
+        font-size: {scale_value(44, scale_factor)}pt;
         font-weight: bold; color: #20c9d6; qproperty-alignment: 'AlignCenter';
         margin-top: {scaled_padding}px; margin-bottom: {scaled_padding // 2}px;
     }}
     QLabel#radioStatusLabel {{
-        font-size: {scale_value(base_font_size_pt, scale_factor)}pt; 
+        font-size: {scale_value(base_font_size_pt, scale_factor)}pt;
         color: #aaaaaa; qproperty-alignment: 'AlignCenter';
     }}
 
     /* --- Settings Screen --- */
     QPushButton#settingsSaveButton, QPushButton#settingsRestartButton {{
         padding: {scale_value(base_padding_px * 0.9, scale_factor)}px {scale_value(base_padding_px * 2.0, scale_factor)}px;
-        min-width: {scale_value(200, scale_factor)}px; 
+        min-width: {scale_value(200, scale_factor)}px;
         font-size: {scale_value(base_font_size_pt + 2, scale_factor)}pt;
         margin-top: {scaled_padding // 2}px; margin-bottom: {scaled_padding // 2}px;
     }}

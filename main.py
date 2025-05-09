@@ -22,8 +22,8 @@ if __name__ == "__main__":
     settings_manager = SettingsManager('config.json')
     main_win = MainWindow(settings_manager)
 
-    target_width = 1920
-    target_height = 1080
+    target_width = 1024
+    target_height = 600
     print(f"Setting fixed window size to: {target_width}x{target_height}")
     main_win.resize(target_width, target_height)
     main_win.showFullScreen()

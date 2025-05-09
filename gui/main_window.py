@@ -36,7 +36,7 @@ ICON_POWER = os.path.join(ICON_PATH, "power.png")
 # ---
 
 class MainWindow(QMainWindow):
-    BASE_RESOLUTION = QSize(1920, 1080)
+    BASE_RESOLUTION = QSize(1024, 600)
 
     def __init__(self, settings_manager, parent=None):
         super().__init__(parent)
@@ -48,16 +48,16 @@ class MainWindow(QMainWindow):
         self._has_scaled_correctly = False
 
         # --- Base sizes definition ---
-        self.base_top_padding = 250 # Added base padding for the very top
-        self.base_icon_size = QSize(42, 42) # Larger icons for bottom bar
-        # self.base_header_icon_size = QSize(28, 28) # Still needed for calculation robustness
-        self.base_bottom_bar_button_size = QSize(65, 65) # Larger buttons
-        self.base_bottom_bar_height = 90 # Taller bottom bar
-        self.base_volume_slider_width = 300 # Wider slider
-        self.base_layout_spacing = 15 # More spacing between widgets generally
-        self.base_header_spacing = 20 # More spacing between header items
-        self.base_layout_margin = 8 # Bottom bar internal margin
-        self.base_main_margin = 15 # Child screen margin
+        self.base_top_padding = 120 # Reduced padding for the very top for 1024x600
+        self.base_icon_size = QSize(32, 32) # Smaller icons for bottom bar for 1024x600
+        # self.base_header_icon_size = QSize(22, 22) # Still needed for calculation robustness
+        self.base_bottom_bar_button_size = QSize(50, 50) # Smaller buttons for 1024x600
+        self.base_bottom_bar_height = 70 # Shorter bottom bar for 1024x600
+        self.base_volume_slider_width = 180 # Narrower slider for 1024x600
+        self.base_layout_spacing = 10 # Less spacing between widgets for 1024x600
+        self.base_header_spacing = 15 # Less spacing between header items for 1024x600
+        self.base_layout_margin = 6 # Smaller bottom bar internal margin for 1024x600
+        self.base_main_margin = 10 # Smaller child screen margin for 1024x600
 
         # --- Load Icons (No BT icon needed now) ---
         self.home_icon = QIcon(ICON_HOME)
@@ -262,7 +262,7 @@ class MainWindow(QMainWindow):
 
         # Set initial screen & Title
         self.stacked_widget.setCurrentWidget(self.home_screen)
-      
+
         # --- Keyboard Shortcut for Quitting ---
         self.quit_shortcut = QShortcut(QKeySequence("Ctrl+Q"), self)
         self.quit_shortcut.activated.connect(self.close)
@@ -270,7 +270,7 @@ class MainWindow(QMainWindow):
         # Apply initial scaling based on BASE size only
         # We call it once here. resizeEvent will call it again, but the factor should be 1.0
         print("Applying initial scaling based on fixed BASE_RESOLUTION.")
-        
+
 
 
     # --- Event Handlers ---
@@ -325,7 +325,7 @@ class MainWindow(QMainWindow):
         scaled_header_spacing = scale_value(self.base_header_spacing, scale_factor)
         scaled_margin = scale_value(self.base_layout_margin, scale_factor)
         scaled_main_margin = scale_value(self.base_main_margin, scale_factor)
-      
+
         # --- Apply sizes and layouts ---
         # Apply to bottom bar elements
         self.home_button_bar.setIconSize(scaled_icon_size)
@@ -417,11 +417,11 @@ class MainWindow(QMainWindow):
              # Optionally indicate if battery unknown explicitly?
              else:
                   status_text += " - Batt: N/A"
-             
+
          print(f"DEBUG: Updating header BT status text: '{status_text}', Visible={show_label}")
          self.header_bt_status_label.setText(status_text)
          self.header_bt_status_label.setVisible(show_label)
-      
+
 
     # --- Status Update Slots ---
     @pyqtSlot(bool, str)
@@ -441,7 +441,7 @@ class MainWindow(QMainWindow):
              self.bt_separator_label.hide()
              if hasattr(self.home_screen, 'clear_media_info'):
                  self.home_screen.clear_media_info()
-                  
+
 
     # --- Keep Methods like update_obd_status, update_radio_status, etc. ---
     @pyqtSlot(bool, str)
@@ -486,7 +486,7 @@ class MainWindow(QMainWindow):
             # Re-apply scaling which now includes re-applying the theme with the correct factor
             self._apply_scaling()
             self.settings_manager.set("theme", theme_name)
-          
+
     def update_obd_config(self):
         """Restarts OBD Manager with new connection settings."""
         # Only restart if OBD is currently enabled
@@ -537,7 +537,7 @@ class MainWindow(QMainWindow):
         else:
             print("Radio connection settings saved, but Radio manager remains disabled.")
 
-  
+
     # --- Methods to Toggle Managers ---
     def toggle_obd_manager(self, enable):
         """Starts or stops the OBD manager based on the enable flag."""
@@ -730,7 +730,7 @@ class MainWindow(QMainWindow):
             self.volume_icon_button.setIcon(self.volume_normal_icon)
             # Store this new level as the potential restore level
             self.last_volume_level = value
-  
+
     # --- ADD THIS METHOD TO MainWindow ---
     def go_to_home(self):
         """Navigates to the home screen."""
@@ -738,14 +738,14 @@ class MainWindow(QMainWindow):
         self.navigate_to(self.home_screen)
     # --- END ADD METHOD ---
 
-  
+
     # --- ADD THIS METHOD TO MainWindow ---
     def go_to_settings(self):
         """Navigates to the settings screen."""
         print("Settings button clicked, navigating...")
         self.navigate_to(self.settings_screen)
     # --- END ADD METHOD ---
-  
+
     # --- Add a helper method for navigation if desired ---
     def navigate_to(self, screen_widget):
         """Sets the current screen in the stacked widget."""
