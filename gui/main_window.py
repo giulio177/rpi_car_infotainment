@@ -298,13 +298,42 @@ class MainWindow(QMainWindow):
 
     # --- Scaling ---
     def _apply_scaling(self):
-        """Applies scaling to UI elements based on the fixed BASE_RESOLUTION."""
+        """Applies scaling to UI elements based on the UI scale mode setting."""
         current_height = self.height() # Get current actual height
-        if self.BASE_RESOLUTION.height() <= 0: scale_factor = 1.0
-        else: scale_factor = current_height / self.BASE_RESOLUTION.height() # Calculated here
 
-        # --- MOVED print statement to AFTER calculation ---
-        print(f"DEBUG: _apply_scaling factor: {scale_factor:.3f} (Height: {current_height})") # Now it works
+        # Get the UI scale mode from settings
+        ui_scale_mode = self.settings_manager.get("ui_scale_mode")
+
+        # Determine the scale factor based on the UI scale mode
+        if ui_scale_mode == "auto":
+            # Auto mode: Calculate scale factor based on current resolution
+            if self.BASE_RESOLUTION.height() <= 0:
+                scale_factor = 1.0
+            else:
+                scale_factor = current_height / self.BASE_RESOLUTION.height()
+            print(f"DEBUG: Using AUTO scaling mode. Scale factor: {scale_factor:.3f}")
+        elif ui_scale_mode == "fixed_small":
+            # Small UI mode: Optimized for 1024x600
+            scale_factor = 1.0
+            print(f"DEBUG: Using SMALL UI mode (fixed scale factor: {scale_factor:.3f})")
+        elif ui_scale_mode == "fixed_medium":
+            # Medium UI mode: Optimized for 1280x720
+            scale_factor = 1.2
+            print(f"DEBUG: Using MEDIUM UI mode (fixed scale factor: {scale_factor:.3f})")
+        elif ui_scale_mode == "fixed_large":
+            # Large UI mode: Optimized for 1920x1080
+            scale_factor = 1.8
+            print(f"DEBUG: Using LARGE UI mode (fixed scale factor: {scale_factor:.3f})")
+        else:
+            # Fallback to auto mode if the setting is invalid
+            if self.BASE_RESOLUTION.height() <= 0:
+                scale_factor = 1.0
+            else:
+                scale_factor = current_height / self.BASE_RESOLUTION.height()
+            print(f"DEBUG: Invalid UI scale mode '{ui_scale_mode}'. Using auto scaling: {scale_factor:.3f}")
+
+        # Print the final scaling information
+        print(f"DEBUG: _apply_scaling factor: {scale_factor:.3f} (Height: {current_height})")
 
         # --- Calculate scaled sizes (COMPLETE THESE) ---
         scaled_top_padding = scale_value(self.base_top_padding, scale_factor)

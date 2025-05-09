@@ -65,6 +65,29 @@ class SettingsScreen(QWidget):
         self.resolution_combo.setCurrentText(current_res_str)
         self.general_layout.addRow("Resolution:", self.resolution_combo)
 
+        # --- UI Scale Mode Setting ---
+        self.ui_scale_combo = QComboBox()
+        self.ui_scale_combo.setObjectName("uiScaleCombo")
+        self.ui_scale_combo.addItems([
+            "Auto (Scale with Resolution)",
+            "Small (Optimized for 1024x600)",
+            "Medium (Optimized for 1280x720)",
+            "Large (Optimized for 1920x1080)"
+        ])
+
+        # Map the stored value to the display text
+        scale_mode_map = {
+            "auto": "Auto (Scale with Resolution)",
+            "fixed_small": "Small (Optimized for 1024x600)",
+            "fixed_medium": "Medium (Optimized for 1280x720)",
+            "fixed_large": "Large (Optimized for 1920x1080)"
+        }
+        current_scale_mode = self.settings_manager.get("ui_scale_mode")
+        if current_scale_mode in scale_mode_map:
+            self.ui_scale_combo.setCurrentText(scale_mode_map[current_scale_mode])
+
+        self.general_layout.addRow("UI Scale Mode:", self.ui_scale_combo)
+
         # --- Cursor Visibility Setting ---
         self.cursor_checkbox = QCheckBox("Show Cursor")
         self.cursor_checkbox.setObjectName("cursorCheckbox")
@@ -224,6 +247,23 @@ class SettingsScreen(QWidget):
             self.settings_manager.set("position_bottom_right", new_position_bottom_right)
             settings_changed = True
             restart_required = True
+
+        # UI Scale Mode Setting
+        scale_mode_display = self.ui_scale_combo.currentText()
+        # Reverse map from display text to stored value
+        reverse_scale_map = {
+            "Auto (Scale with Resolution)": "auto",
+            "Small (Optimized for 1024x600)": "fixed_small",
+            "Medium (Optimized for 1280x720)": "fixed_medium",
+            "Large (Optimized for 1920x1080)": "fixed_large"
+        }
+
+        if scale_mode_display in reverse_scale_map:
+            new_scale_mode = reverse_scale_map[scale_mode_display]
+            if new_scale_mode != self.settings_manager.get("ui_scale_mode"):
+                self.settings_manager.set("ui_scale_mode", new_scale_mode)
+                settings_changed = True
+                restart_required = True
 
         # Apply OBD Settings
         new_obd_enabled = self.obd_enable_checkbox.isChecked()
