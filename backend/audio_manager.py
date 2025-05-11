@@ -2,6 +2,7 @@
 
 import subprocess
 import re # Regular expressions for parsing amixer output
+from .media_info import get_album_art, get_lyrics
 
 class AudioManager:
     # Default mixer control name. Might need changing based on your RPi setup
@@ -9,6 +10,8 @@ class AudioManager:
     # Run 'amixer scontrols' in your RPi terminal to see available controls.
     MIXER_CONTROL = "Master"
     # MIXER_CONTROL = "PCM" # Try this if Master doesn't work
+    cover_url = get_album_art(title, artist)
+    lyrics = get_lyrics(title, artist)
 
     def _run_amixer_command(self, args):
         """Helper function to run amixer commands."""
