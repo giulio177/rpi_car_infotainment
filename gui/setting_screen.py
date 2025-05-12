@@ -100,6 +100,12 @@ class SettingsScreen(QWidget):
         self.position_checkbox.setChecked(self.settings_manager.get("position_bottom_right"))
         self.general_layout.addRow(self.position_checkbox)
 
+        # --- Developer Mode Setting ---
+        self.developer_mode_checkbox = QCheckBox("Developer Mode (Testing Features)")
+        self.developer_mode_checkbox.setObjectName("developerModeCheckbox")
+        self.developer_mode_checkbox.setChecked(self.settings_manager.get("developer_mode"))
+        self.general_layout.addRow(self.developer_mode_checkbox)
+
         self.scroll_layout.addWidget(self.general_group) # Add group to scroll area
 
         # --- OBD Settings Group ---
@@ -264,6 +270,13 @@ class SettingsScreen(QWidget):
                 self.settings_manager.set("ui_scale_mode", new_scale_mode)
                 settings_changed = True
                 restart_required = True
+
+        # Developer Mode Setting
+        new_developer_mode = self.developer_mode_checkbox.isChecked()
+        if new_developer_mode != self.settings_manager.get("developer_mode"):
+            self.settings_manager.set("developer_mode", new_developer_mode)
+            settings_changed = True
+            restart_required = True
 
         # Apply OBD Settings
         new_obd_enabled = self.obd_enable_checkbox.isChecked()

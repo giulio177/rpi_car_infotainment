@@ -17,7 +17,8 @@ class SettingsManager:
             "window_resolution": [1024, 600],
             "show_cursor": False,
             "position_bottom_right": True,
-            "ui_scale_mode": "auto"  # Options: "auto", "fixed_small", "fixed_medium", "fixed_large"
+            "ui_scale_mode": "auto",  # Options: "auto", "fixed_small", "fixed_medium", "fixed_large"
+            "developer_mode": False   # Enable/disable developer features
         }
         self.settings = self._load_settings()
 

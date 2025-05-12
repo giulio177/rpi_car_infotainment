@@ -2,10 +2,10 @@
     "theme": "dark",
     "obd_port": null,
     "obd_baudrate": null,
-    "obd_enabled": true,
+    "obd_enabled": false,
     "radio_type": "none",
     "radio_i2c_address": null,
-    "radio_enabled": true,
+    "radio_enabled": false,
     "last_fm_station": 98.5,
     "window_resolution": [
         1024,
@@ -13,6 +13,7 @@
     ],
     "show_cursor": true,
     "position_bottom_right": true,
-    "ui_scale_mode": "fixed_small",
-    "volume": 69
+    "ui_scale_mode": "auto",
+    "developer_mode": true,
+    "volume": 51
 }

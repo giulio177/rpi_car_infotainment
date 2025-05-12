@@ -166,6 +166,13 @@ class HomeScreen(QWidget):
         self.test_layout.addWidget(self.test_button)
         self.media_layout.addLayout(self.test_layout)
 
+        # Hide test button by default, will be shown if developer mode is enabled
+        self.test_button.setVisible(False)
+        # Check if developer mode is enabled
+        if self.main_window and hasattr(self.main_window, 'settings_manager'):
+            developer_mode = self.main_window.settings_manager.get("developer_mode")
+            self.test_button.setVisible(developer_mode)
+
         # --- Stretch at the end ---
         # This pushes all the above widgets upwards in the media_layout
         self.media_layout.addStretch(1)
@@ -209,6 +216,11 @@ class HomeScreen(QWidget):
         self.grid_layout.setSpacing(scaled_grid_spacing)
         self.media_layout.setSpacing(scaled_media_spacing)
         self.playback_layout.setSpacing(scaled_playback_spacing)
+
+        # Check if developer mode is enabled and update test button visibility
+        if self.main_window and hasattr(self.main_window, 'settings_manager'):
+            developer_mode = self.main_window.settings_manager.get("developer_mode")
+            self.test_button.setVisible(developer_mode)
 
 
     @pyqtSlot(dict)
