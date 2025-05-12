@@ -2,8 +2,11 @@
 
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
                              QPushButton, QLabel, QSpacerItem, QSizePolicy)
-from PyQt6.QtCore import QTimer, QDateTime, Qt, QSize, pyqtSlot
+from PyQt6.QtCore import QTimer, QDateTime, Qt, QSize, pyqtSlot, QUrl
 from PyQt6.QtGui import QPixmap, QIcon
+from PyQt6.QtNetwork import QNetworkAccessManager, QNetworkRequest, QNetworkReply
+import requests
+import io
 
 # --- Import scale_value helper ---
 try:
@@ -23,7 +26,7 @@ except ImportError:
 class HomeScreen(QWidget):
     # --- ADDED: Screen Title ---
     screen_title = "Home"
-    
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.main_window = parent
@@ -34,6 +37,19 @@ class HomeScreen(QWidget):
         self.base_grid_spacing = 8
         self.base_media_spacing = 15 # Vertical spacing in media player
         self.base_media_playback_button_spacing = 5
+
+        # --- Network manager for album art ---
+        self.network_manager = QNetworkAccessManager()
+        self.network_manager.finished.connect(self.on_album_art_downloaded)
+
+        # --- Current track info ---
+        self.current_title = ""
+        self.current_artist = ""
+        self.default_album_art = QPixmap("assets/default_album_art.png")
+        if self.default_album_art.isNull():
+            # Create a default album art if the file doesn't exist
+            self.default_album_art = QPixmap(100, 100)
+            self.default_album_art.fill(Qt.GlobalColor.lightGray)
 
         # --- Main Layout (Vertical) ---
         self.main_layout = QVBoxLayout(self)
@@ -90,12 +106,22 @@ class HomeScreen(QWidget):
         # Spacing set by update_scaling
         # Removed AlignTop - Let stretch factor handle vertical distribution
 
-        # Album Label (Scrolling, square via QSS, takes most vertical space)
-        self.album_art_label = ScrollingLabel("(Album)")
+        # Album Art Label (QLabel for displaying album artwork)
+        self.album_art_label = QLabel()
         self.album_art_label.setObjectName("albumArtLabel")
         self.album_art_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.album_art_label.setMinimumSize(100, 100)  # Minimum size for album art
+        self.album_art_label.setMaximumSize(200, 200)  # Maximum size for album art
+        self.album_art_label.setScaledContents(True)   # Scale the image to fit the label
+        self.album_art_label.setPixmap(self.default_album_art)
         # Give it a larger stretch factor (e.g., 4 or 5)
         self.media_layout.addWidget(self.album_art_label, 0, Qt.AlignmentFlag.AlignHCenter)
+
+        # Album Label (Scrolling text for album name)
+        self.album_name_label = ScrollingLabel("(Album)")
+        self.album_name_label.setObjectName("albumNameLabel")
+        self.album_name_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.media_layout.addWidget(self.album_name_label, 0)
 
         # Title Label (Scrolling, less vertical space)
         self.track_title_label = ScrollingLabel()
@@ -136,7 +162,7 @@ class HomeScreen(QWidget):
         # This pushes all the above widgets upwards in the media_layout
         self.media_layout.addStretch(1)
 
-      
+
 
         # Connect control buttons
         self.btn_prev.clicked.connect(self.on_previous_clicked)
@@ -191,7 +217,7 @@ class HomeScreen(QWidget):
         # Update scrolling labels
         self.track_title_label.setText(title)
         self.track_artist_label.setText(artist)
-        self.album_art_label.setText(album if album else "(Album Unknown)")
+        self.album_name_label.setText(album if album else "(Album Unknown)")
 
         # Update time label
         pos_sec = position_ms // 1000
@@ -199,6 +225,27 @@ class HomeScreen(QWidget):
         pos_str = f"{pos_sec // 60:02d}:{pos_sec % 60:02d}"
         dur_str = f"{dur_sec // 60:02d}:{dur_sec % 60:02d}" if dur_sec > 0 else "--:--"
         self.track_time_label.setText(f"{pos_str} / {dur_str}")
+
+        # Fetch album art if title or artist changed
+        if title != self.current_title or artist != self.current_artist:
+            self.current_title = title
+            self.current_artist = artist
+
+            # Only fetch album art if we have valid title and artist
+            if title != "---" and artist != "---" and self.main_window:
+                # Check if we have an audio_manager
+                if hasattr(self.main_window, 'audio_manager'):
+                    cover_url, _ = self.main_window.audio_manager.get_media_info(title, artist)
+                    if cover_url:
+                        # Download album art
+                        request = QNetworkRequest(QUrl(cover_url))
+                        self.network_manager.get(request)
+                    else:
+                        # Use default album art if no cover URL is available
+                        self.album_art_label.setPixmap(self.default_album_art)
+                else:
+                    # Use default album art if no audio_manager is available
+                    self.album_art_label.setPixmap(self.default_album_art)
 
 
     @pyqtSlot(str)
@@ -221,8 +268,26 @@ class HomeScreen(QWidget):
         self.track_title_label.setText("---")
         self.track_artist_label.setText("---")
         self.track_time_label.setText("--:-- / --:--")
-        self.album_art_label.setText("(No Media)")
+        self.album_name_label.setText("(No Media)")
+        self.album_art_label.setPixmap(self.default_album_art)
         self.btn_play_pause.setText("▶")
+        self.current_title = ""
+        self.current_artist = ""
+
+    def on_album_art_downloaded(self, reply):
+        """Handle downloaded album art"""
+        if reply.error() == QNetworkReply.NetworkError.NoError:
+            data = reply.readAll()
+            pixmap = QPixmap()
+            pixmap.loadFromData(data)
+            if not pixmap.isNull():
+                self.album_art_label.setPixmap(pixmap)
+            else:
+                self.album_art_label.setPixmap(self.default_album_art)
+        else:
+            print(f"Error downloading album art: {reply.errorString()}")
+            self.album_art_label.setPixmap(self.default_album_art)
+        reply.deleteLater()
 
 
     # --- Click Handlers ---

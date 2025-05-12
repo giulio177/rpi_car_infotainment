@@ -10,8 +10,15 @@ class AudioManager:
     # Run 'amixer scontrols' in your RPi terminal to see available controls.
     MIXER_CONTROL = "Master"
     # MIXER_CONTROL = "PCM" # Try this if Master doesn't work
-    cover_url = get_album_art(title, artist)
-    lyrics = get_lyrics(title, artist)
+
+    def get_media_info(self, title, artist):
+        """Get album art and lyrics for a song"""
+        if not title or not artist or title == "---" or artist == "---":
+            return None, "No lyrics available"
+
+        cover_url = get_album_art(title, artist)
+        lyrics = get_lyrics(title, artist)
+        return cover_url, lyrics
 
     def _run_amixer_command(self, args):
         """Helper function to run amixer commands."""
