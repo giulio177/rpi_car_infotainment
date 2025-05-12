@@ -23,6 +23,7 @@ from .home_screen import HomeScreen
 from .radio_screen import RadioScreen
 from .obd_screen import OBDScreen
 from .setting_screen import SettingsScreen
+from .music_player_screen import MusicPlayerScreen
 
 # --- Icon definitions ---
 ICON_PATH = "assets/icons/"
@@ -211,7 +212,8 @@ class MainWindow(QMainWindow):
         self.radio_screen = RadioScreen(self.radio_manager, parent=self)
         self.obd_screen = OBDScreen(parent=self)
         self.settings_screen = SettingsScreen(self.settings_manager, self)
-        self.all_screens = [self.home_screen, self.radio_screen, self.obd_screen, self.settings_screen]
+        self.music_player_screen = MusicPlayerScreen(parent=self)
+        self.all_screens = [self.home_screen, self.radio_screen, self.obd_screen, self.settings_screen, self.music_player_screen]
 
         # --- Add Screens to Stack ---
         for screen in self.all_screens:
@@ -228,6 +230,14 @@ class MainWindow(QMainWindow):
         self.bluetooth_manager.battery_updated.connect(self.update_bluetooth_header_status)
         self.bluetooth_manager.media_properties_changed.connect(self.home_screen.update_media_info)
         self.bluetooth_manager.playback_status_changed.connect(self.home_screen.update_playback_status)
+        # Connect signals to music player screen
+        self.bluetooth_manager.media_properties_changed.connect(self.music_player_screen.update_media_info)
+        self.bluetooth_manager.playback_status_changed.connect(self.music_player_screen.update_playback_status)
+
+        # Connect local playback signals from music player to home screen
+        self.music_player_screen.local_playback_started.connect(self.home_screen.update_media_info)
+        self.music_player_screen.local_playback_status_changed.connect(self.home_screen.update_playback_status)
+        self.music_player_screen.local_playback_position_changed.connect(self.home_screen.update_position)
 
         # --- Initialize Volume/Mute States ---
         initial_system_mute = self.audio_manager.get_mute_status()
@@ -831,20 +841,20 @@ class MainWindow(QMainWindow):
             # Store this new level as the potential restore level
             self.last_volume_level = value
 
-    # --- ADD THIS METHOD TO MainWindow ---
     def go_to_home(self):
         """Navigates to the home screen."""
         print("Home button clicked, navigating...")
         self.navigate_to(self.home_screen)
-    # --- END ADD METHOD ---
 
-
-    # --- ADD THIS METHOD TO MainWindow ---
     def go_to_settings(self):
         """Navigates to the settings screen."""
         print("Settings button clicked, navigating...")
         self.navigate_to(self.settings_screen)
-    # --- END ADD METHOD ---
+
+    def go_to_music_player(self):
+        """Navigates to the music player screen."""
+        print("Music player button clicked, navigating...")
+        self.navigate_to(self.music_player_screen)
 
     # --- Add a helper method for navigation if desired ---
     def navigate_to(self, screen_widget):

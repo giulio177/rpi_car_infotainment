@@ -115,12 +115,12 @@ def get_light_theme(scale_factor=1.0):
         min-height: {scale_value(base_button_min_height_px * 0.9, scale_factor)}px;
     }}
 
-    /* --- QSlider Styling (Targeting #volumeSlider) --- */
-    QSlider#volumeSlider {{ /* Style the slider widget itself */
+    /* --- QSlider Styling (Targeting #volumeSlider and #timeSlider) --- */
+    QSlider#volumeSlider, QSlider#timeSlider {{ /* Style the slider widget itself */
         min-height: {scaled_slider_handle_s + scale_value(4, scale_factor)}px; /* Ensure widget is tall enough for handle + small buffer */
     }}
 
-    QSlider#volumeSlider::groove:horizontal {{
+    QSlider#volumeSlider::groove:horizontal, QSlider#timeSlider::groove:horizontal {{
         border: {scaled_border}px solid #aaaaaa;
         background: #e8e8e8;
         height: {scaled_slider_thickness}px; /* Use derived scaled thickness */
@@ -128,7 +128,7 @@ def get_light_theme(scale_factor=1.0):
         /* Adjust horizontal margin based on derived handle size to avoid clipping */
         margin: 0px {scaled_slider_handle_margin_h}px;
     }}
-    QSlider#volumeSlider::handle:horizontal {{
+    QSlider#volumeSlider::handle:horizontal, QSlider#timeSlider::handle:horizontal {{
         background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #7070ff, stop:1 #4040fa);
         border: {scaled_border}px solid #3030cc;
         width: {scaled_slider_handle_s}px;
@@ -136,11 +136,11 @@ def get_light_theme(scale_factor=1.0):
         margin: {scaled_slider_handle_margin_v}px 0; /* Apply calculated vertical margin */
         border-radius: {scaled_slider_handle_s // 2}px; /* Make it circular */
     }}
-    QSlider#volumeSlider::handle:horizontal:hover {{
+    QSlider#volumeSlider::handle:horizontal:hover, QSlider#timeSlider::handle:horizontal:hover {{
         background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #8e8efa, stop:1 #6060fa);
         border-color: #2020aa;
     }}
-    QSlider#volumeSlider::handle:horizontal:pressed {{
+    QSlider#volumeSlider::handle:horizontal:pressed, QSlider#timeSlider::handle:horizontal:pressed {{
         background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #6060fa, stop:1 #3030e0);
         border-color: #101088;
     }}
@@ -303,6 +303,37 @@ def get_light_theme(scale_factor=1.0):
         margin-top: {scaled_padding // 2}px; margin-bottom: {scaled_padding // 2}px;
      }}
 
+    /* --- Music Player Screen --- */
+    QLabel#lyricsLabel {{
+        font-size: {scale_value(base_font_size_pt + 2, scale_factor)}pt;
+        font-weight: bold;
+        margin-top: {scaled_padding}px;
+    }}
+
+    QLabel#lyricsContent {{
+        font-size: {scale_value(base_font_size_pt, scale_factor)}pt;
+        padding: {scaled_padding}px;
+        line-height: 150%;
+    }}
+
+    QLabel#currentTimeLabel, QLabel#totalTimeLabel {{
+        font-size: {scale_value(base_font_size_pt, scale_factor)}pt;
+        min-width: {scale_value(50, scale_factor)}px;
+    }}
+
+    QPushButton#libraryButton, QPushButton#backButton, QPushButton#downloadButton, QPushButton#selectFolderButton {{
+        padding: {scale_value(base_padding_px * 0.9, scale_factor)}px {scale_value(base_padding_px * 2.0, scale_factor)}px;
+        min-width: {scale_value(150, scale_factor)}px;
+        font-size: {scale_value(base_font_size_pt + 1, scale_factor)}pt;
+        margin-top: {scaled_padding}px;
+    }}
+
+    QLabel#libraryTitle {{
+        font-size: {scale_value(base_font_size_pt + 4, scale_factor)}pt;
+        font-weight: bold;
+        margin-bottom: {scaled_padding}px;
+    }}
+
     /* --- Special Buttons --- */
     QPushButton#powerNavButton {{ background-color: #ff8080; border-color: #cc6666; }}
     QPushButton#powerNavButton:pressed {{ background-color: #e67373; }}
@@ -404,18 +435,18 @@ def get_dark_theme(scale_factor=1.0):
         min-height: {scale_value(base_button_min_height_px * 0.9, scale_factor)}px;
     }}
 
-    /* --- QSlider Styling (Targeting #volumeSlider) --- */
-    QSlider#volumeSlider {{
+    /* --- QSlider Styling (Targeting #volumeSlider and #timeSlider) --- */
+    QSlider#volumeSlider, QSlider#timeSlider {{
         min-height: {scaled_slider_handle_s + scale_value(4, scale_factor)}px;
     }}
 
-    QSlider#volumeSlider::groove:horizontal {{
+    QSlider#volumeSlider::groove:horizontal, QSlider#timeSlider::groove:horizontal {{
         border: {scaled_border}px solid #555555; background: #444444;
         height: {scaled_slider_thickness}px;
         border-radius: {scaled_slider_thickness // 2}px;
         margin: 0px {scaled_slider_handle_margin_h}px; /* Use derived horizontal margin */
     }}
-    QSlider#volumeSlider::handle:horizontal {{
+    QSlider#volumeSlider::handle:horizontal, QSlider#timeSlider::handle:horizontal {{
         background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #8080ff, stop:1 #6060f0);
         border: {scaled_border}px solid #5050dd;
         width: {scaled_slider_handle_s}px;
@@ -423,11 +454,11 @@ def get_dark_theme(scale_factor=1.0):
         margin: {scaled_slider_handle_margin_v}px 0; /* Use derived vertical margin */
         border-radius: {scaled_slider_handle_s // 2}px;
     }}
-    QSlider#volumeSlider::handle:horizontal:hover {{
+    QSlider#volumeSlider::handle:horizontal:hover, QSlider#timeSlider::handle:horizontal:hover {{
         background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #9090ff, stop:1 #7070f0);
         border-color: #4040cc;
     }}
-    QSlider#volumeSlider::handle:horizontal:pressed {{
+    QSlider#volumeSlider::handle:horizontal:pressed, QSlider#timeSlider::handle:horizontal:pressed {{
         background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #7070f0, stop:1 #5050d0);
         border-color: #3030aa;
     }}
@@ -585,6 +616,37 @@ def get_dark_theme(scale_factor=1.0):
         min-width: {scale_value(200, scale_factor)}px;
         font-size: {scale_value(base_font_size_pt + 2, scale_factor)}pt;
         margin-top: {scaled_padding // 2}px; margin-bottom: {scaled_padding // 2}px;
+    }}
+
+    /* --- Music Player Screen --- */
+    QLabel#lyricsLabel {{
+        font-size: {scale_value(base_font_size_pt + 2, scale_factor)}pt;
+        font-weight: bold;
+        margin-top: {scaled_padding}px;
+    }}
+
+    QLabel#lyricsContent {{
+        font-size: {scale_value(base_font_size_pt, scale_factor)}pt;
+        padding: {scaled_padding}px;
+        line-height: 150%;
+    }}
+
+    QLabel#currentTimeLabel, QLabel#totalTimeLabel {{
+        font-size: {scale_value(base_font_size_pt, scale_factor)}pt;
+        min-width: {scale_value(50, scale_factor)}px;
+    }}
+
+    QPushButton#libraryButton, QPushButton#backButton, QPushButton#downloadButton, QPushButton#selectFolderButton {{
+        padding: {scale_value(base_padding_px * 0.9, scale_factor)}px {scale_value(base_padding_px * 2.0, scale_factor)}px;
+        min-width: {scale_value(150, scale_factor)}px;
+        font-size: {scale_value(base_font_size_pt + 1, scale_factor)}pt;
+        margin-top: {scaled_padding}px;
+    }}
+
+    QLabel#libraryTitle {{
+        font-size: {scale_value(base_font_size_pt + 4, scale_factor)}pt;
+        font-weight: bold;
+        margin-bottom: {scaled_padding}px;
     }}
 
     /* --- Special Buttons --- */

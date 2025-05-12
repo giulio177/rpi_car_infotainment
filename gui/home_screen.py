@@ -102,6 +102,8 @@ class HomeScreen(QWidget):
         # --- 2. Media Player Section ---
         self.media_widget = QWidget()
         self.media_widget.setObjectName("media_widget")
+        self.media_widget.setCursor(Qt.CursorShape.PointingHandCursor)  # Show hand cursor to indicate clickable
+        self.media_widget.mousePressEvent = self.on_media_widget_clicked  # Make the widget clickable
         self.media_layout = QVBoxLayout(self.media_widget) # Store reference
         # Spacing set by update_scaling
         # Removed AlignTop - Let stretch factor handle vertical distribution
@@ -282,6 +284,14 @@ class HomeScreen(QWidget):
             if status == "stopped" and self.track_title_label.text() != "---":
                  self.clear_media_info()
 
+    @pyqtSlot(int, int)
+    def update_position(self, _position, _duration):
+        """Updates the position for local playback."""
+        # This method is used only for local playback
+        # We don't have a time slider in the home screen, but we could update other UI elements if needed
+        # Using _ prefix for unused parameters to avoid warnings
+        pass
+
 
     def clear_media_info(self):
         """Resets media player display to default state."""
@@ -313,25 +323,40 @@ class HomeScreen(QWidget):
     # --- Click Handlers ---
     def on_play_pause_clicked(self):
         print("Play/Pause button clicked")
-        if self.main_window and self.main_window.bluetooth_manager:
+        # Check if we have a music player screen with local playback
+        if self.main_window and hasattr(self.main_window, 'music_player_screen') and self.main_window.music_player_screen.is_local_playback:
+            # Forward the command to the music player screen
+            self.main_window.music_player_screen.on_play_pause_clicked()
+        # Otherwise use Bluetooth
+        elif self.main_window and self.main_window.bluetooth_manager:
             current_status = self.main_window.bluetooth_manager.playback_status
             if current_status == "playing":
                 self.main_window.bluetooth_manager.send_pause()
             else:
                 self.main_window.bluetooth_manager.send_play()
-        else: print("Error: Cannot send command - BluetoothManager not available.")
+        else: print("Error: Cannot send command - No playback system available.")
 
     def on_next_clicked(self):
         print("Next button clicked")
-        if self.main_window and self.main_window.bluetooth_manager:
+        # Check if we have a music player screen with local playback
+        if self.main_window and hasattr(self.main_window, 'music_player_screen') and self.main_window.music_player_screen.is_local_playback:
+            # Forward the command to the music player screen
+            self.main_window.music_player_screen.on_next_clicked()
+        # Otherwise use Bluetooth
+        elif self.main_window and self.main_window.bluetooth_manager:
             self.main_window.bluetooth_manager.send_next()
-        else: print("Error: Cannot send command - BluetoothManager not available.")
+        else: print("Error: Cannot send command - No playback system available.")
 
     def on_previous_clicked(self):
         print("Previous button clicked")
-        if self.main_window and self.main_window.bluetooth_manager:
+        # Check if we have a music player screen with local playback
+        if self.main_window and hasattr(self.main_window, 'music_player_screen') and self.main_window.music_player_screen.is_local_playback:
+            # Forward the command to the music player screen
+            self.main_window.music_player_screen.on_previous_clicked()
+        # Otherwise use Bluetooth
+        elif self.main_window and self.main_window.bluetooth_manager:
             self.main_window.bluetooth_manager.send_previous()
-        else: print("Error: Cannot send command - BluetoothManager not available.")
+        else: print("Error: Cannot send command - No playback system available.")
 
     # --- Test Album Art ---
     def test_album_art(self):
@@ -381,8 +406,18 @@ class HomeScreen(QWidget):
                 self.main_window.navigate_to(self.main_window.radio_screen)
             elif button_name == "Settings" and hasattr(self.main_window, 'settings_screen'):
                 self.main_window.navigate_to(self.main_window.settings_screen)
+            elif button_name == "Music" and hasattr(self.main_window, 'music_player_screen'):
+                self.main_window.navigate_to(self.main_window.music_player_screen)
             # ... other navigation cases ...
             else:
                  print(f"No navigation action defined for: {button_name}")
         else:
             print("Error: Could not navigate. Main window reference is invalid or missing 'navigate_to' method.")
+
+    def on_media_widget_clicked(self, _event):
+        """Handle clicks on the media player widget to open the expanded music player."""
+        print("Media widget clicked, opening expanded music player")
+        if self.main_window is not None and hasattr(self.main_window, 'go_to_music_player'):
+            self.main_window.go_to_music_player()
+        else:
+            print("Error: Could not navigate to music player. Main window reference is invalid or missing method.")
