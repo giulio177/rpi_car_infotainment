@@ -158,6 +158,14 @@ class HomeScreen(QWidget):
         self.playback_layout.addStretch(1)
         self.media_layout.addLayout(self.playback_layout) # Added with default stretch 0
 
+        # --- Test Button for Album Art (Only for development) ---
+        self.test_layout = QHBoxLayout()
+        self.test_button = QPushButton("Test Album Art")
+        self.test_button.setObjectName("testButton")
+        self.test_button.clicked.connect(self.test_album_art)
+        self.test_layout.addWidget(self.test_button)
+        self.media_layout.addLayout(self.test_layout)
+
         # --- Stretch at the end ---
         # This pushes all the above widgets upwards in the media_layout
         self.media_layout.addStretch(1)
@@ -312,6 +320,43 @@ class HomeScreen(QWidget):
         if self.main_window and self.main_window.bluetooth_manager:
             self.main_window.bluetooth_manager.send_previous()
         else: print("Error: Cannot send command - BluetoothManager not available.")
+
+    # --- Test Album Art ---
+    def test_album_art(self):
+        """Test function to simulate a song being played and display album art."""
+        print("Testing album art functionality...")
+
+        # Create a sample track with known artist and title
+        # You can change these to test different songs
+        test_songs = [
+            {"title": "Bohemian Rhapsody", "artist": "Queen", "album": "A Night at the Opera"},
+            {"title": "Billie Jean", "artist": "Michael Jackson", "album": "Thriller"},
+            {"title": "Hotel California", "artist": "Eagles", "album": "Hotel California"},
+            {"title": "Sweet Child O' Mine", "artist": "Guns N' Roses", "album": "Appetite for Destruction"},
+            {"title": "Imagine", "artist": "John Lennon", "album": "Imagine"}
+        ]
+
+        import random
+        test_song = random.choice(test_songs)
+
+        # Create a mock media properties dictionary
+        mock_properties = {
+            'Track': {
+                'Title': test_song["title"],
+                'Artist': test_song["artist"],
+                'Album': test_song["album"],
+                'Duration': 240000  # 4 minutes in milliseconds
+            },
+            'Position': 30000  # 30 seconds in milliseconds
+        }
+
+        # Update the media info with the mock properties
+        self.update_media_info(mock_properties)
+
+        # Update the playback status to "playing"
+        self.update_playback_status("playing")
+
+        print(f"Test song: {test_song['title']} by {test_song['artist']} from {test_song['album']}")
 
     # --- Navigation and Clock ---
     def on_home_button_clicked(self, button_name):
