@@ -97,8 +97,22 @@ class MainWindow(QMainWindow):
         self.header_title_label = QLabel("Home")
         self.header_title_label.setObjectName("headerTitle")
         self.header_layout.addWidget(self.header_title_label)
-        header_spacer = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-        self.header_layout.addItem(header_spacer)
+
+        # Add first spacer to push quit button to middle
+        header_spacer1 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.header_layout.addItem(header_spacer1)
+
+        # Add quit button in the middle
+        self.header_quit_button = QPushButton()
+        self.header_quit_button.setIcon(self.power_icon)
+        self.header_quit_button.setObjectName("headerQuitButton")
+        self.header_quit_button.setToolTip("Exit Application")
+        self.header_quit_button.clicked.connect(self.close)
+        self.header_layout.addWidget(self.header_quit_button)
+
+        # Add second spacer to push clock to right
+        header_spacer2 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.header_layout.addItem(header_spacer2)
         # Combined BT Status
         self.header_bt_status_label = QLabel("")
         self.header_bt_status_label.setObjectName("headerBtStatus")
@@ -183,8 +197,7 @@ class MainWindow(QMainWindow):
         self.bottom_bar_layout.addWidget(self.obd_status_label)
         self.bottom_bar_layout.addWidget(self.separator_label)
         self.bottom_bar_layout.addWidget(self.radio_status_label)
-        self.bottom_bar_layout.addWidget(self.bt_separator_label)
-        self.bottom_bar_layout.addWidget(self.bt_name_label)
+        # Removed Bluetooth information from bottom bar
         self.bottom_bar_layout.addStretch(2)
         self.bottom_bar_layout.addWidget(self.volume_icon_button)
         self.bottom_bar_layout.addWidget(self.volume_slider)
@@ -436,6 +449,10 @@ class MainWindow(QMainWindow):
         self.restart_button_bar.setFixedSize(scaled_button_size)
         self.power_button.setIconSize(scaled_icon_size)
         self.power_button.setFixedSize(scaled_button_size)
+
+        # Apply to header quit button
+        self.header_quit_button.setIconSize(scaled_icon_size)
+        self.header_quit_button.setFixedSize(scaled_button_size)
         self.volume_slider.setFixedWidth(scaled_slider_width)
         self.bottom_bar_widget.setFixedHeight(scaled_bottom_bar_height)
 

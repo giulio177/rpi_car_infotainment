@@ -2,17 +2,173 @@
 
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                             QPushButton, QSlider, QScrollArea, QFileDialog,
-                            QListWidget, QListWidgetItem, QStackedWidget, QMessageBox)
+                            QListWidget, QListWidgetItem, QStackedWidget, QMessageBox,
+                            QProgressBar, QSizePolicy)
 from PyQt6.QtCore import Qt, QTimer, pyqtSlot, pyqtSignal, QUrl
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtNetwork import QNetworkAccessManager, QNetworkRequest
-from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
 import os
 import subprocess
 import threading
-import time
+import socket
+import pygame  # Using pygame for audio playback instead of QtMultimedia
 
 from .widgets.scrolling_label import ScrollingLabel
+
+class PygameMediaPlayer:
+    """A simple media player using pygame.mixer to replace QMediaPlayer."""
+
+    def __init__(self):
+        # Initialize pygame mixer
+        pygame.mixer.init()
+        self._position = 0
+        self._duration = 0
+        self._position_timer = None
+        self._callbacks = {
+            'position_changed': [],
+            'duration_changed': [],
+            'state_changed': []
+        }
+        self._playing = False
+        self._current_file = None
+
+    def setSource(self, url):
+        """Set the source file to play."""
+        if hasattr(url, 'toLocalFile'):  # Handle QUrl objects
+            file_path = url.toLocalFile()
+        else:
+            file_path = str(url)
+
+        self._current_file = file_path
+
+        # Stop any current playback
+        self.stop()
+
+        try:
+            # Load the sound file
+            pygame.mixer.music.load(file_path)
+
+            # Get duration (this is a bit tricky with pygame)
+            sound = pygame.mixer.Sound(file_path)
+            duration_seconds = sound.get_length()
+            self._duration = int(duration_seconds * 1000)  # Convert to ms
+
+            # Notify duration change
+            for callback in self._callbacks['duration_changed']:
+                callback(self._duration)
+
+            return True
+        except Exception as e:
+            print(f"Error loading audio file: {e}")
+            return False
+
+    def play(self):
+        """Start playback."""
+        if self._current_file:
+            try:
+                pygame.mixer.music.play()
+                self._playing = True
+
+                # Start position tracking
+                if self._position_timer is None:
+                    self._position_timer = QTimer()
+                    self._position_timer.timeout.connect(self._update_position)
+                    self._position_timer.start(50)  # Update every 50ms for smoother tracking
+
+                # Notify state change
+                for callback in self._callbacks['state_changed']:
+                    callback(1)  # 1 = playing (similar to QMediaPlayer.PlayingState)
+
+                return True
+            except Exception as e:
+                print(f"Error playing audio: {e}")
+                return False
+        return False
+
+    def pause(self):
+        """Pause playback."""
+        if self._playing:
+            pygame.mixer.music.pause()
+            self._playing = False
+
+            # Notify state change
+            for callback in self._callbacks['state_changed']:
+                callback(2)  # 2 = paused (similar to QMediaPlayer.PausedState)
+
+    def stop(self):
+        """Stop playback."""
+        pygame.mixer.music.stop()
+        self._playing = False
+        self._position = 0
+
+        # Notify position change
+        for callback in self._callbacks['position_changed']:
+            callback(0)
+
+        # Notify state change
+        for callback in self._callbacks['state_changed']:
+            callback(0)  # 0 = stopped (similar to QMediaPlayer.StoppedState)
+
+    def setPosition(self, position):
+        """Set the playback position in milliseconds."""
+        if self._current_file:
+            position_seconds = position / 1000.0
+            pygame.mixer.music.set_pos(position_seconds)
+            self._position = position
+
+            # Notify position change
+            for callback in self._callbacks['position_changed']:
+                callback(position)
+
+    def position(self):
+        """Get the current playback position in milliseconds."""
+        return self._position
+
+    def duration(self):
+        """Get the duration of the current media in milliseconds."""
+        return self._duration
+
+    def _update_position(self):
+        """Update the current position based on pygame's playback."""
+        if self._playing and pygame.mixer.music.get_busy():
+            # This is an approximation since pygame doesn't provide exact position
+            elapsed_ms = pygame.mixer.music.get_pos()
+            if elapsed_ms >= 0:
+                self._position = elapsed_ms
+
+                # Notify position change
+                for callback in self._callbacks['position_changed']:
+                    callback(self._position)
+        else:
+            # Check if playback has ended
+            if self._playing and not pygame.mixer.music.get_busy():
+                self._playing = False
+                self._position = 0
+
+                # Notify state change
+                for callback in self._callbacks['state_changed']:
+                    callback(0)  # 0 = stopped
+
+    def positionChanged(self, callback):
+        """Connect a callback to position changes."""
+        self._callbacks['position_changed'].append(callback)
+
+    def durationChanged(self, callback):
+        """Connect a callback to duration changes."""
+        self._callbacks['duration_changed'].append(callback)
+
+    def stateChanged(self, callback):
+        """Connect a callback to state changes."""
+        self._callbacks['state_changed'].append(callback)
+
+    def playbackState(self):
+        """Return the current playback state."""
+        if self._playing:
+            return 1  # Playing
+        elif self._position > 0:
+            return 2  # Paused
+        else:
+            return 0  # Stopped
 
 class MusicPlayerScreen(QWidget):
     screen_title = "Music Player"
@@ -33,9 +189,11 @@ class MusicPlayerScreen(QWidget):
         self.base_album_art_size = 200
 
         # --- Create music directory ---
-        self.music_dir = os.path.expanduser("~/Music")
+        # Use a folder within the project directory instead of ~/Music
+        self.music_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "music/library")
         if not os.path.exists(self.music_dir):
-            os.makedirs(self.music_dir)
+            os.makedirs(self.music_dir, exist_ok=True)
+        print(f"Music library directory: {self.music_dir}")
 
         # --- Download status ---
         self.is_downloading = False
@@ -52,6 +210,11 @@ class MusicPlayerScreen(QWidget):
         self.current_position_ms = 0
         self.current_lyrics = "No lyrics available"
 
+        # --- Lyrics syncing variables ---
+        self.lyrics_lines = []
+        self.current_lyrics_line = 0
+        self.lyrics_line_positions = []  # Estimated time positions for each line
+
         # --- Playlist tracking ---
         self.current_playlist_index = -1
         self.is_local_playback = False
@@ -61,13 +224,11 @@ class MusicPlayerScreen(QWidget):
         self.default_album_art.fill(Qt.GlobalColor.darkGray)
 
         # --- Create media player for local files ---
-        self.media_player = QMediaPlayer()
-        self.audio_output = QAudioOutput()
-        self.media_player.setAudioOutput(self.audio_output)
+        self.media_player = PygameMediaPlayer()
 
         # --- Connect media player signals ---
-        self.media_player.positionChanged.connect(self.update_position)
-        self.media_player.durationChanged.connect(self.update_duration)
+        self.media_player.positionChanged(self.update_position)
+        self.media_player.durationChanged(self.update_duration)
 
         # --- Create main layout ---
         self.main_layout = QVBoxLayout(self)
@@ -80,19 +241,14 @@ class MusicPlayerScreen(QWidget):
         self.player_widget = QWidget()
         self.player_layout = QVBoxLayout(self.player_widget)
 
+        # --- Track if we're in lyrics view mode ---
+        self.lyrics_view_active = False
+
         # --- Create top section with album art and info ---
         self.top_section = QHBoxLayout()
 
-        # --- Album art section ---
-        self.album_art_layout = QVBoxLayout()
-        self.album_art_label = QLabel()
-        self.album_art_label.setPixmap(self.default_album_art)
-        self.album_art_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.album_art_label.setObjectName("albumArtLabel")
-        self.album_art_layout.addWidget(self.album_art_label)
-
-        # --- Add album art to top section ---
-        self.top_section.addLayout(self.album_art_layout)
+        # --- Track info and controls section (LEFT SIDE) ---
+        self.left_side_layout = QVBoxLayout()
 
         # --- Track info section ---
         self.track_info_layout = QVBoxLayout()
@@ -115,27 +271,8 @@ class MusicPlayerScreen(QWidget):
         self.track_artist_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.track_info_layout.addWidget(self.track_artist_label)
 
-        # Time Slider
-        self.time_slider_layout = QHBoxLayout()
-        self.current_time_label = QLabel("00:00")
-        self.current_time_label.setObjectName("currentTimeLabel")
-        self.time_slider = QSlider(Qt.Orientation.Horizontal)
-        self.time_slider.setObjectName("timeSlider")
-        self.time_slider.setRange(0, 100)
-        self.time_slider.sliderMoved.connect(self.seek_position)
-        self.time_slider.sliderReleased.connect(self.slider_released)
-        self.total_time_label = QLabel("00:00")
-        self.total_time_label.setObjectName("totalTimeLabel")
-        self.time_slider_layout.addWidget(self.current_time_label)
-        self.time_slider_layout.addWidget(self.time_slider)
-        self.time_slider_layout.addWidget(self.total_time_label)
-        self.track_info_layout.addLayout(self.time_slider_layout)
-
-        # --- Add track info to top section ---
-        self.top_section.addLayout(self.track_info_layout)
-
-        # --- Add top section to player layout ---
-        self.player_layout.addLayout(self.top_section)
+        # Add track info to left side
+        self.left_side_layout.addLayout(self.track_info_layout)
 
         # --- Playback Controls ---
         self.playback_layout = QHBoxLayout()
@@ -152,15 +289,47 @@ class MusicPlayerScreen(QWidget):
         self.playback_layout.addWidget(self.btn_next)
         self.playback_layout.addStretch(1)
 
-        # --- Add playback controls to player layout ---
-        self.player_layout.addLayout(self.playback_layout)
+        # Add playback controls to left side
+        self.left_side_layout.addLayout(self.playback_layout)
+
+        # Add left side layout to top section
+        self.top_section.addLayout(self.left_side_layout, 1)  # Give it stretch factor of 1
+
+        # --- Album art section (RIGHT SIDE) ---
+        self.album_art_layout = QVBoxLayout()
+        self.album_art_label = QLabel()
+        self.album_art_label.setPixmap(self.default_album_art)
+        self.album_art_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.album_art_label.setObjectName("albumArtLabel")
+        self.album_art_layout.addWidget(self.album_art_label)
+
+        # --- Add album art to top section ---
+        self.top_section.addLayout(self.album_art_layout)
+
+        # --- Add top section to player layout ---
+        self.player_layout.addLayout(self.top_section)
+
+        # --- Time Slider (below top section, full width) ---
+        self.time_slider_layout = QHBoxLayout()
+        self.current_time_label = QLabel("00:00")
+        self.current_time_label.setObjectName("currentTimeLabel")
+        self.time_slider = QSlider(Qt.Orientation.Horizontal)
+        self.time_slider.setObjectName("timeSlider")
+        self.time_slider.setRange(0, 100)
+        self.time_slider.sliderMoved.connect(self.seek_position)
+        self.time_slider.sliderPressed.connect(self.slider_pressed)
+        self.time_slider.sliderReleased.connect(self.slider_released)
+        self.time_slider.valueChanged.connect(self.slider_value_changed)
+        self.total_time_label = QLabel("00:00")
+        self.total_time_label.setObjectName("totalTimeLabel")
+        self.time_slider_layout.addWidget(self.current_time_label)
+        self.time_slider_layout.addWidget(self.time_slider)
+        self.time_slider_layout.addWidget(self.total_time_label)
+
+        # Add time slider to player layout (full width)
+        self.player_layout.addLayout(self.time_slider_layout)
 
         # --- Lyrics Section ---
-        self.lyrics_label = QLabel("Lyrics")
-        self.lyrics_label.setObjectName("lyricsLabel")
-        self.lyrics_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.player_layout.addWidget(self.lyrics_label)
-
         self.lyrics_scroll_area = QScrollArea()
         self.lyrics_scroll_area.setWidgetResizable(True)
         self.lyrics_scroll_area.setObjectName("lyricsScrollArea")
@@ -168,26 +337,63 @@ class MusicPlayerScreen(QWidget):
         self.lyrics_content = QLabel(self.current_lyrics)
         self.lyrics_content.setObjectName("lyricsContent")
         self.lyrics_content.setWordWrap(True)
+        self.lyrics_content.setTextFormat(Qt.TextFormat.RichText)  # Enable HTML formatting
         self.lyrics_content.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
 
         self.lyrics_scroll_area.setWidget(self.lyrics_content)
         self.player_layout.addWidget(self.lyrics_scroll_area)
 
+        # Initially hide the lyrics area until the user clicks the lyrics button
+        self.lyrics_scroll_area.setVisible(False)
+
         # --- Button Layout ---
-        self.button_layout = QHBoxLayout()
+        self.button_layout = QVBoxLayout()  # Vertical to accommodate progress bar
+
+        # Button row - all buttons in one horizontal line
+        self.button_row = QHBoxLayout()
+
+        # Lyrics Button
+        self.lyrics_button = QPushButton("Show Lyrics")
+        self.lyrics_button.setObjectName("lyricsButton")
+        self.lyrics_button.clicked.connect(self.toggle_lyrics_view)
+        self.lyrics_button.setFixedWidth(120)
+        self.button_row.addWidget(self.lyrics_button)
 
         # Library Button
         self.library_button = QPushButton("Library")
         self.library_button.setObjectName("libraryButton")
         self.library_button.clicked.connect(self.show_library)
-        self.button_layout.addWidget(self.library_button)
+        self.library_button.setFixedWidth(120)
+        self.button_row.addWidget(self.library_button)
 
         # Download Button
-        self.download_button = QPushButton("Download Song")
+        self.download_button = QPushButton("Download")
         self.download_button.setObjectName("downloadButton")
         self.download_button.clicked.connect(self.download_current_song)
-        self.button_layout.addWidget(self.download_button)
+        self.download_button.setFixedWidth(120)
+        self.button_row.addWidget(self.download_button)
 
+        # Add stretch to keep buttons compact
+        self.button_row.addStretch(1)
+
+        # Add button row to main button layout
+        self.button_layout.addLayout(self.button_row)
+
+        # Download Progress Bar
+        self.download_progress_layout = QHBoxLayout()
+        self.download_progress_bar = QProgressBar()
+        self.download_progress_bar.setObjectName("downloadProgressBar")
+        self.download_progress_bar.setRange(0, 100)
+        self.download_progress_bar.setValue(0)
+        self.download_progress_bar.setTextVisible(True)
+        self.download_progress_bar.setFormat("%p% - %v of %m")
+        self.download_progress_bar.setVisible(False)  # Hide initially
+        self.download_progress_layout.addWidget(self.download_progress_bar)
+
+        # Add progress bar to main button layout
+        self.button_layout.addLayout(self.download_progress_layout)
+
+        # Add the complete button layout to player layout
         self.player_layout.addLayout(self.button_layout)
 
         # --- Create library widget ---
@@ -234,12 +440,15 @@ class MusicPlayerScreen(QWidget):
 
         # --- Timer for updating position ---
         self.position_timer = QTimer(self)
-        self.position_timer.setInterval(1000)  # Update every second
+        self.position_timer.setInterval(100)  # Update every 100ms for smoother updates
         self.position_timer.timeout.connect(self.update_time_display)
         self.position_timer.start()
 
         # --- Initialize UI ---
         self.clear_media_info()
+        self.lyrics_view_active = False  # Start in normal view
+        self.lyrics_button.setText("Show Lyrics")
+        self.lyrics_scroll_area.setVisible(False)
         self.show_player()
 
     def update_scaling(self, scale_factor, margin):
@@ -264,6 +473,9 @@ class MusicPlayerScreen(QWidget):
 
     def show_player(self):
         """Switch to the player view."""
+        # Make sure we're in normal view mode when returning to player
+        if self.lyrics_view_active:
+            self.toggle_lyrics_view()
         self.stacked_widget.setCurrentWidget(self.player_widget)
 
     def show_library(self):
@@ -391,7 +603,8 @@ class MusicPlayerScreen(QWidget):
 
                 # Update lyrics
                 self.current_lyrics = lyrics if lyrics else "No lyrics available"
-                self.lyrics_content.setText(self.current_lyrics)
+                self.parse_lyrics(self.current_lyrics)
+                self.update_lyrics_display()
 
                 # Download album art
                 if cover_url:
@@ -450,14 +663,43 @@ class MusicPlayerScreen(QWidget):
             }
             self.local_playback_started.emit(track_info)
 
+    def slider_pressed(self):
+        """Called when the slider is pressed."""
+        # Store the current position to restore if seeking fails
+        self._slider_drag_start_position = self.current_position_ms
+
     def seek_position(self, position):
         """Seek to the position when the slider is moved."""
         # This is called during slider movement
         self.current_time_label.setText(self.format_time(position))
 
+        # Always update the current position for UI purposes
+        self.current_position_ms = position
+
+        # Real-time seeking during drag for local playback
+        if self.is_local_playback:
+            # Update the media player position in real-time
+            self.media_player.setPosition(position)
+
+            # Update lyrics highlighting if lyrics view is active
+            if self.lyrics_view_active and self.lyrics_lines:
+                self.highlight_current_lyrics_line()
+
+    def slider_value_changed(self, _):
+        """Called when the slider value changes."""
+        # Only update if not being dragged (to avoid conflicts with seek_position)
+        if not self.time_slider.isSliderDown():
+            # Update lyrics highlighting if lyrics view is active
+            if self.lyrics_view_active and self.lyrics_lines:
+                self.highlight_current_lyrics_line()
+
     def slider_released(self):
         """Set the position when the slider is released."""
         position = self.time_slider.value()
+
+        # Always update the current position for UI purposes
+        self.current_position_ms = position
+
         if self.main_window and self.main_window.bluetooth_manager and self.main_window.bluetooth_manager.media_player_path:
             # For Bluetooth playback, we would need to implement seeking through D-Bus
             # This is not implemented in the current BluetoothManager
@@ -466,11 +708,19 @@ class MusicPlayerScreen(QWidget):
             # For local playback
             self.media_player.setPosition(position)
 
+        # Update lyrics highlighting if lyrics view is active
+        if self.lyrics_view_active and self.lyrics_lines:
+            self.highlight_current_lyrics_line()
+
     def update_time_display(self):
-        """Update the time display labels."""
+        """Update the time display labels and sync lyrics if visible."""
         if not self.time_slider.isSliderDown():
             self.current_time_label.setText(self.format_time(self.current_position_ms))
         self.total_time_label.setText(self.format_time(self.current_duration_ms))
+
+        # Update lyrics highlighting if lyrics view is active
+        if self.lyrics_view_active and self.lyrics_lines:
+            self.highlight_current_lyrics_line()
 
     def format_time(self, ms):
         """Format milliseconds as MM:SS."""
@@ -541,7 +791,8 @@ class MusicPlayerScreen(QWidget):
 
                     # Update lyrics
                     self.current_lyrics = lyrics if lyrics else "No lyrics available"
-                    self.lyrics_content.setText(self.current_lyrics)
+                    self.parse_lyrics(self.current_lyrics)
+                    self.update_lyrics_display()
 
                     # Download album art
                     if cover_url:
@@ -568,6 +819,148 @@ class MusicPlayerScreen(QWidget):
             if status == "stopped" and self.track_title_label.text() != "---":
                 self.clear_media_info()
 
+    def toggle_lyrics_view(self):
+        """Toggle between normal view and lyrics view."""
+        self.lyrics_view_active = not self.lyrics_view_active
+
+        if self.lyrics_view_active:
+            # Switch to lyrics view
+            self.lyrics_button.setText("Hide Lyrics")
+
+            # Hide all elements except title
+            self.album_art_label.setVisible(False)
+            self.album_name_label.setVisible(False)
+            self.track_artist_label.setVisible(False)
+
+            # Show lyrics and make it take up more space
+            self.lyrics_scroll_area.setVisible(True)
+
+            # Make lyrics scroll area fill the remaining space
+            self.lyrics_scroll_area.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+            # Remove any fixed height constraints
+            self.lyrics_scroll_area.setMinimumHeight(0)
+            self.lyrics_scroll_area.setMaximumHeight(16777215)  # QWIDGETSIZE_MAX
+
+            # Move title to the button row
+            # First, remove it from its current layout
+            self.track_info_layout.removeWidget(self.track_title_label)
+            # Add it to the button row at the beginning
+            self.button_row.insertWidget(0, self.track_title_label)
+            # Style it appropriately
+            self.track_title_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+            self.track_title_label.setStyleSheet("font-size: 14pt; font-weight: bold; margin-right: 20px;")
+
+            # Highlight current lyrics line and scroll to it
+            if self.lyrics_lines:
+                self.highlight_current_lyrics_line()
+        else:
+            # Switch back to normal view
+            self.lyrics_button.setText("Show Lyrics")
+
+            # Show all elements
+            self.album_art_label.setVisible(True)
+            self.album_name_label.setVisible(True)
+            self.track_artist_label.setVisible(True)
+            self.lyrics_scroll_area.setVisible(False)
+
+            # Reset lyrics scroll area size policy
+            self.lyrics_scroll_area.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
+            self.lyrics_scroll_area.setMinimumHeight(0)
+            self.lyrics_scroll_area.setMaximumHeight(16777215)  # QWIDGETSIZE_MAX
+
+            # Move title back to its original position
+            # First, remove it from the button row
+            self.button_row.removeWidget(self.track_title_label)
+            # Add it back to the track info layout at its original position (index 1)
+            self.track_info_layout.insertWidget(1, self.track_title_label)
+            # Reset alignment and style
+            self.track_title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.track_title_label.setStyleSheet("")
+
+    def parse_lyrics(self, lyrics_text):
+        """Parse lyrics into lines and estimate time positions."""
+        # Split lyrics into lines, filtering out empty lines
+        self.lyrics_lines = [line.strip() for line in lyrics_text.split('\n') if line.strip()]
+
+        # Reset current line
+        self.current_lyrics_line = 0
+
+        # Estimate time positions for each line (evenly distributed)
+        if self.lyrics_lines and self.current_duration_ms > 0:
+            # Distribute lines evenly across the song duration
+            line_count = len(self.lyrics_lines)
+            time_per_line = self.current_duration_ms / line_count
+
+            self.lyrics_line_positions = []
+            for i in range(line_count):
+                # Start each line a bit earlier than its mathematical position
+                # to account for singing starting before the exact time point
+                position = int(i * time_per_line)
+                self.lyrics_line_positions.append(position)
+        else:
+            self.lyrics_line_positions = []
+
+    def highlight_current_lyrics_line(self):
+        """Highlight the current line in the lyrics based on playback position."""
+        if not self.lyrics_lines or not self.lyrics_line_positions:
+            return
+
+        # Find the current line based on playback position
+        current_position = self.current_position_ms
+        new_line = 0
+
+        for i, position in enumerate(self.lyrics_line_positions):
+            if current_position >= position:
+                new_line = i
+
+        # If the line has changed, update the display
+        if new_line != self.current_lyrics_line or self.lyrics_view_active:
+            self.current_lyrics_line = new_line
+            self.update_lyrics_display()
+
+            # Auto-scroll to keep the current line in the vertical middle
+            if self.lyrics_view_active:
+                # Get the scroll area viewport height
+                viewport_height = self.lyrics_scroll_area.viewport().height()
+
+                # Estimate line height (can be adjusted based on font size)
+                line_height = 30  # Increased for better spacing
+
+                # Calculate the position to scroll to (center the current line)
+                # We want the current line to be in the middle of the viewport
+                middle_offset = viewport_height // 2
+                scroll_position = max(0, (self.current_lyrics_line * line_height) - middle_offset + (line_height // 2))
+
+                # Set the scroll position
+                self.lyrics_scroll_area.verticalScrollBar().setValue(scroll_position)
+
+    def update_lyrics_display(self):
+        """Update the lyrics display with highlighted current line."""
+        if not self.lyrics_lines:
+            self.lyrics_content.setText("No lyrics available")
+            return
+
+        # Build HTML with the current line highlighted
+        html = "<div style='text-align: center;'>"
+
+        # Add some padding at the top to ensure scrolling works properly
+        html += "<div style='height: 100px;'></div>"
+
+        for i, line in enumerate(self.lyrics_lines):
+            if i == self.current_lyrics_line:
+                # Highlight the current line with blue color, bold text, and larger font
+                html += f"<p style='color: #007bff; font-weight: bold; font-size: 120%; margin: 15px 0;'>{line}</p>"
+            else:
+                # Add more spacing between lines for better readability
+                html += f"<p style='margin: 12px 0; color: #666666;'>{line}</p>"
+
+        # Add padding at the bottom too
+        html += "<div style='height: 100px;'></div>"
+        html += "</div>"
+
+        # Set the HTML content
+        self.lyrics_content.setText(html)
+
     def clear_media_info(self):
         """Resets media player display to default state."""
         self.track_title_label.setText("---")
@@ -583,7 +976,19 @@ class MusicPlayerScreen(QWidget):
         self.current_album = ""
         self.current_duration_ms = 0
         self.current_position_ms = 0
+        self.current_lyrics = "No lyrics available"
+        self.lyrics_lines = []
+        self.lyrics_line_positions = []
+        self.current_lyrics_line = 0
         self.lyrics_content.setText("No lyrics available")
+
+        # Reset title alignment and style
+        self.track_title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.track_title_label.setStyleSheet("")
+
+        # Reset to normal view if in lyrics view
+        if self.lyrics_view_active:
+            self.toggle_lyrics_view()
 
     def on_play_pause_clicked(self):
         """Handle play/pause button click."""
@@ -596,7 +1001,7 @@ class MusicPlayerScreen(QWidget):
                 self.main_window.bluetooth_manager.send_play()
         else:
             # Handle local playback
-            if self.media_player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
+            if self.media_player._playing:  # Check if playing
                 self.media_player.pause()
                 self.btn_play_pause.setText("▶")
                 if self.is_local_playback:
@@ -642,17 +1047,55 @@ class MusicPlayerScreen(QWidget):
             QMessageBox.warning(self, "Cannot Download", "No song is currently playing or song information is incomplete.")
             return
 
+        # Check if yt-dlp is installed
+        if not self._is_ytdlp_available():
+            QMessageBox.critical(self, "Download Not Available",
+                               "The yt-dlp tool is not installed. Please install it to enable downloads:\n\n"
+                               "pip install yt-dlp")
+            return
+
+        # Check if internet connection is available
+        if not self._is_internet_available():
+            QMessageBox.warning(self, "No Internet Connection",
+                              "Cannot download music. Please check your internet connection and try again.")
+            return
+
+        # Reset and show progress bar
+        self.download_progress_bar.setValue(0)
+        self.download_progress_bar.setVisible(True)
+
         # Start download in a separate thread
         self.is_downloading = True
         download_thread = threading.Thread(target=self._download_song_thread)
         download_thread.daemon = True
         download_thread.start()
 
+    def _is_ytdlp_available(self):
+        """Check if yt-dlp is installed and available."""
+        try:
+            result = subprocess.run(['yt-dlp', '--version'],
+                                  stdout=subprocess.PIPE,
+                                  stderr=subprocess.PIPE,
+                                  text=True,
+                                  timeout=2)
+            return result.returncode == 0
+        except (subprocess.SubprocessError, FileNotFoundError):
+            return False
+
+    def _is_internet_available(self):
+        """Check if internet connection is available."""
+        try:
+            # Try to connect to Google's DNS server
+            socket.create_connection(("8.8.8.8", 53), timeout=3)
+            return True
+        except OSError:
+            return False
+
     def _download_song_thread(self):
         """Background thread for downloading songs."""
         try:
             # Show download status
-            self.download_button.setText("Downloading...")
+            QTimer.singleShot(0, lambda: self.download_button.setText("Downloading..."))
 
             # Create search query
             query = f"{self.current_artist} - {self.current_title} audio"
@@ -664,7 +1107,7 @@ class MusicPlayerScreen(QWidget):
 
             output_path = os.path.join(self.music_dir, f"{safe_filename}.%(ext)s")
 
-            # Use yt-dlp to download the song
+            # Use yt-dlp to download the song with progress reporting
             cmd = [
                 "yt-dlp",
                 "--extract-audio",
@@ -673,25 +1116,68 @@ class MusicPlayerScreen(QWidget):
                 "--output", output_path,
                 "--no-playlist",
                 "--default-search", "ytsearch",
-                "--quiet",
+                "--newline",  # Important for parsing progress
+                "--progress",
                 query
             ]
 
-            # Run the download command
-            process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            _, stderr = process.communicate()  # Use _ for unused stdout
+            # Run the download command with real-time output processing
+            process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                universal_newlines=True,
+                bufsize=1
+            )
+
+            # Process output line by line to extract progress
+            for line in iter(process.stdout.readline, ''):
+                # Parse progress information
+                if '[download]' in line and '%' in line:
+                    try:
+                        # Extract percentage
+                        percent_str = line.split('%')[0].split()[-1]
+                        percent = float(percent_str)
+                        # Update progress bar in the main thread
+                        QTimer.singleShot(0, lambda p=percent: self.update_progress(p))
+                    except (ValueError, IndexError) as e:
+                        print(f"Error parsing progress: {e}, line: {line}")
+
+            # Wait for process to complete
+            process.stdout.close()
+            return_code = process.wait()
 
             # Check if download was successful
-            if process.returncode == 0:
+            if return_code == 0:
                 # Update UI in the main thread
                 self.download_complete(True)
             else:
-                print(f"Download error: {stderr.decode()}")
-                self.download_complete(False, stderr.decode())
+                error_message = "Download failed"
 
+                # Try to provide more specific error messages based on return code
+                if return_code == 1:
+                    error_message = "No suitable format found or content unavailable"
+                elif return_code == 2:
+                    error_message = "Network error occurred during download"
+                elif return_code == 3:
+                    error_message = "Copyright or terms of service violation detected"
+
+                print(f"Download error: {error_message} (return code {return_code})")
+                self.download_complete(False, error_message)
+
+        except FileNotFoundError:
+            print("yt-dlp command not found")
+            self.download_complete(False, "Download tool not found. Please install yt-dlp.")
+        except subprocess.TimeoutExpired:
+            print("Download process timed out")
+            self.download_complete(False, "Download timed out. Please check your internet connection.")
         except Exception as e:
             print(f"Download exception: {str(e)}")
-            self.download_complete(False, str(e))
+            self.download_complete(False, f"An error occurred: {str(e)}")
+
+    def update_progress(self, percent):
+        """Update the progress bar (called from main thread)."""
+        self.download_progress_bar.setValue(int(percent))
 
     def download_complete(self, success, error_message=None):
         """Called when download completes (from any thread)."""
@@ -703,12 +1189,37 @@ class MusicPlayerScreen(QWidget):
         self.is_downloading = False
         self.download_button.setText("Download Song")
 
+        # Set progress to 100% if successful, hide after a delay
         if success:
-            QMessageBox.information(self, "Download Complete",
-                                   f"Successfully downloaded '{self.current_title}' by {self.current_artist}.")
+            self.download_progress_bar.setValue(100)
+            QTimer.singleShot(3000, lambda: self.download_progress_bar.setVisible(False))
+
+            # Show success message with file location
+            file_location = os.path.basename(self.music_dir)
+            QMessageBox.information(
+                self,
+                "Download Complete",
+                f"Successfully downloaded '{self.current_title}' by {self.current_artist}.\n\n"
+                f"The file has been saved to the {file_location} folder."
+            )
+
             # Refresh the library if it's currently shown
             if self.stacked_widget.currentWidget() == self.library_widget:
                 self.load_library_files()
         else:
-            QMessageBox.warning(self, "Download Failed",
-                               f"Failed to download the song: {error_message if error_message else 'Unknown error'}")
+            # Hide progress bar immediately on failure
+            self.download_progress_bar.setVisible(False)
+
+            # Show appropriate error message
+            title = "Download Failed"
+            message = error_message if error_message else "Unknown error occurred during download"
+
+            # Add suggestion based on error type
+            if "network" in message.lower() or "connection" in message.lower() or "timeout" in message.lower():
+                message += "\n\nPlease check your internet connection and try again."
+            elif "not found" in message.lower() or "install" in message.lower():
+                message += "\n\nPlease install the required tool with: pip install yt-dlp"
+            elif "copyright" in message.lower() or "terms" in message.lower():
+                message += "\n\nThis content may be protected by copyright."
+
+            QMessageBox.warning(self, title, message)

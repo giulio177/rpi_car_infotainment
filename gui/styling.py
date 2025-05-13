@@ -204,6 +204,21 @@ def get_light_theme(scale_factor=1.0):
          /* margin-top: ...; margin-bottom: ...; */
      }}
 
+     /* Header Quit Button */
+     QPushButton#headerQuitButton {{
+         background-color: #ff5252;
+         border: {scaled_border}px solid #d32f2f;
+         border-radius: {scaled_border_radius}px;
+     }}
+
+     QPushButton#headerQuitButton:hover {{
+         background-color: #ff7070;
+     }}
+
+     QPushButton#headerQuitButton:pressed {{
+         background-color: #d32f2f;
+     }}
+
     /* --- ComboBox Dropdown --- */
     QComboBox QAbstractItemView {{
         background-color: #ffffff; color: #333333; border: {scaled_border}px solid #b0b0b0;
@@ -304,16 +319,18 @@ def get_light_theme(scale_factor=1.0):
      }}
 
     /* --- Music Player Screen --- */
-    QLabel#lyricsLabel {{
-        font-size: {scale_value(base_font_size_pt + 2, scale_factor)}pt;
-        font-weight: bold;
-        margin-top: {scaled_padding}px;
+    QScrollArea#lyricsScrollArea {{
+        border: {scaled_border}px solid #b0b0b0;
+        border-radius: {scaled_border_radius}px;
+        background-color: #f8f8f8;
     }}
 
     QLabel#lyricsContent {{
         font-size: {scale_value(base_font_size_pt, scale_factor)}pt;
         padding: {scaled_padding}px;
         line-height: 150%;
+        background-color: #f8f8f8;
+        color: #333333;
     }}
 
     QLabel#currentTimeLabel, QLabel#totalTimeLabel {{
@@ -518,6 +535,21 @@ def get_dark_theme(scale_factor=1.0):
          padding-right: {scaled_padding}px;
      }}
 
+     /* Header Quit Button */
+     QPushButton#headerQuitButton {{
+         background-color: #d32f2f;
+         border: {scaled_border}px solid #b71c1c;
+         border-radius: {scaled_border_radius}px;
+     }}
+
+     QPushButton#headerQuitButton:hover {{
+         background-color: #ef5350;
+     }}
+
+     QPushButton#headerQuitButton:pressed {{
+         background-color: #b71c1c;
+     }}
+
     /* --- ComboBox Dropdown --- */
     QComboBox {{ selection-background-color: #6060a0; }} /* Selection inside the box */
     QComboBox QAbstractItemView {{
@@ -619,16 +651,18 @@ def get_dark_theme(scale_factor=1.0):
     }}
 
     /* --- Music Player Screen --- */
-    QLabel#lyricsLabel {{
-        font-size: {scale_value(base_font_size_pt + 2, scale_factor)}pt;
-        font-weight: bold;
-        margin-top: {scaled_padding}px;
+    QScrollArea#lyricsScrollArea {{
+        border: {scaled_border}px solid #505050;
+        border-radius: {scaled_border_radius}px;
+        background-color: #383838;
     }}
 
     QLabel#lyricsContent {{
         font-size: {scale_value(base_font_size_pt, scale_factor)}pt;
         padding: {scaled_padding}px;
         line-height: 150%;
+        background-color: #383838;
+        color: #e0e0e0;
     }}
 
     QLabel#currentTimeLabel, QLabel#totalTimeLabel {{
