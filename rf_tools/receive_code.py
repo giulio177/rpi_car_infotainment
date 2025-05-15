@@ -4,6 +4,14 @@ import time
 import logging
 import argparse
 import signal # Per gestire Ctrl+C
+import pathlib
+import sys
+
+# Add the project root directory to the Python path
+script_dir = pathlib.Path(__file__).parent
+project_root = script_dir.parent
+sys.path.insert(0, str(project_root))
+
 from rpi_rf import RFDevice
 
 # --- Configurazione GPIO Ricevitore ---
@@ -71,8 +79,8 @@ try:
             code = rfdevice.rx_code
             pulselength = rfdevice.rx_pulselength
             protocol = rfdevice.rx_proto
-	
-	
+
+
  	    # De-bounce: Ignora se lo stesso codice è stato ricevuto molto di recente
             if code != last_code or (timestamp_received - last_code_timestamp > debounce_interval):
                  logger.info(f"Ricevuto: Code={code}, Pulselength={pulselength} us, Protocol={protocol}")

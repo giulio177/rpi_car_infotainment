@@ -3,6 +3,14 @@
 import time
 import logging
 import argparse
+import pathlib
+import sys
+
+# Add the project root directory to the Python path
+script_dir = pathlib.Path(__file__).parent
+project_root = script_dir.parent
+sys.path.insert(0, str(project_root))
+
 from rpi_rf import RFDevice
 
 # --- Configurazione GPIO Trasmettitore ---

@@ -2,6 +2,13 @@
 
 import sys
 import os
+import pathlib
+
+# Add the project root directory to the Python path
+script_dir = pathlib.Path(__file__).parent
+project_root = script_dir.parent
+sys.path.insert(0, str(project_root))
+
 from PyQt6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QPushButton
 from PyQt6.QtCore import Qt
 

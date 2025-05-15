@@ -2,6 +2,12 @@
 
 import sys
 import importlib
+import pathlib
+
+# Add the project root directory to the Python path
+script_dir = pathlib.Path(__file__).parent
+project_root = script_dir.parent
+sys.path.insert(0, str(project_root))
 
 def check_module(module_name):
     try:
@@ -14,7 +20,7 @@ def check_module(module_name):
 
 def main():
     print("Checking dependencies for RPi Car Infotainment...")
-    
+
     # Core dependencies
     core_modules = [
         "PyQt6",
@@ -24,33 +30,33 @@ def main():
         "obd",
         "requests"
     ]
-    
+
     # Optional dependencies
     optional_modules = [
         "PyQt6.QtMultimedia",
         "PyQt6.QtNetwork"
     ]
-    
+
     print("\nChecking core dependencies:")
     core_ok = all(check_module(module) for module in core_modules)
-    
+
     print("\nChecking optional dependencies:")
     optional_ok = all(check_module(module) for module in optional_modules)
-    
+
     print("\nSummary:")
     if core_ok:
         print("✅ All core dependencies are installed")
     else:
         print("❌ Some core dependencies are missing")
-    
+
     if optional_ok:
         print("✅ All optional dependencies are installed")
     else:
         print("⚠️ Some optional dependencies are missing")
-    
+
     print("\nSystem information:")
     print(f"Python version: {sys.version}")
-    
+
     return 0 if core_ok else 1
 
 if __name__ == "__main__":
