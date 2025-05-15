@@ -11,9 +11,9 @@
         1024,
         600
     ],
-    "show_cursor": true,
+    "show_cursor": false,
     "position_bottom_right": true,
     "ui_scale_mode": "auto",
-    "developer_mode": true,
-    "volume": 51
+    "developer_mode": false,
+    "volume": 48
 }
