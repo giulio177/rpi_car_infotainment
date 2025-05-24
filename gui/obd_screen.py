@@ -1,42 +1,51 @@
 # gui/obd_screen.py
 
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QLabel, QGridLayout,
-                             QPushButton, QHBoxLayout, QSpacerItem, QSizePolicy)
+from PyQt6.QtWidgets import (
+    QWidget,
+    QVBoxLayout,
+    QLabel,
+    QGridLayout,
+    QPushButton,
+    QHBoxLayout,
+    QSpacerItem,
+    QSizePolicy,
+)
 from PyQt6.QtCore import QTimer, QDateTime, pyqtSlot, Qt
 
 # --- Import scale_value helper ---
 from .styling import scale_value
 
+
 class OBDScreen(QWidget):
     # --- ADDED: Screen Title ---
     screen_title = "OBD-II Data"
-    
-    def __init__(self, parent=None): # parent is likely MainWindow
+
+    def __init__(self, parent=None):  # parent is likely MainWindow
         super().__init__(parent)
         self.main_window = parent
 
         # --- Store base sizes ---
         self.base_margin = 10
-        self.base_spacing = 10 # General spacing
-        self.base_grid_spacing = 15 # Spacing between grid items
+        self.base_spacing = 10  # General spacing
+        self.base_grid_spacing = 15  # Spacing between grid items
 
         # --- Main Layout (Vertical) ---
         self.main_layout = QVBoxLayout(self)
         # Margins/Spacing set by update_scaling
 
         self.status_label = QLabel("Status: Initializing...")
-        self.status_label.setObjectName("obdStatusLabel") # ID for styling
+        self.status_label.setObjectName("obdStatusLabel")  # ID for styling
         self.main_layout.addWidget(self.status_label)
 
         # Grid layout for data
-        self.grid_layout = QGridLayout() # Store reference
+        self.grid_layout = QGridLayout()  # Store reference
         # Spacing set by update_scaling
         self.main_layout.addLayout(self.grid_layout)
 
         # --- Labels for specific data points ---
         self.speed_label = QLabel("Speed:")
         self.speed_value = QLabel("---")
-        self.speed_value.setObjectName("speed_value") # Use ID for styling
+        self.speed_value.setObjectName("speed_value")  # Use ID for styling
 
         self.rpm_label = QLabel("RPM:")
         self.rpm_value = QLabel("---")
@@ -67,8 +76,7 @@ class OBDScreen(QWidget):
 
         # Add more data points similarly...
 
-        self.main_layout.addStretch(1) # Push content towards the top
-
+        self.main_layout.addStretch(1)  # Push content towards the top
 
     def update_scaling(self, scale_factor, scaled_main_margin):
         """Applies scaling to internal layouts."""
@@ -76,20 +84,27 @@ class OBDScreen(QWidget):
         scaled_grid_spacing = scale_value(self.base_grid_spacing, scale_factor)
 
         # Apply to layouts that EXIST in this screen
-        self.main_layout.setContentsMargins(scaled_main_margin, scaled_main_margin, scaled_main_margin, scaled_main_margin)
+        self.main_layout.setContentsMargins(
+            scaled_main_margin,
+            scaled_main_margin,
+            scaled_main_margin,
+            scaled_main_margin,
+        )
         self.main_layout.setSpacing(scaled_spacing)
-        self.grid_layout.setSpacing(scaled_grid_spacing) # Grid layout exists
+        self.grid_layout.setSpacing(scaled_grid_spacing)  # Grid layout exists
 
     @pyqtSlot(dict)
     def update_data(self, data_dict):
         """Slot to receive data updates from OBDManager."""
-        speed = data_dict.get('SPEED')
+        speed = data_dict.get("SPEED")
         self.speed_value.setText(f"{speed} km/h" if speed is not None else "---")
-        rpm = data_dict.get('RPM')
+        rpm = data_dict.get("RPM")
         self.rpm_value.setText(f"{int(rpm)}" if rpm is not None else "---")
-        coolant_temp = data_dict.get('COOLANT_TEMP')
-        self.coolant_value.setText(f"{coolant_temp} °C" if coolant_temp is not None else "---")
-        fuel_level = data_dict.get('FUEL_LEVEL')
+        coolant_temp = data_dict.get("COOLANT_TEMP")
+        self.coolant_value.setText(
+            f"{coolant_temp} °C" if coolant_temp is not None else "---"
+        )
+        fuel_level = data_dict.get("FUEL_LEVEL")
         self.fuel_value.setText(f"{fuel_level} %" if fuel_level is not None else "---")
         # Update other labels...
 

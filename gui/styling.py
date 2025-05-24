@@ -2,6 +2,7 @@
 
 import math
 
+
 # --- Helper function to calculate scaled int ---
 def scale_value(base_value, scale_factor):
     """Calculates scaled integer value, ensuring minimum of 1."""
@@ -9,38 +10,52 @@ def scale_value(base_value, scale_factor):
         numeric_base = float(base_value)
         return max(1, int(numeric_base * scale_factor))
     except (ValueError, TypeError):
-        print(f"Warning: Could not convert base_value '{base_value}' to number in scale_value. Returning 1.")
+        print(
+            f"Warning: Could not convert base_value '{base_value}' to number in scale_value. Returning 1."
+        )
         return 1
 
-BASE_SLIDER_THICKNESS = 15 # <<< --- ADJUSTED FOR 1024x600 RESOLUTION --- >>>
+
+BASE_SLIDER_THICKNESS = 15  # <<< --- ADJUSTED FOR 1024x600 RESOLUTION --- >>>
 
 # --- Theme Functions accepting scale_factor ---
+
 
 def get_light_theme(scale_factor=1.0):
     # Base sizes relative to 1024x600
     base_font_size_pt = 12
     base_padding_px = 8
-    base_album_art_size_px = 120 # Base size for square side (adjusted for 1024x600)
-    base_button_min_height_px = 35 # Base for normal buttons (adjusted for 1024x600)
+    base_album_art_size_px = 120  # Base size for square side (adjusted for 1024x600)
+    base_button_min_height_px = 35  # Base for normal buttons (adjusted for 1024x600)
     base_border_radius_px = 4
     base_border_px = 1
 
     # Calculate scaled sizes
     scaled_font_size = scale_value(base_font_size_pt, scale_factor)
     scaled_padding = scale_value(base_padding_px, scale_factor)
-    scaled_album_art_size = scale_value(base_album_art_size_px, scale_factor) # Scaled square size
+    scaled_album_art_size = scale_value(
+        base_album_art_size_px, scale_factor
+    )  # Scaled square size
     scaled_button_min_height = scale_value(base_button_min_height_px, scale_factor)
     scaled_border_radius = scale_value(base_border_radius_px, scale_factor)
     scaled_border = scale_value(base_border_px, scale_factor)
     # --- Calculate DERIVED slider sizes ---
     scaled_slider_thickness = scale_value(BASE_SLIDER_THICKNESS, scale_factor)
     # Handle size based on groove thickness (e.g., 1.8x thickness, ensure minimum size)
-    scaled_slider_handle_s = max(scaled_slider_thickness + scale_value(10, scale_factor), scale_value(BASE_SLIDER_THICKNESS * 1.8, scale_factor)) # Slightly smaller ratio?
-    scaled_slider_handle_s = int(math.ceil(scaled_slider_handle_s / 2.0)) * 2 # Ensure even number
+    scaled_slider_handle_s = max(
+        scaled_slider_thickness + scale_value(10, scale_factor),
+        scale_value(BASE_SLIDER_THICKNESS * 1.8, scale_factor),
+    )  # Slightly smaller ratio?
+    scaled_slider_handle_s = (
+        int(math.ceil(scaled_slider_handle_s / 2.0)) * 2
+    )  # Ensure even number
     # Calculate margin to center handle vertically on groove
-    scaled_slider_handle_margin_v = - (scaled_slider_handle_s - scaled_slider_thickness) // 2 # Vertical margin
-    scaled_slider_handle_margin_h = scaled_slider_handle_s // 4 # Horizontal margin based on handle size (prevents clipping groove too much)
-
+    scaled_slider_handle_margin_v = (
+        -(scaled_slider_handle_s - scaled_slider_thickness) // 2
+    )  # Vertical margin
+    scaled_slider_handle_margin_h = (
+        scaled_slider_handle_s // 4
+    )  # Horizontal margin based on handle size (prevents clipping groove too much)
 
     # Generate QSS String
     return f"""
@@ -77,22 +92,7 @@ def get_light_theme(scale_factor=1.0):
         background-color: #e0e0e0;
         border-top: {scaled_border}px solid #b0b0b0;
     }}
-    /* Status labels in bottom bar */
-    QLabel#statusBarObdLabel, QLabel#statusBarRadioLabel,
-    QLabel#statusBarBtNameLabel, QLabel#statusBarBtBatteryLabel {{
-         font-size: {scale_value(11, scale_factor)}pt; /* Adjusted base size */
-         padding: {scale_value(4, scale_factor)}px; /* Adjusted base size */
-    }}
-    QLabel#statusBarBtBatteryLabel {{
-         padding-left: {scale_value(5, scale_factor)}px; /* Adjusted base size */
-         font-weight: bold;
-    }}
-    QLabel#statusBarSeparator {{
-         font-size: {scale_value(11, scale_factor)}pt; /* Adjusted base size */
-         color: #888888;
-         padding-left: {scaled_padding // 2}px;
-         padding-right: {scaled_padding // 2}px;
-    }}
+    /* Status labels removed from bottom bar for cleaner design */
 
     /* ==================== General Widgets ==================== */
     QPushButton {{
@@ -101,9 +101,11 @@ def get_light_theme(scale_factor=1.0):
         padding: {scale_value(base_padding_px * 0.6, scale_factor)}px {scale_value(base_padding_px * 1.2, scale_factor)}px; /* Adjusted padding */
         border-radius: {scaled_border_radius}px;
         min-height: {scaled_button_min_height}px;
+        outline: none; /* Remove focus outline */
     }}
     QPushButton:pressed {{ background-color: #c0c0c0; }}
     QPushButton:disabled {{ background-color: #e8e8e8; color: #a0a0a0; border-color: #c0c0c0; }}
+    QPushButton:focus {{ outline: none; border: {scaled_border}px solid #b0b0b0; }} /* Remove focus dotted outline */
 
     QLabel {{ padding: {scaled_padding // 4}px; background-color: transparent; }}
 
@@ -209,6 +211,7 @@ def get_light_theme(scale_factor=1.0):
          background-color: #ff5252;
          border: {scaled_border}px solid #d32f2f;
          border-radius: {scaled_border_radius}px;
+         outline: none;
      }}
 
      QPushButton#headerQuitButton:hover {{
@@ -217,6 +220,11 @@ def get_light_theme(scale_factor=1.0):
 
      QPushButton#headerQuitButton:pressed {{
          background-color: #d32f2f;
+     }}
+
+     QPushButton#headerQuitButton:focus {{
+         outline: none;
+         border: {scaled_border}px solid #d32f2f;
      }}
 
     /* --- ComboBox Dropdown --- */
@@ -317,6 +325,16 @@ def get_light_theme(scale_factor=1.0):
         font-size: {scale_value(base_font_size_pt + 2, scale_factor)}pt; /* Adjusted base size */
         margin-top: {scaled_padding // 2}px; margin-bottom: {scaled_padding // 2}px;
      }}
+     QPushButton#airplayInfoButton {{
+        padding: {scale_value(base_padding_px * 0.7, scale_factor)}px {scale_value(base_padding_px * 1.5, scale_factor)}px;
+        min-width: {scale_value(180, scale_factor)}px;
+        font-size: {scale_value(base_font_size_pt + 1, scale_factor)}pt;
+        margin-top: {scaled_padding // 2}px; margin-bottom: {scaled_padding // 2}px;
+        background-color: #4a90e2; border-color: #357abd;
+     }}
+     QPushButton#airplayInfoButton:pressed {{
+        background-color: #357abd;
+     }}
 
     /* --- Music Player Screen --- */
     QScrollArea#lyricsScrollArea {{
@@ -324,6 +342,8 @@ def get_light_theme(scale_factor=1.0):
         border-radius: {scaled_border_radius}px;
         background-color: #f8f8f8;
     }}
+
+    /* --- AirPlay Screen (scroll area removed) --- */
 
     QLabel#lyricsContent {{
         font-size: {scale_value(base_font_size_pt, scale_factor)}pt;
@@ -352,31 +372,112 @@ def get_light_theme(scale_factor=1.0):
     }}
 
     /* --- Special Buttons --- */
-    QPushButton#powerNavButton {{ background-color: #ff8080; border-color: #cc6666; }}
+    QPushButton#powerNavButton {{ background-color: #ff8080; border-color: #cc6666; outline: none; }}
     QPushButton#powerNavButton:pressed {{ background-color: #e67373; }}
+    QPushButton#powerNavButton:focus {{ outline: none; border-color: #cc6666; }}
+
+    /* ==================== Dialog and Popup Styles ==================== */
+    QMessageBox {{
+        background-color: #f0f0f0;
+        color: #333333;
+        border: {scaled_border}px solid #b0b0b0;
+        border-radius: {scaled_border_radius}px;
+    }}
+    QMessageBox QLabel {{
+        color: #333333;
+        font-size: {scaled_font_size}pt;
+        padding: {scaled_padding}px;
+    }}
+    QMessageBox QPushButton {{
+        background-color: #dcdcdc;
+        border: {scaled_border}px solid #b0b0b0;
+        padding: {scale_value(base_padding_px * 0.8, scale_factor)}px {scale_value(base_padding_px * 1.5, scale_factor)}px;
+        border-radius: {scaled_border_radius}px;
+        min-height: {scaled_button_min_height}px;
+        min-width: {scale_value(80, scale_factor)}px;
+        outline: none;
+    }}
+    QMessageBox QPushButton:pressed {{
+        background-color: #c0c0c0;
+    }}
+    QMessageBox QPushButton:focus {{
+        outline: none;
+        border: {scaled_border}px solid #007bff;
+    }}
+
+    QDialog {{
+        background-color: #f0f0f0;
+        color: #333333;
+        border: {scaled_border}px solid #b0b0b0;
+        border-radius: {scaled_border_radius}px;
+    }}
+
+    QFileDialog {{
+        background-color: #f0f0f0;
+        color: #333333;
+    }}
+    QFileDialog QListView {{
+        background-color: #ffffff;
+        border: {scaled_border}px solid #b0b0b0;
+        color: #333333;
+        selection-background-color: #dcdcdc;
+        selection-color: #333333;
+    }}
+    QFileDialog QTreeView {{
+        background-color: #ffffff;
+        border: {scaled_border}px solid #b0b0b0;
+        color: #333333;
+        selection-background-color: #dcdcdc;
+        selection-color: #333333;
+    }}
+    QFileDialog QPushButton {{
+        background-color: #dcdcdc;
+        border: {scaled_border}px solid #b0b0b0;
+        padding: {scale_value(base_padding_px * 0.6, scale_factor)}px {scale_value(base_padding_px * 1.2, scale_factor)}px;
+        border-radius: {scaled_border_radius}px;
+        min-height: {scaled_button_min_height}px;
+        outline: none;
+    }}
+    QFileDialog QPushButton:pressed {{
+        background-color: #c0c0c0;
+    }}
+    QFileDialog QLineEdit {{
+        background-color: #ffffff;
+        border: {scaled_border}px solid #b0b0b0;
+        padding: {scale_value(base_padding_px * 0.6, scale_factor)}px;
+        border-radius: {scaled_border_radius // 2}px;
+    }}
     """
+
 
 def get_dark_theme(scale_factor=1.0):
     # Base sizes relative to 1024x600
     base_font_size_pt = 12
     base_padding_px = 8
-    base_album_art_size_px = 120 # Base size for square side (adjusted for 1024x600)
-    base_button_min_height_px = 35 # Base for normal buttons (adjusted for 1024x600)
+    base_album_art_size_px = 120  # Base size for square side (adjusted for 1024x600)
+    base_button_min_height_px = 35  # Base for normal buttons (adjusted for 1024x600)
     base_border_radius_px = 4
     base_border_px = 1
 
     # Calculate scaled sizes
     scaled_font_size = scale_value(base_font_size_pt, scale_factor)
     scaled_padding = scale_value(base_padding_px, scale_factor)
-    scaled_album_art_size = scale_value(base_album_art_size_px, scale_factor) # Scaled square size
+    scaled_album_art_size = scale_value(
+        base_album_art_size_px, scale_factor
+    )  # Scaled square size
     scaled_button_min_height = scale_value(base_button_min_height_px, scale_factor)
     scaled_border_radius = scale_value(base_border_radius_px, scale_factor)
     scaled_border = scale_value(base_border_px, scale_factor)
     # --- Calculate DERIVED slider sizes ---
     scaled_slider_thickness = scale_value(BASE_SLIDER_THICKNESS, scale_factor)
-    scaled_slider_handle_s = max(scaled_slider_thickness + scale_value(10, scale_factor), scale_value(BASE_SLIDER_THICKNESS * 1.8, scale_factor))
+    scaled_slider_handle_s = max(
+        scaled_slider_thickness + scale_value(10, scale_factor),
+        scale_value(BASE_SLIDER_THICKNESS * 1.8, scale_factor),
+    )
     scaled_slider_handle_s = int(math.ceil(scaled_slider_handle_s / 2.0)) * 2
-    scaled_slider_handle_margin_v = - (scaled_slider_handle_s - scaled_slider_thickness) // 2
+    scaled_slider_handle_margin_v = (
+        -(scaled_slider_handle_s - scaled_slider_thickness) // 2
+    )
     scaled_slider_handle_margin_h = scaled_slider_handle_s // 4
 
     # Generate QSS String
@@ -414,22 +515,7 @@ def get_dark_theme(scale_factor=1.0):
         background-color: #3a3a3a;
         border-top: {scaled_border}px solid #505050;
     }}
-    /* Status labels in bottom bar */
-    QLabel#statusBarObdLabel, QLabel#statusBarRadioLabel,
-    QLabel#statusBarBtNameLabel, QLabel#statusBarBtBatteryLabel {{
-        font-size: {scale_value(11, scale_factor)}pt;
-        padding: {scale_value(4, scale_factor)}px;
-    }}
-    QLabel#statusBarBtBatteryLabel {{
-        padding-left: {scale_value(5, scale_factor)}px;
-        font-weight: bold;
-    }}
-    QLabel#statusBarSeparator {{
-        font-size: {scale_value(11, scale_factor)}pt;
-        color: #888888;
-        padding-left: {scaled_padding // 2}px;
-        padding-right: {scaled_padding // 2}px;
-    }}
+    /* Status labels removed from bottom bar for cleaner design */
 
     /* ==================== General Widgets ==================== */
     QPushButton {{
@@ -438,9 +524,11 @@ def get_dark_theme(scale_factor=1.0):
         padding: {scale_value(base_padding_px * 0.6, scale_factor)}px {scale_value(base_padding_px * 1.2, scale_factor)}px;
         border-radius: {scaled_border_radius}px;
         min-height: {scaled_button_min_height}px;
+        outline: none; /* Remove focus outline */
     }}
     QPushButton:pressed {{ background-color: #606060; }}
     QPushButton:disabled {{ background-color: #404040; color: #808080; border-color: #555555; }}
+    QPushButton:focus {{ outline: none; border: {scaled_border}px solid #707070; }} /* Remove focus dotted outline */
 
     QLabel {{ padding: {scaled_padding // 4}px; background-color: transparent; }}
 
@@ -540,6 +628,7 @@ def get_dark_theme(scale_factor=1.0):
          background-color: #d32f2f;
          border: {scaled_border}px solid #b71c1c;
          border-radius: {scaled_border_radius}px;
+         outline: none;
      }}
 
      QPushButton#headerQuitButton:hover {{
@@ -548,6 +637,11 @@ def get_dark_theme(scale_factor=1.0):
 
      QPushButton#headerQuitButton:pressed {{
          background-color: #b71c1c;
+     }}
+
+     QPushButton#headerQuitButton:focus {{
+         outline: none;
+         border: {scaled_border}px solid #b71c1c;
      }}
 
     /* --- ComboBox Dropdown --- */
@@ -649,6 +743,16 @@ def get_dark_theme(scale_factor=1.0):
         font-size: {scale_value(base_font_size_pt + 2, scale_factor)}pt;
         margin-top: {scaled_padding // 2}px; margin-bottom: {scaled_padding // 2}px;
     }}
+    QPushButton#airplayInfoButton {{
+        padding: {scale_value(base_padding_px * 0.7, scale_factor)}px {scale_value(base_padding_px * 1.5, scale_factor)}px;
+        min-width: {scale_value(180, scale_factor)}px;
+        font-size: {scale_value(base_font_size_pt + 1, scale_factor)}pt;
+        margin-top: {scaled_padding // 2}px; margin-bottom: {scaled_padding // 2}px;
+        background-color: #4a90e2; border-color: #357abd;
+    }}
+    QPushButton#airplayInfoButton:pressed {{
+        background-color: #357abd;
+    }}
 
     /* --- Music Player Screen --- */
     QScrollArea#lyricsScrollArea {{
@@ -656,6 +760,8 @@ def get_dark_theme(scale_factor=1.0):
         border-radius: {scaled_border_radius}px;
         background-color: #383838;
     }}
+
+    /* --- AirPlay Screen (scroll area removed) --- */
 
     QLabel#lyricsContent {{
         font-size: {scale_value(base_font_size_pt, scale_factor)}pt;
@@ -684,18 +790,97 @@ def get_dark_theme(scale_factor=1.0):
     }}
 
     /* --- Special Buttons --- */
-    QPushButton#powerNavButton {{ background-color: #a04040; border-color: #803333; }}
+    QPushButton#powerNavButton {{ background-color: #a04040; border-color: #803333; outline: none; }}
     QPushButton#powerNavButton:pressed {{ background-color: #b35959; }}
+    QPushButton#powerNavButton:focus {{ outline: none; border-color: #803333; }}
+
+    /* ==================== Dialog and Popup Styles ==================== */
+    QMessageBox {{
+        background-color: #2e2e2e;
+        color: #e0e0e0;
+        border: {scaled_border}px solid #707070;
+        border-radius: {scaled_border_radius}px;
+    }}
+    QMessageBox QLabel {{
+        color: #e0e0e0;
+        font-size: {scaled_font_size}pt;
+        padding: {scaled_padding}px;
+    }}
+    QMessageBox QPushButton {{
+        background-color: #505050;
+        border: {scaled_border}px solid #707070;
+        color: #e0e0e0;
+        padding: {scale_value(base_padding_px * 0.8, scale_factor)}px {scale_value(base_padding_px * 1.5, scale_factor)}px;
+        border-radius: {scaled_border_radius}px;
+        min-height: {scaled_button_min_height}px;
+        min-width: {scale_value(80, scale_factor)}px;
+        outline: none;
+    }}
+    QMessageBox QPushButton:pressed {{
+        background-color: #606060;
+    }}
+    QMessageBox QPushButton:focus {{
+        outline: none;
+        border: {scaled_border}px solid #34a4ff;
+    }}
+
+    QDialog {{
+        background-color: #2e2e2e;
+        color: #e0e0e0;
+        border: {scaled_border}px solid #707070;
+        border-radius: {scaled_border_radius}px;
+    }}
+
+    QFileDialog {{
+        background-color: #2e2e2e;
+        color: #e0e0e0;
+    }}
+    QFileDialog QListView {{
+        background-color: #404040;
+        border: {scaled_border}px solid #707070;
+        color: #e0e0e0;
+        selection-background-color: #505050;
+        selection-color: #e0e0e0;
+    }}
+    QFileDialog QTreeView {{
+        background-color: #404040;
+        border: {scaled_border}px solid #707070;
+        color: #e0e0e0;
+        selection-background-color: #505050;
+        selection-color: #e0e0e0;
+    }}
+    QFileDialog QPushButton {{
+        background-color: #505050;
+        border: {scaled_border}px solid #707070;
+        color: #e0e0e0;
+        padding: {scale_value(base_padding_px * 0.6, scale_factor)}px {scale_value(base_padding_px * 1.2, scale_factor)}px;
+        border-radius: {scaled_border_radius}px;
+        min-height: {scaled_button_min_height}px;
+        outline: none;
+    }}
+    QFileDialog QPushButton:pressed {{
+        background-color: #606060;
+    }}
+    QFileDialog QLineEdit {{
+        background-color: #404040;
+        border: {scaled_border}px solid #707070;
+        color: #e0e0e0;
+        padding: {scale_value(base_padding_px * 0.6, scale_factor)}px;
+        border-radius: {scaled_border_radius // 2}px;
+    }}
     """
+
 
 # --- apply_theme function ---
 def apply_theme(app, theme_name, scale_factor=1.0):
     """Applies the selected theme stylesheet with the given scale factor."""
-    print(f"DEBUG: apply_theme called. Theme: {theme_name}, Scale: {scale_factor:.2f}") # Debug
+    print(
+        f"DEBUG: apply_theme called. Theme: {theme_name}, Scale: {scale_factor:.2f}"
+    )  # Debug
     if theme_name == "dark":
         # Theme function now gets base thickness from the constant
         style_sheet = get_dark_theme(scale_factor)
-    else: # Default to light
+    else:  # Default to light
         style_sheet = get_light_theme(scale_factor)
 
     # Clear the existing stylesheet first to ensure clean application

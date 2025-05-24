@@ -1,0 +1,15 @@
+[Unit]
+Description=RPiPlay AirPlay Service
+After=network.target rpi-infotainment.service
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/rpi_car_infotainment
+ExecStart=/home/pi/rpi_car_infotainment/scripts/start_airplay.sh
+Restart=on-failure
+RestartSec=5
+Environment=DISPLAY=:0
+
+[Install]
+WantedBy=multi-user.target

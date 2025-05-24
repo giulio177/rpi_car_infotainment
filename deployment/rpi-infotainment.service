@@ -1,0 +1,23 @@
+[Unit]
+Description=RPi Car Infotainment System
+After=network.target multi-user.target setup-runtime.service hide-console.service disable-console.service
+Wants=network.target setup-runtime.service
+Requires=hide-console.service
+
+[Service]
+Type=simple
+User=pi
+Group=tty
+WorkingDirectory=/home/pi/rpi_car_infotainment
+ExecStart=/home/pi/rpi_car_infotainment/scripts/start_infotainment.sh
+Restart=on-failure
+RestartSec=5
+Environment=TERM=linux
+Environment=XDG_RUNTIME_DIR=/tmp/runtime-pi
+Environment=QT_QPA_PLATFORM=linuxfb
+Environment=QT_LOGGING_RULES="*=false"
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

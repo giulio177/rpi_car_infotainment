@@ -2,8 +2,9 @@
 import json
 import os
 
+
 class SettingsManager:
-    def __init__(self, config_file='config.json'):
+    def __init__(self, config_file="config.json"):
         self.config_file = config_file
         self.defaults = {
             "theme": "light",
@@ -18,7 +19,7 @@ class SettingsManager:
             "show_cursor": False,
             "position_bottom_right": True,
             "ui_scale_mode": "auto",  # Options: "auto", "fixed_small", "fixed_medium", "fixed_large"
-            "developer_mode": False   # Enable/disable developer features
+            "developer_mode": False,  # Enable/disable developer features
         }
         self.settings = self._load_settings()
 
@@ -26,16 +27,22 @@ class SettingsManager:
     def _load_settings(self):
         if os.path.exists(self.config_file):
             try:
-                with open(self.config_file, 'r') as f:
+                with open(self.config_file, "r") as f:
                     loaded_settings = json.load(f)
                     updated_settings = self.defaults.copy()
                     updated_settings.update(loaded_settings)
                     if not isinstance(updated_settings.get("obd_enabled"), bool):
-                        print("Warning: Invalid obd_enabled value in config, using default.")
+                        print(
+                            "Warning: Invalid obd_enabled value in config, using default."
+                        )
                         updated_settings["obd_enabled"] = self.defaults["obd_enabled"]
                     if not isinstance(updated_settings.get("radio_enabled"), bool):
-                        print("Warning: Invalid radio_enabled value in config, using default.")
-                        updated_settings["radio_enabled"] = self.defaults["radio_enabled"]
+                        print(
+                            "Warning: Invalid radio_enabled value in config, using default."
+                        )
+                        updated_settings["radio_enabled"] = self.defaults[
+                            "radio_enabled"
+                        ]
 
                     return updated_settings
             except (json.JSONDecodeError, IOError) as e:
@@ -44,13 +51,13 @@ class SettingsManager:
         else:
             print(f"Settings file not found. Creating default: {self.config_file}")
             # Create default file using self.defaults directly
-            with open(self.config_file, 'w') as f:
+            with open(self.config_file, "w") as f:
                 json.dump(self.defaults, f, indent=4)
-            return self.defaults.copy() # Return a copy
+            return self.defaults.copy()  # Return a copy
 
     def save_settings(self):
         try:
-            with open(self.config_file, 'w') as f:
+            with open(self.config_file, "w") as f:
                 json.dump(self.settings, f, indent=4)
         except IOError as e:
             print(f"Error saving settings file {self.config_file}: {e}")
@@ -63,4 +70,4 @@ class SettingsManager:
 
     def set(self, key, value):
         self.settings[key] = value
-        self.save_settings() # Auto-save on change
+        self.save_settings()  # Auto-save on change

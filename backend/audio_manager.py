@@ -1,8 +1,9 @@
 # backend/audio_manager.py
 
 import subprocess
-import re # Regular expressions for parsing amixer output
+import re  # Regular expressions for parsing amixer output
 from .media_info import get_album_art, get_lyrics
+
 
 class AudioManager:
     # Default mixer control name. Might need changing based on your RPi setup
@@ -26,11 +27,15 @@ class AudioManager:
         try:
             # Use check_output to capture stdout, stderr to DEVNULL to hide errors
             # Use text=True for easier string handling
-            result = subprocess.check_output(command, stderr=subprocess.DEVNULL, text=True)
+            result = subprocess.check_output(
+                command, stderr=subprocess.DEVNULL, text=True
+            )
             # print(f"Ran: {' '.join(command)}\nOutput:\n{result}") # Uncomment for debugging
             return result
         except FileNotFoundError:
-            print(f"ERROR: 'amixer' command not found. Make sure alsa-utils is installed.")
+            print(
+                "ERROR: 'amixer' command not found. Make sure alsa-utils is installed."
+            )
             return None
         except subprocess.CalledProcessError as e:
             # This might happen if the control name is wrong or volume is invalid
@@ -50,7 +55,7 @@ class AudioManager:
         # Format: amixer sset 'ControlName' 50%
         args = ["sset", self.MIXER_CONTROL, f"{level_percent}%"]
         result = self._run_amixer_command(args)
-        return result is not None # Return True if command likely succeeded
+        return result is not None  # Return True if command likely succeeded
 
     def set_mute(self, muted: bool):
         """Mutes or unmutes the system volume."""
@@ -59,7 +64,7 @@ class AudioManager:
         # Format: amixer sset 'ControlName' mute/unmute
         args = ["sset", self.MIXER_CONTROL, state]
         result = self._run_amixer_command(args)
-        return result is not None # Return True if command likely succeeded
+        return result is not None  # Return True if command likely succeeded
 
     def get_volume(self):
         """Gets the current volume percentage. Returns int or None."""
@@ -75,8 +80,10 @@ class AudioManager:
                 # print(f"AudioManager: Got volume {volume}%") # Debug
                 return volume
             else:
-                print(f"ERROR: Could not parse volume percentage from amixer output for {self.MIXER_CONTROL}.")
-        return None # Return None if command failed or parsing failed
+                print(
+                    f"ERROR: Could not parse volume percentage from amixer output for {self.MIXER_CONTROL}."
+                )
+        return None  # Return None if command failed or parsing failed
 
     def get_mute_status(self):
         """Checks if the system is muted. Returns bool (True=muted) or None."""
@@ -87,9 +94,11 @@ class AudioManager:
             match = re.search(r"\[(on|off)\]", output)
             if match:
                 status = match.group(1)
-                is_muted = (status == "off")
+                is_muted = status == "off"
                 # print(f"AudioManager: Got mute status: {status} (Muted: {is_muted})") # Debug
                 return is_muted
             else:
-                print(f"ERROR: Could not parse mute status from amixer output for {self.MIXER_CONTROL}.")
-        return None # Return None if command failed or parsing failed
+                print(
+                    f"ERROR: Could not parse mute status from amixer output for {self.MIXER_CONTROL}."
+                )
+        return None  # Return None if command failed or parsing failed

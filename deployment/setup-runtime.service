@@ -1,0 +1,11 @@
+[Unit]
+Description=Setup Runtime Directory for Pi User
+Before=rpi-infotainment.service
+
+[Service]
+Type=oneshot
+ExecStart=/home/pi/rpi_car_infotainment/deployment/setup_runtime_dir.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

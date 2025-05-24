@@ -1,9 +1,21 @@
 # gui/music_player_screen.py
 
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-                            QPushButton, QSlider, QScrollArea, QFileDialog,
-                            QListWidget, QListWidgetItem, QStackedWidget, QMessageBox,
-                            QProgressBar, QSizePolicy)
+from PyQt6.QtWidgets import (
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QSlider,
+    QScrollArea,
+    QFileDialog,
+    QListWidget,
+    QListWidgetItem,
+    QStackedWidget,
+    QMessageBox,
+    QProgressBar,
+    QSizePolicy,
+)
 from PyQt6.QtCore import Qt, QTimer, pyqtSlot, pyqtSignal, QUrl
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtNetwork import QNetworkAccessManager, QNetworkRequest
@@ -15,26 +27,38 @@ import pygame  # Using pygame for audio playback instead of QtMultimedia
 
 from .widgets.scrolling_label import ScrollingLabel
 
+
 class PygameMediaPlayer:
     """A simple media player using pygame.mixer to replace QMediaPlayer."""
 
     def __init__(self):
-        # Initialize pygame mixer
-        pygame.mixer.init()
+        # Initialize pygame mixer with error handling
+        try:
+            pygame.mixer.init()
+            self._mixer_available = True
+        except pygame.error as e:
+            print(f"Warning: Could not initialize audio mixer: {e}")
+            print("Music playback will be disabled.")
+            self._mixer_available = False
+
         self._position = 0
         self._duration = 0
         self._position_timer = None
         self._callbacks = {
-            'position_changed': [],
-            'duration_changed': [],
-            'state_changed': []
+            "position_changed": [],
+            "duration_changed": [],
+            "state_changed": [],
         }
         self._playing = False
         self._current_file = None
 
     def setSource(self, url):
         """Set the source file to play."""
-        if hasattr(url, 'toLocalFile'):  # Handle QUrl objects
+        if not self._mixer_available:
+            print("Audio mixer not available, cannot set source")
+            return False
+
+        if hasattr(url, "toLocalFile"):  # Handle QUrl objects
             file_path = url.toLocalFile()
         else:
             file_path = str(url)
@@ -54,7 +78,7 @@ class PygameMediaPlayer:
             self._duration = int(duration_seconds * 1000)  # Convert to ms
 
             # Notify duration change
-            for callback in self._callbacks['duration_changed']:
+            for callback in self._callbacks["duration_changed"]:
                 callback(self._duration)
 
             return True
@@ -64,6 +88,10 @@ class PygameMediaPlayer:
 
     def play(self):
         """Start playback."""
+        if not self._mixer_available:
+            print("Audio mixer not available, cannot play")
+            return False
+
         if self._current_file:
             try:
                 pygame.mixer.music.play()
@@ -73,10 +101,12 @@ class PygameMediaPlayer:
                 if self._position_timer is None:
                     self._position_timer = QTimer()
                     self._position_timer.timeout.connect(self._update_position)
-                    self._position_timer.start(50)  # Update every 50ms for smoother tracking
+                    self._position_timer.start(
+                        50
+                    )  # Update every 50ms for smoother tracking
 
                 # Notify state change
-                for callback in self._callbacks['state_changed']:
+                for callback in self._callbacks["state_changed"]:
                     callback(1)  # 1 = playing (similar to QMediaPlayer.PlayingState)
 
                 return True
@@ -87,37 +117,44 @@ class PygameMediaPlayer:
 
     def pause(self):
         """Pause playback."""
+        if not self._mixer_available:
+            return
+
         if self._playing:
             pygame.mixer.music.pause()
             self._playing = False
 
             # Notify state change
-            for callback in self._callbacks['state_changed']:
+            for callback in self._callbacks["state_changed"]:
                 callback(2)  # 2 = paused (similar to QMediaPlayer.PausedState)
 
     def stop(self):
         """Stop playback."""
-        pygame.mixer.music.stop()
+        if self._mixer_available:
+            pygame.mixer.music.stop()
         self._playing = False
         self._position = 0
 
         # Notify position change
-        for callback in self._callbacks['position_changed']:
+        for callback in self._callbacks["position_changed"]:
             callback(0)
 
         # Notify state change
-        for callback in self._callbacks['state_changed']:
+        for callback in self._callbacks["state_changed"]:
             callback(0)  # 0 = stopped (similar to QMediaPlayer.StoppedState)
 
     def setPosition(self, position):
         """Set the playback position in milliseconds."""
+        if not self._mixer_available:
+            return
+
         if self._current_file:
             position_seconds = position / 1000.0
             pygame.mixer.music.set_pos(position_seconds)
             self._position = position
 
             # Notify position change
-            for callback in self._callbacks['position_changed']:
+            for callback in self._callbacks["position_changed"]:
                 callback(position)
 
     def position(self):
@@ -130,6 +167,9 @@ class PygameMediaPlayer:
 
     def _update_position(self):
         """Update the current position based on pygame's playback."""
+        if not self._mixer_available:
+            return
+
         if self._playing and pygame.mixer.music.get_busy():
             # This is an approximation since pygame doesn't provide exact position
             elapsed_ms = pygame.mixer.music.get_pos()
@@ -137,7 +177,7 @@ class PygameMediaPlayer:
                 self._position = elapsed_ms
 
                 # Notify position change
-                for callback in self._callbacks['position_changed']:
+                for callback in self._callbacks["position_changed"]:
                     callback(self._position)
         else:
             # Check if playback has ended
@@ -146,29 +186,33 @@ class PygameMediaPlayer:
                 self._position = 0
 
                 # Notify state change
-                for callback in self._callbacks['state_changed']:
+                for callback in self._callbacks["state_changed"]:
                     callback(0)  # 0 = stopped
 
     def positionChanged(self, callback):
         """Connect a callback to position changes."""
-        self._callbacks['position_changed'].append(callback)
+        self._callbacks["position_changed"].append(callback)
 
     def durationChanged(self, callback):
         """Connect a callback to duration changes."""
-        self._callbacks['duration_changed'].append(callback)
+        self._callbacks["duration_changed"].append(callback)
 
     def stateChanged(self, callback):
         """Connect a callback to state changes."""
-        self._callbacks['state_changed'].append(callback)
+        self._callbacks["state_changed"].append(callback)
 
     def playbackState(self):
         """Return the current playback state."""
+        if not self._mixer_available:
+            return 0  # Stopped if mixer not available
+
         if self._playing:
             return 1  # Playing
         elif self._position > 0:
             return 2  # Paused
         else:
             return 0  # Stopped
+
 
 class MusicPlayerScreen(QWidget):
     screen_title = "Music Player"
@@ -190,7 +234,9 @@ class MusicPlayerScreen(QWidget):
 
         # --- Create music directory ---
         # Use a folder within the project directory instead of ~/Music
-        self.music_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "music/library")
+        self.music_dir = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "music/library"
+        )
         if not os.path.exists(self.music_dir):
             os.makedirs(self.music_dir, exist_ok=True)
         print(f"Music library directory: {self.music_dir}")
@@ -220,7 +266,9 @@ class MusicPlayerScreen(QWidget):
         self.is_local_playback = False
 
         # --- Create default album art ---
-        self.default_album_art = QPixmap(self.base_album_art_size, self.base_album_art_size)
+        self.default_album_art = QPixmap(
+            self.base_album_art_size, self.base_album_art_size
+        )
         self.default_album_art.fill(Qt.GlobalColor.darkGray)
 
         # --- Create media player for local files ---
@@ -293,7 +341,9 @@ class MusicPlayerScreen(QWidget):
         self.left_side_layout.addLayout(self.playback_layout)
 
         # Add left side layout to top section
-        self.top_section.addLayout(self.left_side_layout, 1)  # Give it stretch factor of 1
+        self.top_section.addLayout(
+            self.left_side_layout, 1
+        )  # Give it stretch factor of 1
 
         # --- Album art section (RIGHT SIDE) ---
         self.album_art_layout = QVBoxLayout()
@@ -337,8 +387,12 @@ class MusicPlayerScreen(QWidget):
         self.lyrics_content = QLabel(self.current_lyrics)
         self.lyrics_content.setObjectName("lyricsContent")
         self.lyrics_content.setWordWrap(True)
-        self.lyrics_content.setTextFormat(Qt.TextFormat.RichText)  # Enable HTML formatting
-        self.lyrics_content.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
+        self.lyrics_content.setTextFormat(
+            Qt.TextFormat.RichText
+        )  # Enable HTML formatting
+        self.lyrics_content.setAlignment(
+            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter
+        )
 
         self.lyrics_scroll_area.setWidget(self.lyrics_content)
         self.player_layout.addWidget(self.lyrics_scroll_area)
@@ -481,7 +535,7 @@ class MusicPlayerScreen(QWidget):
     def show_library(self):
         """Switch to the library view and load music files."""
         # Check if developer mode is enabled
-        if self.main_window and hasattr(self.main_window, 'settings_manager'):
+        if self.main_window and hasattr(self.main_window, "settings_manager"):
             developer_mode = self.main_window.settings_manager.get("developer_mode")
             self.select_folder_button.setVisible(developer_mode)
 
@@ -491,16 +545,25 @@ class MusicPlayerScreen(QWidget):
     def select_pc_folder(self):
         """Select a folder from the PC to play music from (developer mode only)."""
         # Check if developer mode is enabled
-        if not (self.main_window and hasattr(self.main_window, 'settings_manager') and
-                self.main_window.settings_manager.get("developer_mode")):
-            QMessageBox.warning(self, "Developer Mode Required",
-                               "This feature is only available in developer mode.")
+        if not (
+            self.main_window
+            and hasattr(self.main_window, "settings_manager")
+            and self.main_window.settings_manager.get("developer_mode")
+        ):
+            QMessageBox.warning(
+                self,
+                "Developer Mode Required",
+                "This feature is only available in developer mode.",
+            )
             return
 
         # Open folder selection dialog
-        folder_path = QFileDialog.getExistingDirectory(self, "Select Music Folder",
-                                                      os.path.expanduser("~"),
-                                                      QFileDialog.Option.ShowDirsOnly)
+        folder_path = QFileDialog.getExistingDirectory(
+            self,
+            "Select Music Folder",
+            os.path.expanduser("~"),
+            QFileDialog.Option.ShowDirsOnly,
+        )
 
         if folder_path:
             # Scan the selected folder for music files
@@ -539,7 +602,7 @@ class MusicPlayerScreen(QWidget):
 
     def scan_directory_for_music(self, directory):
         """Scan a directory for music files recursively."""
-        music_extensions = ['.mp3', '.wav', '.ogg', '.flac', '.m4a']
+        music_extensions = [".mp3", ".wav", ".ogg", ".flac", ".m4a"]
 
         try:
             # Use _ for unused variables to avoid warnings
@@ -549,7 +612,9 @@ class MusicPlayerScreen(QWidget):
                         full_path = os.path.join(root, file)
                         display_name = os.path.basename(file)
                         item = QListWidgetItem(display_name)
-                        item.setData(Qt.ItemDataRole.UserRole, full_path)  # Store the full path
+                        item.setData(
+                            Qt.ItemDataRole.UserRole, full_path
+                        )  # Store the full path
                         self.library_list.addItem(item)
         except Exception as e:
             print(f"Error scanning directory: {e}")
@@ -578,7 +643,7 @@ class MusicPlayerScreen(QWidget):
 
             # Extract metadata from filename
             filename = os.path.basename(file_path)
-            name_parts = os.path.splitext(filename)[0].split(' - ', 1)
+            name_parts = os.path.splitext(filename)[0].split(" - ", 1)
 
             if len(name_parts) > 1:
                 artist = name_parts[0]
@@ -598,8 +663,10 @@ class MusicPlayerScreen(QWidget):
             self.album_name_label.setText("Local File")
 
             # Fetch album art and lyrics
-            if self.main_window and hasattr(self.main_window, 'audio_manager'):
-                cover_url, lyrics = self.main_window.audio_manager.get_media_info(title, artist)
+            if self.main_window and hasattr(self.main_window, "audio_manager"):
+                cover_url, lyrics = self.main_window.audio_manager.get_media_info(
+                    title, artist
+                )
 
                 # Update lyrics
                 self.current_lyrics = lyrics if lyrics else "No lyrics available"
@@ -616,15 +683,15 @@ class MusicPlayerScreen(QWidget):
 
             # Emit signal for local playback
             track_info = {
-                'Track': {
-                    'Title': title,
-                    'Artist': artist,
-                    'Album': 'Local File',
-                    'Duration': self.media_player.duration()
+                "Track": {
+                    "Title": title,
+                    "Artist": artist,
+                    "Album": "Local File",
+                    "Duration": self.media_player.duration(),
                 },
-                'Position': self.media_player.position(),
-                'IsLocal': True,
-                'FilePath': file_path
+                "Position": self.media_player.position(),
+                "IsLocal": True,
+                "FilePath": file_path,
             }
             self.local_playback_started.emit(track_info)
             self.local_playback_status_changed.emit("playing")
@@ -641,7 +708,9 @@ class MusicPlayerScreen(QWidget):
 
         # Emit signal for local playback position update
         if self.is_local_playback:
-            self.local_playback_position_changed.emit(position, self.current_duration_ms)
+            self.local_playback_position_changed.emit(
+                position, self.current_duration_ms
+            )
 
     def update_duration(self, duration):
         """Update the total duration from the media player."""
@@ -652,14 +721,14 @@ class MusicPlayerScreen(QWidget):
         # Update track info with new duration if it's local playback
         if self.is_local_playback and self.current_title and self.current_artist:
             track_info = {
-                'Track': {
-                    'Title': self.current_title,
-                    'Artist': self.current_artist,
-                    'Album': self.current_album,
-                    'Duration': duration
+                "Track": {
+                    "Title": self.current_title,
+                    "Artist": self.current_artist,
+                    "Album": self.current_album,
+                    "Duration": duration,
                 },
-                'Position': self.current_position_ms,
-                'IsLocal': True
+                "Position": self.current_position_ms,
+                "IsLocal": True,
             }
             self.local_playback_started.emit(track_info)
 
@@ -700,7 +769,11 @@ class MusicPlayerScreen(QWidget):
         # Always update the current position for UI purposes
         self.current_position_ms = position
 
-        if self.main_window and self.main_window.bluetooth_manager and self.main_window.bluetooth_manager.media_player_path:
+        if (
+            self.main_window
+            and self.main_window.bluetooth_manager
+            and self.main_window.bluetooth_manager.media_player_path
+        ):
             # For Bluetooth playback, we would need to implement seeking through D-Bus
             # This is not implemented in the current BluetoothManager
             print("Seeking in Bluetooth playback not implemented")
@@ -746,7 +819,7 @@ class MusicPlayerScreen(QWidget):
             self.album_art_label.width(),
             self.album_art_label.height(),
             Qt.AspectRatioMode.KeepAspectRatio,
-            Qt.TransformationMode.SmoothTransformation
+            Qt.TransformationMode.SmoothTransformation,
         )
 
         # Set the pixmap
@@ -758,12 +831,12 @@ class MusicPlayerScreen(QWidget):
         # Reset local playback flag when Bluetooth media is playing
         self.is_local_playback = False
 
-        track_info = properties.get('Track', {})
-        duration_ms = track_info.get('Duration', 0)
-        position_ms = properties.get('Position', 0)
-        title = track_info.get('Title', "---")
-        artist = track_info.get('Artist', "---")
-        album = track_info.get('Album', "")
+        track_info = properties.get("Track", {})
+        duration_ms = track_info.get("Duration", 0)
+        position_ms = properties.get("Position", 0)
+        title = track_info.get("Title", "---")
+        artist = track_info.get("Artist", "---")
+        album = track_info.get("Album", "")
 
         # Update track information
         self.track_title_label.setText(title)
@@ -786,8 +859,10 @@ class MusicPlayerScreen(QWidget):
             # Only fetch if we have valid title and artist
             if title != "---" and artist != "---" and self.main_window:
                 # Check if we have an audio_manager
-                if hasattr(self.main_window, 'audio_manager'):
-                    cover_url, lyrics = self.main_window.audio_manager.get_media_info(title, artist)
+                if hasattr(self.main_window, "audio_manager"):
+                    cover_url, lyrics = self.main_window.audio_manager.get_media_info(
+                        title, artist
+                    )
 
                     # Update lyrics
                     self.current_lyrics = lyrics if lyrics else "No lyrics available"
@@ -836,7 +911,9 @@ class MusicPlayerScreen(QWidget):
             self.lyrics_scroll_area.setVisible(True)
 
             # Make lyrics scroll area fill the remaining space
-            self.lyrics_scroll_area.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+            self.lyrics_scroll_area.setSizePolicy(
+                QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
+            )
             # Remove any fixed height constraints
             self.lyrics_scroll_area.setMinimumHeight(0)
             self.lyrics_scroll_area.setMaximumHeight(16777215)  # QWIDGETSIZE_MAX
@@ -847,8 +924,12 @@ class MusicPlayerScreen(QWidget):
             # Add it to the button row at the beginning
             self.button_row.insertWidget(0, self.track_title_label)
             # Style it appropriately
-            self.track_title_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-            self.track_title_label.setStyleSheet("font-size: 14pt; font-weight: bold; margin-right: 20px;")
+            self.track_title_label.setAlignment(
+                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+            )
+            self.track_title_label.setStyleSheet(
+                "font-size: 14pt; font-weight: bold; margin-right: 20px;"
+            )
 
             # Highlight current lyrics line and scroll to it
             if self.lyrics_lines:
@@ -864,7 +945,9 @@ class MusicPlayerScreen(QWidget):
             self.lyrics_scroll_area.setVisible(False)
 
             # Reset lyrics scroll area size policy
-            self.lyrics_scroll_area.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
+            self.lyrics_scroll_area.setSizePolicy(
+                QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred
+            )
             self.lyrics_scroll_area.setMinimumHeight(0)
             self.lyrics_scroll_area.setMaximumHeight(16777215)  # QWIDGETSIZE_MAX
 
@@ -880,7 +963,9 @@ class MusicPlayerScreen(QWidget):
     def parse_lyrics(self, lyrics_text):
         """Parse lyrics into lines and estimate time positions."""
         # Split lyrics into lines, filtering out empty lines
-        self.lyrics_lines = [line.strip() for line in lyrics_text.split('\n') if line.strip()]
+        self.lyrics_lines = [
+            line.strip() for line in lyrics_text.split("\n") if line.strip()
+        ]
 
         # Reset current line
         self.current_lyrics_line = 0
@@ -929,7 +1014,12 @@ class MusicPlayerScreen(QWidget):
                 # Calculate the position to scroll to (center the current line)
                 # We want the current line to be in the middle of the viewport
                 middle_offset = viewport_height // 2
-                scroll_position = max(0, (self.current_lyrics_line * line_height) - middle_offset + (line_height // 2))
+                scroll_position = max(
+                    0,
+                    (self.current_lyrics_line * line_height)
+                    - middle_offset
+                    + (line_height // 2),
+                )
 
                 # Set the scroll position
                 self.lyrics_scroll_area.verticalScrollBar().setValue(scroll_position)
@@ -992,7 +1082,11 @@ class MusicPlayerScreen(QWidget):
 
     def on_play_pause_clicked(self):
         """Handle play/pause button click."""
-        if not self.is_local_playback and self.main_window and self.main_window.bluetooth_manager:
+        if (
+            not self.is_local_playback
+            and self.main_window
+            and self.main_window.bluetooth_manager
+        ):
             # Handle Bluetooth playback
             current_status = self.main_window.bluetooth_manager.playback_status
             if current_status == "playing":
@@ -1039,25 +1133,44 @@ class MusicPlayerScreen(QWidget):
     def download_current_song(self):
         """Download the currently playing song."""
         if self.is_downloading:
-            QMessageBox.information(self, "Download in Progress", "A download is already in progress. Please wait.")
+            QMessageBox.information(
+                self,
+                "Download in Progress",
+                "A download is already in progress. Please wait.",
+            )
             return
 
         # Check if we have valid song info
-        if self.current_title == "" or self.current_artist == "" or self.current_title == "---" or self.current_artist == "---":
-            QMessageBox.warning(self, "Cannot Download", "No song is currently playing or song information is incomplete.")
+        if (
+            self.current_title == ""
+            or self.current_artist == ""
+            or self.current_title == "---"
+            or self.current_artist == "---"
+        ):
+            QMessageBox.warning(
+                self,
+                "Cannot Download",
+                "No song is currently playing or song information is incomplete.",
+            )
             return
 
         # Check if yt-dlp is installed
         if not self._is_ytdlp_available():
-            QMessageBox.critical(self, "Download Not Available",
-                               "The yt-dlp tool is not installed. Please install it to enable downloads:\n\n"
-                               "pip install yt-dlp")
+            QMessageBox.critical(
+                self,
+                "Download Not Available",
+                "The yt-dlp tool is not installed. Please install it to enable downloads:\n\n"
+                "pip install yt-dlp",
+            )
             return
 
         # Check if internet connection is available
         if not self._is_internet_available():
-            QMessageBox.warning(self, "No Internet Connection",
-                              "Cannot download music. Please check your internet connection and try again.")
+            QMessageBox.warning(
+                self,
+                "No Internet Connection",
+                "Cannot download music. Please check your internet connection and try again.",
+            )
             return
 
         # Reset and show progress bar
@@ -1073,11 +1186,13 @@ class MusicPlayerScreen(QWidget):
     def _is_ytdlp_available(self):
         """Check if yt-dlp is installed and available."""
         try:
-            result = subprocess.run(['yt-dlp', '--version'],
-                                  stdout=subprocess.PIPE,
-                                  stderr=subprocess.PIPE,
-                                  text=True,
-                                  timeout=2)
+            result = subprocess.run(
+                ["yt-dlp", "--version"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=2,
+            )
             return result.returncode == 0
         except (subprocess.SubprocessError, FileNotFoundError):
             return False
@@ -1102,8 +1217,8 @@ class MusicPlayerScreen(QWidget):
 
             # Create safe filename
             safe_filename = f"{self.current_artist} - {self.current_title}"
-            for char in ['/', '\\', ':', '*', '?', '"', '<', '>', '|']:
-                safe_filename = safe_filename.replace(char, '_')
+            for char in ["/", "\\", ":", "*", "?", '"', "<", ">", "|"]:
+                safe_filename = safe_filename.replace(char, "_")
 
             output_path = os.path.join(self.music_dir, f"{safe_filename}.%(ext)s")
 
@@ -1111,14 +1226,18 @@ class MusicPlayerScreen(QWidget):
             cmd = [
                 "yt-dlp",
                 "--extract-audio",
-                "--audio-format", "mp3",
-                "--audio-quality", "0",  # Best quality
-                "--output", output_path,
+                "--audio-format",
+                "mp3",
+                "--audio-quality",
+                "0",  # Best quality
+                "--output",
+                output_path,
                 "--no-playlist",
-                "--default-search", "ytsearch",
+                "--default-search",
+                "ytsearch",
                 "--newline",  # Important for parsing progress
                 "--progress",
-                query
+                query,
             ]
 
             # Run the download command with real-time output processing
@@ -1127,16 +1246,16 @@ class MusicPlayerScreen(QWidget):
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 universal_newlines=True,
-                bufsize=1
+                bufsize=1,
             )
 
             # Process output line by line to extract progress
-            for line in iter(process.stdout.readline, ''):
+            for line in iter(process.stdout.readline, ""):
                 # Parse progress information
-                if '[download]' in line and '%' in line:
+                if "[download]" in line and "%" in line:
                     try:
                         # Extract percentage
-                        percent_str = line.split('%')[0].split()[-1]
+                        percent_str = line.split("%")[0].split()[-1]
                         percent = float(percent_str)
                         # Update progress bar in the main thread
                         QTimer.singleShot(0, lambda p=percent: self.update_progress(p))
@@ -1167,10 +1286,14 @@ class MusicPlayerScreen(QWidget):
 
         except FileNotFoundError:
             print("yt-dlp command not found")
-            self.download_complete(False, "Download tool not found. Please install yt-dlp.")
+            self.download_complete(
+                False, "Download tool not found. Please install yt-dlp."
+            )
         except subprocess.TimeoutExpired:
             print("Download process timed out")
-            self.download_complete(False, "Download timed out. Please check your internet connection.")
+            self.download_complete(
+                False, "Download timed out. Please check your internet connection."
+            )
         except Exception as e:
             print(f"Download exception: {str(e)}")
             self.download_complete(False, f"An error occurred: {str(e)}")
@@ -1182,7 +1305,9 @@ class MusicPlayerScreen(QWidget):
     def download_complete(self, success, error_message=None):
         """Called when download completes (from any thread)."""
         # Schedule UI update on the main thread
-        QTimer.singleShot(0, lambda: self._update_ui_after_download(success, error_message))
+        QTimer.singleShot(
+            0, lambda: self._update_ui_after_download(success, error_message)
+        )
 
     def _update_ui_after_download(self, success, error_message=None):
         """Update UI after download (must be called on main thread)."""
@@ -1192,7 +1317,9 @@ class MusicPlayerScreen(QWidget):
         # Set progress to 100% if successful, hide after a delay
         if success:
             self.download_progress_bar.setValue(100)
-            QTimer.singleShot(3000, lambda: self.download_progress_bar.setVisible(False))
+            QTimer.singleShot(
+                3000, lambda: self.download_progress_bar.setVisible(False)
+            )
 
             # Show success message with file location
             file_location = os.path.basename(self.music_dir)
@@ -1200,7 +1327,7 @@ class MusicPlayerScreen(QWidget):
                 self,
                 "Download Complete",
                 f"Successfully downloaded '{self.current_title}' by {self.current_artist}.\n\n"
-                f"The file has been saved to the {file_location} folder."
+                f"The file has been saved to the {file_location} folder.",
             )
 
             # Refresh the library if it's currently shown
@@ -1212,13 +1339,23 @@ class MusicPlayerScreen(QWidget):
 
             # Show appropriate error message
             title = "Download Failed"
-            message = error_message if error_message else "Unknown error occurred during download"
+            message = (
+                error_message
+                if error_message
+                else "Unknown error occurred during download"
+            )
 
             # Add suggestion based on error type
-            if "network" in message.lower() or "connection" in message.lower() or "timeout" in message.lower():
+            if (
+                "network" in message.lower()
+                or "connection" in message.lower()
+                or "timeout" in message.lower()
+            ):
                 message += "\n\nPlease check your internet connection and try again."
             elif "not found" in message.lower() or "install" in message.lower():
-                message += "\n\nPlease install the required tool with: pip install yt-dlp"
+                message += (
+                    "\n\nPlease install the required tool with: pip install yt-dlp"
+                )
             elif "copyright" in message.lower() or "terms" in message.lower():
                 message += "\n\nThis content may be protected by copyright."
 

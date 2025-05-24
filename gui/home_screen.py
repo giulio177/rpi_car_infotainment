@@ -1,26 +1,34 @@
 # gui/home_screen.py
 
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
-                             QPushButton, QLabel, QSpacerItem, QSizePolicy)
-from PyQt6.QtCore import QTimer, QDateTime, Qt, QSize, pyqtSlot, QUrl
-from PyQt6.QtGui import QPixmap, QIcon
+from PyQt6.QtWidgets import (
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QGridLayout,
+    QPushButton,
+    QLabel,
+    QSpacerItem,
+    QSizePolicy,
+)
+from PyQt6.QtCore import Qt, pyqtSlot, QUrl
+from PyQt6.QtGui import QPixmap
 from PyQt6.QtNetwork import QNetworkAccessManager, QNetworkRequest, QNetworkReply
-import requests
-import io
 
 # --- Import scale_value helper ---
 try:
     from .styling import scale_value
 except ImportError:
     # Fallback if styling.py doesn't have it or import fails
-    def scale_value(base, factor): return max(1, int(base * factor))
+    def scale_value(base, factor):
+        return max(1, int(base * factor))
+
 
 # --- Import ScrollingLabel ---
 try:
     from .widgets.scrolling_label import ScrollingLabel
 except ImportError:
     print("WARNING: ScrollingLabel not found. Falling back to standard QLabel.")
-    ScrollingLabel = QLabel # Fallback
+    ScrollingLabel = QLabel  # Fallback
 
 
 class HomeScreen(QWidget):
@@ -35,7 +43,7 @@ class HomeScreen(QWidget):
         self.base_margin = 10
         self.base_top_section_spacing = 15
         self.base_grid_spacing = 8
-        self.base_media_spacing = 15 # Vertical spacing in media player
+        self.base_media_spacing = 15  # Vertical spacing in media player
         self.base_media_playback_button_spacing = 5
 
         # --- Network manager for album art ---
@@ -56,13 +64,13 @@ class HomeScreen(QWidget):
         # Margins/Spacing set by update_scaling
 
         # --- Top Section Layout (Horizontal: Grid, Media Player) ---
-        self.top_section_layout = QHBoxLayout() # Store reference
+        self.top_section_layout = QHBoxLayout()  # Store reference
         # Spacing set by update_scaling
 
         # --- 1. Grid Layout for Main Buttons ---
         self.grid_widget = QWidget()
         self.grid_widget.setObjectName("grid_widget")
-        self.grid_layout = QGridLayout(self.grid_widget) # Store reference
+        self.grid_layout = QGridLayout(self.grid_widget)  # Store reference
         # Spacing set by update_scaling
 
         buttons_data = [
@@ -74,7 +82,7 @@ class HomeScreen(QWidget):
             ("Music", "music-icon.png"),
             ("Radio", "radio-icon.png"),
             ("Equalizer", "eq-icon.png"),
-            ("Settings", "settings-icon.png")
+            ("Settings", "settings-icon.png"),
         ]
 
         target_cols = 5
@@ -87,24 +95,33 @@ class HomeScreen(QWidget):
                 if btn_index < num_buttons:
                     name, icon_path = buttons_data[btn_index]
                     button = QPushButton(name)
-                    button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+                    button.setSizePolicy(
+                        QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
+                    )
                     button.setObjectName(f"homeBtn{name.replace(' ', '')}")
-                    button.clicked.connect(lambda checked, b=name: self.on_home_button_clicked(b))
+                    button.clicked.connect(
+                        lambda checked, b=name: self.on_home_button_clicked(b)
+                    )
                     self.grid_layout.addWidget(button, r, c)
                     btn_index += 1
 
         # Vertical spacer to push buttons up within the grid area
-        grid_vertical_spacer = QSpacerItem(20, 1, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
+        grid_vertical_spacer = QSpacerItem(
+            20, 1, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding
+        )
         self.grid_layout.addItem(grid_vertical_spacer, num_rows, 0, 1, target_cols)
-        self.grid_widget.setLayout(self.grid_layout) # Set layout on grid container
-
+        self.grid_widget.setLayout(self.grid_layout)  # Set layout on grid container
 
         # --- 2. Media Player Section ---
         self.media_widget = QWidget()
         self.media_widget.setObjectName("media_widget")
-        self.media_widget.setCursor(Qt.CursorShape.PointingHandCursor)  # Show hand cursor to indicate clickable
-        self.media_widget.mousePressEvent = self.on_media_widget_clicked  # Make the widget clickable
-        self.media_layout = QVBoxLayout(self.media_widget) # Store reference
+        self.media_widget.setCursor(
+            Qt.CursorShape.PointingHandCursor
+        )  # Show hand cursor to indicate clickable
+        self.media_widget.mousePressEvent = (
+            self.on_media_widget_clicked
+        )  # Make the widget clickable
+        self.media_layout = QVBoxLayout(self.media_widget)  # Store reference
         # Spacing set by update_scaling
         # Removed AlignTop - Let stretch factor handle vertical distribution
 
@@ -114,10 +131,12 @@ class HomeScreen(QWidget):
         self.album_art_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.album_art_label.setMinimumSize(100, 100)  # Minimum size for album art
         self.album_art_label.setMaximumSize(200, 200)  # Maximum size for album art
-        self.album_art_label.setScaledContents(True)   # Scale the image to fit the label
+        self.album_art_label.setScaledContents(True)  # Scale the image to fit the label
         self.album_art_label.setPixmap(self.default_album_art)
         # Give it a larger stretch factor (e.g., 4 or 5)
-        self.media_layout.addWidget(self.album_art_label, 0, Qt.AlignmentFlag.AlignHCenter)
+        self.media_layout.addWidget(
+            self.album_art_label, 0, Qt.AlignmentFlag.AlignHCenter
+        )
 
         # Album Label (Scrolling text for album name)
         self.album_name_label = ScrollingLabel("(Album)")
@@ -129,25 +148,31 @@ class HomeScreen(QWidget):
         self.track_title_label = ScrollingLabel()
         self.track_title_label.setObjectName("trackTitleLabel")
         self.track_title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.media_layout.addWidget(self.track_title_label, 0) # Smaller stretch factor (e.g., 1)
+        self.media_layout.addWidget(
+            self.track_title_label, 0
+        )  # Smaller stretch factor (e.g., 1)
 
         # Artist Label (Scrolling, less vertical space)
         self.track_artist_label = ScrollingLabel()
         self.track_artist_label.setObjectName("trackArtistLabel")
         self.track_artist_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.media_layout.addWidget(self.track_artist_label, 0) # Smaller stretch factor (e.g., 1)
+        self.media_layout.addWidget(
+            self.track_artist_label, 0
+        )  # Smaller stretch factor (e.g., 1)
 
         # Time Label (Standard, minimal vertical space)
         self.track_time_label = QLabel("--:-- / --:--")
         self.track_time_label.setObjectName("trackTimeLabel")
         self.track_time_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.media_layout.addWidget(self.track_time_label, 0) # Smallest stretch factor (0)
+        self.media_layout.addWidget(
+            self.track_time_label, 0
+        )  # Smallest stretch factor (0)
 
         # --- Playback Controls (Default vertical space) ---
-        self.playback_layout = QHBoxLayout() # Store reference
+        self.playback_layout = QHBoxLayout()  # Store reference
         # Spacing set by update_scaling
         self.btn_prev = QPushButton("<<")
-        self.btn_play_pause = QPushButton("▶") # Text updated by update_playback_status
+        self.btn_play_pause = QPushButton("▶")  # Text updated by update_playback_status
         self.btn_next = QPushButton(">>")
         self.btn_prev.setObjectName("mediaPrevButton")
         self.btn_play_pause.setObjectName("mediaPlayPauseButton")
@@ -158,7 +183,9 @@ class HomeScreen(QWidget):
         self.playback_layout.addWidget(self.btn_play_pause)
         self.playback_layout.addWidget(self.btn_next)
         self.playback_layout.addStretch(1)
-        self.media_layout.addLayout(self.playback_layout) # Added with default stretch 0
+        self.media_layout.addLayout(
+            self.playback_layout
+        )  # Added with default stretch 0
 
         # --- Test Button for Album Art (Only for development) ---
         self.test_layout = QHBoxLayout()
@@ -171,7 +198,7 @@ class HomeScreen(QWidget):
         # Hide test button by default, will be shown if developer mode is enabled
         self.test_button.setVisible(False)
         # Check if developer mode is enabled
-        if self.main_window and hasattr(self.main_window, 'settings_manager'):
+        if self.main_window and hasattr(self.main_window, "settings_manager"):
             developer_mode = self.main_window.settings_manager.get("developer_mode")
             self.test_button.setVisible(developer_mode)
 
@@ -179,40 +206,48 @@ class HomeScreen(QWidget):
         # This pushes all the above widgets upwards in the media_layout
         self.media_layout.addStretch(1)
 
-
-
         # Connect control buttons
         self.btn_prev.clicked.connect(self.on_previous_clicked)
         self.btn_play_pause.clicked.connect(self.on_play_pause_clicked)
         self.btn_next.clicked.connect(self.on_next_clicked)
 
         # Removed extra stretch at the end
-        self.media_widget.setLayout(self.media_layout) # Set layout on media container
-
+        self.media_widget.setLayout(self.media_layout)  # Set layout on media container
 
         # --- Add Grid and Media Player to Top Section with Stretch Factors ---
         # Grid gets 2/3, Media Player gets 1/3 of horizontal space
-        self.top_section_layout.addWidget(self.grid_widget, 2) # Stretch factor 2
-        self.top_section_layout.addWidget(self.media_widget, 1) # Stretch factor 1
+        self.top_section_layout.addWidget(self.grid_widget, 2)  # Stretch factor 2
+        self.top_section_layout.addWidget(self.media_widget, 1)  # Stretch factor 1
 
         # --- Add Top Section to Main Layout (Stretch=1, takes remaining vertical space) ---
-        self.main_layout.addLayout(self.top_section_layout, 1) # IMPORTANT: Stretch factor 1
-
+        self.main_layout.addLayout(
+            self.top_section_layout, 1
+        )  # IMPORTANT: Stretch factor 1
 
         # --- Initial state ---
         self.clear_media_info()
 
-
     def update_scaling(self, scale_factor, scaled_main_margin):
         """Applies scaling to internal layouts."""
-        scaled_top_section_spacing = scale_value(self.base_top_section_spacing, scale_factor)
+        scaled_top_section_spacing = scale_value(
+            self.base_top_section_spacing, scale_factor
+        )
         scaled_grid_spacing = scale_value(self.base_grid_spacing, scale_factor)
         scaled_media_spacing = scale_value(self.base_media_spacing, scale_factor)
-        scaled_playback_spacing = scale_value(self.base_media_playback_button_spacing, scale_factor)
+        scaled_playback_spacing = scale_value(
+            self.base_media_playback_button_spacing, scale_factor
+        )
 
         # Apply to layouts
-        self.main_layout.setContentsMargins(scaled_main_margin, scaled_main_margin, scaled_main_margin, scaled_main_margin)
-        self.main_layout.setSpacing(scaled_main_margin) # Or a separate base spacing value
+        self.main_layout.setContentsMargins(
+            scaled_main_margin,
+            scaled_main_margin,
+            scaled_main_margin,
+            scaled_main_margin,
+        )
+        self.main_layout.setSpacing(
+            scaled_main_margin
+        )  # Or a separate base spacing value
 
         self.top_section_layout.setSpacing(scaled_top_section_spacing)
         self.grid_layout.setSpacing(scaled_grid_spacing)
@@ -220,21 +255,20 @@ class HomeScreen(QWidget):
         self.playback_layout.setSpacing(scaled_playback_spacing)
 
         # Check if developer mode is enabled and update test button visibility
-        if self.main_window and hasattr(self.main_window, 'settings_manager'):
+        if self.main_window and hasattr(self.main_window, "settings_manager"):
             developer_mode = self.main_window.settings_manager.get("developer_mode")
             self.test_button.setVisible(developer_mode)
-
 
     @pyqtSlot(dict)
     def update_media_info(self, properties):
         """Updates the media player display based on BT properties."""
         # print("HomeScreen received media properties:", properties) # DEBUG
-        track_info = properties.get('Track', {})
-        duration_ms = track_info.get('Duration', 0)
-        position_ms = properties.get('Position', 0)
-        title = track_info.get('Title', "---")
-        artist = track_info.get('Artist', "---")
-        album = track_info.get('Album', "")
+        track_info = properties.get("Track", {})
+        duration_ms = track_info.get("Duration", 0)
+        position_ms = properties.get("Position", 0)
+        title = track_info.get("Title", "---")
+        artist = track_info.get("Artist", "---")
+        album = track_info.get("Album", "")
 
         # Update scrolling labels
         self.track_title_label.setText(title)
@@ -256,8 +290,10 @@ class HomeScreen(QWidget):
             # Only fetch album art if we have valid title and artist
             if title != "---" and artist != "---" and self.main_window:
                 # Check if we have an audio_manager
-                if hasattr(self.main_window, 'audio_manager'):
-                    cover_url, _ = self.main_window.audio_manager.get_media_info(title, artist)
+                if hasattr(self.main_window, "audio_manager"):
+                    cover_url, _ = self.main_window.audio_manager.get_media_info(
+                        title, artist
+                    )
                     if cover_url:
                         # Download album art
                         request = QNetworkRequest(QUrl(cover_url))
@@ -269,7 +305,6 @@ class HomeScreen(QWidget):
                     # Use default album art if no audio_manager is available
                     self.album_art_label.setPixmap(self.default_album_art)
 
-
     @pyqtSlot(str)
     def update_playback_status(self, status):
         """Updates the play/pause button icon based on playback status."""
@@ -278,11 +313,11 @@ class HomeScreen(QWidget):
             self.btn_play_pause.setText("⏸")
         elif status == "paused":
             self.btn_play_pause.setText("▶")
-        else: # stopped, etc.
+        else:  # stopped, etc.
             self.btn_play_pause.setText("▶")
             # Clear info ONLY if stopped and track info is already present
             if status == "stopped" and self.track_title_label.text() != "---":
-                 self.clear_media_info()
+                self.clear_media_info()
 
     @pyqtSlot(int, int)
     def update_position(self, _position, _duration):
@@ -291,7 +326,6 @@ class HomeScreen(QWidget):
         # We don't have a time slider in the home screen, but we could update other UI elements if needed
         # Using _ prefix for unused parameters to avoid warnings
         pass
-
 
     def clear_media_info(self):
         """Resets media player display to default state."""
@@ -319,12 +353,15 @@ class HomeScreen(QWidget):
             self.album_art_label.setPixmap(self.default_album_art)
         reply.deleteLater()
 
-
     # --- Click Handlers ---
     def on_play_pause_clicked(self):
         print("Play/Pause button clicked")
         # Check if we have a music player screen with local playback
-        if self.main_window and hasattr(self.main_window, 'music_player_screen') and self.main_window.music_player_screen.is_local_playback:
+        if (
+            self.main_window
+            and hasattr(self.main_window, "music_player_screen")
+            and self.main_window.music_player_screen.is_local_playback
+        ):
             # Forward the command to the music player screen
             self.main_window.music_player_screen.on_play_pause_clicked()
         # Otherwise use Bluetooth
@@ -334,29 +371,40 @@ class HomeScreen(QWidget):
                 self.main_window.bluetooth_manager.send_pause()
             else:
                 self.main_window.bluetooth_manager.send_play()
-        else: print("Error: Cannot send command - No playback system available.")
+        else:
+            print("Error: Cannot send command - No playback system available.")
 
     def on_next_clicked(self):
         print("Next button clicked")
         # Check if we have a music player screen with local playback
-        if self.main_window and hasattr(self.main_window, 'music_player_screen') and self.main_window.music_player_screen.is_local_playback:
+        if (
+            self.main_window
+            and hasattr(self.main_window, "music_player_screen")
+            and self.main_window.music_player_screen.is_local_playback
+        ):
             # Forward the command to the music player screen
             self.main_window.music_player_screen.on_next_clicked()
         # Otherwise use Bluetooth
         elif self.main_window and self.main_window.bluetooth_manager:
             self.main_window.bluetooth_manager.send_next()
-        else: print("Error: Cannot send command - No playback system available.")
+        else:
+            print("Error: Cannot send command - No playback system available.")
 
     def on_previous_clicked(self):
         print("Previous button clicked")
         # Check if we have a music player screen with local playback
-        if self.main_window and hasattr(self.main_window, 'music_player_screen') and self.main_window.music_player_screen.is_local_playback:
+        if (
+            self.main_window
+            and hasattr(self.main_window, "music_player_screen")
+            and self.main_window.music_player_screen.is_local_playback
+        ):
             # Forward the command to the music player screen
             self.main_window.music_player_screen.on_previous_clicked()
         # Otherwise use Bluetooth
         elif self.main_window and self.main_window.bluetooth_manager:
             self.main_window.bluetooth_manager.send_previous()
-        else: print("Error: Cannot send command - No playback system available.")
+        else:
+            print("Error: Cannot send command - No playback system available.")
 
     # --- Test Album Art ---
     def test_album_art(self):
@@ -366,25 +414,38 @@ class HomeScreen(QWidget):
         # Create a sample track with known artist and title
         # You can change these to test different songs
         test_songs = [
-            {"title": "Bohemian Rhapsody", "artist": "Queen", "album": "A Night at the Opera"},
+            {
+                "title": "Bohemian Rhapsody",
+                "artist": "Queen",
+                "album": "A Night at the Opera",
+            },
             {"title": "Billie Jean", "artist": "Michael Jackson", "album": "Thriller"},
-            {"title": "Hotel California", "artist": "Eagles", "album": "Hotel California"},
-            {"title": "Sweet Child O' Mine", "artist": "Guns N' Roses", "album": "Appetite for Destruction"},
-            {"title": "Imagine", "artist": "John Lennon", "album": "Imagine"}
+            {
+                "title": "Hotel California",
+                "artist": "Eagles",
+                "album": "Hotel California",
+            },
+            {
+                "title": "Sweet Child O' Mine",
+                "artist": "Guns N' Roses",
+                "album": "Appetite for Destruction",
+            },
+            {"title": "Imagine", "artist": "John Lennon", "album": "Imagine"},
         ]
 
         import random
+
         test_song = random.choice(test_songs)
 
         # Create a mock media properties dictionary
         mock_properties = {
-            'Track': {
-                'Title': test_song["title"],
-                'Artist': test_song["artist"],
-                'Album': test_song["album"],
-                'Duration': 240000  # 4 minutes in milliseconds
+            "Track": {
+                "Title": test_song["title"],
+                "Artist": test_song["artist"],
+                "Album": test_song["album"],
+                "Duration": 240000,  # 4 minutes in milliseconds
             },
-            'Position': 30000  # 30 seconds in milliseconds
+            "Position": 30000,  # 30 seconds in milliseconds
         }
 
         # Update the media info with the mock properties
@@ -393,31 +454,47 @@ class HomeScreen(QWidget):
         # Update the playback status to "playing"
         self.update_playback_status("playing")
 
-        print(f"Test song: {test_song['title']} by {test_song['artist']} from {test_song['album']}")
+        print(
+            f"Test song: {test_song['title']} by {test_song['artist']} from {test_song['album']}"
+        )
 
     # --- Navigation and Clock ---
     def on_home_button_clicked(self, button_name):
         """Handle clicks on the main grid buttons and navigate."""
         print(f"Home button clicked: {button_name}")
-        if self.main_window is not None and hasattr(self.main_window, 'navigate_to'):
-            if button_name == "OBD" and hasattr(self.main_window, 'obd_screen'):
+        if self.main_window is not None and hasattr(self.main_window, "navigate_to"):
+            if button_name == "OBD" and hasattr(self.main_window, "obd_screen"):
                 self.main_window.navigate_to(self.main_window.obd_screen)
-            elif button_name == "Radio" and hasattr(self.main_window, 'radio_screen'):
+            elif button_name == "Radio" and hasattr(self.main_window, "radio_screen"):
                 self.main_window.navigate_to(self.main_window.radio_screen)
-            elif button_name == "Settings" and hasattr(self.main_window, 'settings_screen'):
+            elif button_name == "Settings" and hasattr(
+                self.main_window, "settings_screen"
+            ):
                 self.main_window.navigate_to(self.main_window.settings_screen)
-            elif button_name == "Music" and hasattr(self.main_window, 'music_player_screen'):
+            elif button_name == "Music" and hasattr(
+                self.main_window, "music_player_screen"
+            ):
                 self.main_window.navigate_to(self.main_window.music_player_screen)
+            elif button_name == "Mirroring" and hasattr(
+                self.main_window, "airplay_screen"
+            ):
+                self.main_window.navigate_to(self.main_window.airplay_screen)
             # ... other navigation cases ...
             else:
-                 print(f"No navigation action defined for: {button_name}")
+                print(f"No navigation action defined for: {button_name}")
         else:
-            print("Error: Could not navigate. Main window reference is invalid or missing 'navigate_to' method.")
+            print(
+                "Error: Could not navigate. Main window reference is invalid or missing 'navigate_to' method."
+            )
 
     def on_media_widget_clicked(self, _event):
         """Handle clicks on the media player widget to open the expanded music player."""
         print("Media widget clicked, opening expanded music player")
-        if self.main_window is not None and hasattr(self.main_window, 'go_to_music_player'):
+        if self.main_window is not None and hasattr(
+            self.main_window, "go_to_music_player"
+        ):
             self.main_window.go_to_music_player()
         else:
-            print("Error: Could not navigate to music player. Main window reference is invalid or missing method.")
+            print(
+                "Error: Could not navigate to music player. Main window reference is invalid or missing method."
+            )

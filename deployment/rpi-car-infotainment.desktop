@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=RPi Car Infotainment
+Comment=Start RPi Car Infotainment System
+Exec=/home/pi/rpi_car_infotainment/scripts/start_infotainment.sh
+Terminal=false
+X-GNOME-Autostart-enabled=true
