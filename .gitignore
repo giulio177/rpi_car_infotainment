@@ -1,4 +1,45 @@
+# Python
 venv/
 __pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# OS
 .DS_Store
+.DS_Store?
+._*
+Thumbs.db
+
+# Config
 config.json
+config_local.json
+
+# Logs
+*.log
+logs/
+
+# Archive folder (old/unused files)
+archive/
+
+# RPiPlay binary
+rpiplay
+
+# Temporary files
+*.tmp
+*.temp
+temp/
+
+# Music library (can be large)
+music/library/*
+!music/library/.gitkeep
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Backup files
+*.bak
+*.backup

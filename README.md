@@ -8,12 +8,30 @@ A car infotainment system designed to run on a Raspberry Pi. This system provide
 rpi_car_infotainment/
 ├── assets/             # Icons and other static assets
 ├── backend/            # Backend functionality
+│   ├── audio_manager.py    # Audio control
+│   ├── bluetooth_manager.py # Bluetooth connectivity
+│   ├── obd_manager.py      # OBD-II diagnostics
+│   ├── radio_manager.py    # FM/AM radio control
+│   ├── settings_manager.py # Settings management
+│   └── airplay_stream_manager.py # AirPlay audio streaming
 ├── deployment/         # Service files, installation scripts, and deployment configs
 ├── gui/                # GUI components and screens
+│   ├── main_window.py      # Main application window
+│   ├── home_screen.py      # Home screen
+│   ├── radio_screen.py     # Radio interface
+│   ├── obd_screen.py       # OBD diagnostics display
+│   ├── setting_screen.py   # Settings interface
+│   ├── music_player_screen.py # Music player
+│   ├── airplay_screen.py   # AirPlay controls
+│   └── airplay_stream_widget.py # AirPlay status widget
 ├── music/              # Music library and related files
 ├── scripts/            # Shell scripts and utilities
+│   └── start_infotainment.sh # Application launcher
 ├── tests/              # Test files
 ├── tools/              # RF communication and other tools
+├── docs/               # Documentation
+│   └── STABLE_BASELINE_STATUS.md # Current status
+├── archive/            # Archived/unused files (not in git)
 ├── config.json         # Configuration file
 ├── main.py             # Main application entry point
 └── requirements.txt    # Python dependencies
@@ -280,6 +298,10 @@ sudo systemctl start rpi-airplay
 ```
 
 ## Development
+
+### Restart command
+
+sudo systemctl restart rpi-infotainment.service
 
 ### Running Tests
 ```bash
