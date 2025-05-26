@@ -51,13 +51,33 @@ start_application() {
     echo "Starting RPi Car Infotainment application..."
     # Change to the project root directory
     cd "$APP_DIR"
-    # Start the application with eglfs platform
+
+    # Set Qt platform based on environment
+    if [ -c /dev/fb0 ] && [ -w /dev/fb0 ]; then
+        echo "Using linuxfb platform (framebuffer available and writable)"
+        export QT_QPA_PLATFORM=linuxfb
+    else
+        echo "Framebuffer not available or not writable, using eglfs platform"
+        export QT_QPA_PLATFORM=eglfs
+    fi
+
+    # Start the application
     python3 main.py
 }
 
 # Clear screen and hide cursor
 clear
 echo -e "\033[?25l"  # Hide cursor
+
+# Wait for framebuffer to be ready (when running as service)
+if [ -n "$SYSTEMD_EXEC_PID" ]; then
+    echo "Running as systemd service, waiting for framebuffer..."
+    sleep 5
+    # Check if framebuffer is available
+    if [ ! -c /dev/fb0 ]; then
+        echo "Warning: Framebuffer /dev/fb0 not available"
+    fi
+fi
 
 # Main execution
 echo "=== RPi Car Infotainment Launcher ==="

@@ -10,13 +10,11 @@ if [ "$(tty)" = "/dev/tty1" ]; then
     # Check if the infotainment application is already running
     if pgrep -f "python.*main.py" > /dev/null; then
         echo "RPi Car Infotainment is already running."
-    elif systemctl is-active --quiet rpi-infotainment; then
-        echo "RPi Car Infotainment service is active."
     else
         # Clear screen and hide cursor before starting
         clear
         echo -e "\033[?25l"  # Hide cursor
-        echo "Starting RPi Car Infotainment manually..."
+        echo "Starting RPi Car Infotainment..."
         cd /home/pi/rpi_car_infotainment
         ./scripts/start_infotainment.sh
     fi

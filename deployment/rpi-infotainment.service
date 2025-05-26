@@ -2,11 +2,13 @@
 Description=RPi Car Infotainment System
 After=network.target multi-user.target setup-runtime.service
 Wants=network.target setup-runtime.service
+Requires=setup-runtime.service
 
 [Service]
 Type=simple
 User=pi
-Group=tty
+Group=video
+SupplementaryGroups=tty audio
 WorkingDirectory=/home/pi/rpi_car_infotainment
 ExecStart=/home/pi/rpi_car_infotainment/scripts/start_infotainment.sh
 Restart=on-failure
@@ -15,6 +17,8 @@ Environment=TERM=linux
 Environment=XDG_RUNTIME_DIR=/tmp/runtime-pi
 Environment=QT_QPA_PLATFORM=linuxfb
 Environment=QT_LOGGING_RULES="*=false"
+Environment=HOME=/home/pi
+Environment=USER=pi
 StandardOutput=journal
 StandardError=journal
 
