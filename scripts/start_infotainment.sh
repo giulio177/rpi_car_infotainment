@@ -52,14 +52,11 @@ start_application() {
     # Change to the project root directory
     cd "$APP_DIR"
 
-    # Set Qt platform based on environment
-    if [ -c /dev/fb0 ] && [ -w /dev/fb0 ]; then
-        echo "Using linuxfb platform (framebuffer available and writable)"
-        export QT_QPA_PLATFORM=linuxfb
-    else
-        echo "Framebuffer not available or not writable, using eglfs platform"
-        export QT_QPA_PLATFORM=eglfs
-    fi
+    # Set Qt platform for framebuffer
+    echo "Using linuxfb platform for framebuffer access"
+    export QT_QPA_PLATFORM=linuxfb
+    export QT_QPA_FB_FORCE_FULLSCREEN=1
+    export QT_QPA_FB_DISABLE_INPUT=1
 
     # Start the application
     python3 main.py

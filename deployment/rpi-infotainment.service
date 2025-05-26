@@ -10,9 +10,10 @@ User=pi
 Group=video
 SupplementaryGroups=tty audio
 WorkingDirectory=/home/pi/rpi_car_infotainment
+ExecStartPre=/bin/sleep 10
 ExecStart=/home/pi/rpi_car_infotainment/scripts/start_infotainment.sh
 Restart=on-failure
-RestartSec=5
+RestartSec=10
 Environment=TERM=linux
 Environment=XDG_RUNTIME_DIR=/tmp/runtime-pi
 Environment=QT_QPA_PLATFORM=linuxfb
