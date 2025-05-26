@@ -804,26 +804,25 @@ class MusicPlayerScreen(QWidget):
 
     def on_album_art_downloaded(self, reply):
         """Handle downloaded album art."""
-        if reply.error():
+        if reply.error() == QNetworkReply.NetworkError.NoError:
+            data = reply.readAll()
+            pixmap = QPixmap()
+            pixmap.loadFromData(data)
+            if not pixmap.isNull():
+                # Scale the pixmap to fit the label while maintaining aspect ratio
+                scaled_pixmap = pixmap.scaled(
+                    self.album_art_label.width(),
+                    self.album_art_label.height(),
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
+                )
+                self.album_art_label.setPixmap(scaled_pixmap)
+            else:
+                self.album_art_label.setPixmap(self.default_album_art)
+        else:
             print(f"Error downloading album art: {reply.errorString()}")
             self.album_art_label.setPixmap(self.default_album_art)
-            return
-
-        # Read the image data
-        img_data = reply.readAll()
-        pixmap = QPixmap()
-        pixmap.loadFromData(img_data)
-
-        # Scale the pixmap to fit the label
-        scaled_pixmap = pixmap.scaled(
-            self.album_art_label.width(),
-            self.album_art_label.height(),
-            Qt.AspectRatioMode.KeepAspectRatio,
-            Qt.TransformationMode.SmoothTransformation,
-        )
-
-        # Set the pixmap
-        self.album_art_label.setPixmap(scaled_pixmap)
+        reply.deleteLater()
 
     @pyqtSlot(dict)
     def update_media_info(self, properties):

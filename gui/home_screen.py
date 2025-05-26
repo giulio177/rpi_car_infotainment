@@ -345,7 +345,14 @@ class HomeScreen(QWidget):
             pixmap = QPixmap()
             pixmap.loadFromData(data)
             if not pixmap.isNull():
-                self.album_art_label.setPixmap(pixmap)
+                # Scale the pixmap to fit the label while maintaining aspect ratio
+                scaled_pixmap = pixmap.scaled(
+                    self.album_art_label.width(),
+                    self.album_art_label.height(),
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
+                )
+                self.album_art_label.setPixmap(scaled_pixmap)
             else:
                 self.album_art_label.setPixmap(self.default_album_art)
         else:

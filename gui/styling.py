@@ -412,6 +412,88 @@ def get_light_theme(scale_factor=1.0):
         border-radius: {scaled_border_radius}px;
     }}
 
+    /* ==================== Network Dialog Styles ==================== */
+    QDialog#networkDialog {{
+        background-color: #f0f0f0;
+        color: #333333;
+        border: {scaled_border}px solid #b0b0b0;
+        border-radius: {scaled_border_radius}px;
+    }}
+    QLabel#dialogTitle {{
+        font-size: {scale_value(base_font_size_pt + 4, scale_factor)}pt;
+        font-weight: bold;
+        color: #333333;
+        margin-bottom: {scaled_padding}px;
+    }}
+    QListWidget {{
+        background-color: #ffffff;
+        border: {scaled_border}px solid #b0b0b0;
+        border-radius: {scaled_border_radius}px;
+        selection-background-color: #dcdcdc;
+        selection-color: #333333;
+        padding: {scaled_padding // 2}px;
+    }}
+    QListWidget::item {{
+        padding: {scaled_padding // 2}px;
+        border-bottom: 1px solid #e0e0e0;
+    }}
+    QListWidget::item:selected {{
+        background-color: #007bff;
+        color: #ffffff;
+    }}
+
+    /* ==================== Virtual Keyboard Styles ==================== */
+    QDialog#virtualKeyboard {{
+        background-color: #f0f0f0;
+        color: #333333;
+        border: {scaled_border}px solid #b0b0b0;
+        border-radius: {scaled_border_radius}px;
+    }}
+    QLineEdit#keyboardTextInput {{
+        font-size: {scale_value(base_font_size_pt + 2, scale_factor)}pt;
+        padding: {scale_value(base_padding_px, scale_factor)}px;
+        min-height: {scale_value(40, scale_factor)}px;
+        border: {scaled_border}px solid #b0b0b0;
+        border-radius: {scaled_border_radius}px;
+        background-color: #ffffff;
+    }}
+    QPushButton#keyboardKey {{
+        background-color: #e8e8e8;
+        border: {scaled_border}px solid #c0c0c0;
+        border-radius: {scaled_border_radius}px;
+        min-width: {scale_value(40, scale_factor)}px;
+        min-height: {scale_value(40, scale_factor)}px;
+        font-size: {scale_value(base_font_size_pt, scale_factor)}pt;
+        outline: none;
+    }}
+    QPushButton#keyboardKey:pressed {{
+        background-color: #d0d0d0;
+    }}
+    QPushButton#keyboardSpecialKey {{
+        background-color: #d0d0d0;
+        border: {scaled_border}px solid #a0a0a0;
+        border-radius: {scaled_border_radius}px;
+        min-width: {scale_value(50, scale_factor)}px;
+        min-height: {scale_value(40, scale_factor)}px;
+        font-size: {scale_value(base_font_size_pt, scale_factor)}pt;
+        outline: none;
+    }}
+    QPushButton#keyboardSpecialKey:pressed {{
+        background-color: #b0b0b0;
+    }}
+    QPushButton#keyboardSpaceKey {{
+        background-color: #e8e8e8;
+        border: {scaled_border}px solid #c0c0c0;
+        border-radius: {scaled_border_radius}px;
+        min-width: {scale_value(200, scale_factor)}px;
+        min-height: {scale_value(40, scale_factor)}px;
+        font-size: {scale_value(base_font_size_pt, scale_factor)}pt;
+        outline: none;
+    }}
+    QPushButton#keyboardSpaceKey:pressed {{
+        background-color: #d0d0d0;
+    }}
+
     QFileDialog {{
         background-color: #f0f0f0;
         color: #333333;
@@ -829,6 +911,93 @@ def get_dark_theme(scale_factor=1.0):
         color: #e0e0e0;
         border: {scaled_border}px solid #707070;
         border-radius: {scaled_border_radius}px;
+    }}
+
+    /* ==================== Network Dialog Styles ==================== */
+    QDialog#networkDialog {{
+        background-color: #2e2e2e;
+        color: #e0e0e0;
+        border: {scaled_border}px solid #707070;
+        border-radius: {scaled_border_radius}px;
+    }}
+    QLabel#dialogTitle {{
+        font-size: {scale_value(base_font_size_pt + 4, scale_factor)}pt;
+        font-weight: bold;
+        color: #e0e0e0;
+        margin-bottom: {scaled_padding}px;
+    }}
+    QListWidget {{
+        background-color: #404040;
+        border: {scaled_border}px solid #707070;
+        border-radius: {scaled_border_radius}px;
+        selection-background-color: #34a4ff;
+        selection-color: #ffffff;
+        color: #e0e0e0;
+        padding: {scaled_padding // 2}px;
+    }}
+    QListWidget::item {{
+        padding: {scaled_padding // 2}px;
+        border-bottom: 1px solid #505050;
+    }}
+    QListWidget::item:selected {{
+        background-color: #34a4ff;
+        color: #ffffff;
+    }}
+
+    /* ==================== Virtual Keyboard Styles ==================== */
+    QDialog#virtualKeyboard {{
+        background-color: #2e2e2e;
+        color: #e0e0e0;
+        border: {scaled_border}px solid #707070;
+        border-radius: {scaled_border_radius}px;
+    }}
+    QLineEdit#keyboardTextInput {{
+        font-size: {scale_value(base_font_size_pt + 2, scale_factor)}pt;
+        padding: {scale_value(base_padding_px, scale_factor)}px;
+        min-height: {scale_value(40, scale_factor)}px;
+        border: {scaled_border}px solid #707070;
+        border-radius: {scaled_border_radius}px;
+        background-color: #404040;
+        color: #e0e0e0;
+    }}
+    QPushButton#keyboardKey {{
+        background-color: #505050;
+        border: {scaled_border}px solid #707070;
+        border-radius: {scaled_border_radius}px;
+        min-width: {scale_value(40, scale_factor)}px;
+        min-height: {scale_value(40, scale_factor)}px;
+        font-size: {scale_value(base_font_size_pt, scale_factor)}pt;
+        color: #e0e0e0;
+        outline: none;
+    }}
+    QPushButton#keyboardKey:pressed {{
+        background-color: #606060;
+    }}
+    QPushButton#keyboardSpecialKey {{
+        background-color: #404040;
+        border: {scaled_border}px solid #606060;
+        border-radius: {scaled_border_radius}px;
+        min-width: {scale_value(50, scale_factor)}px;
+        min-height: {scale_value(40, scale_factor)}px;
+        font-size: {scale_value(base_font_size_pt, scale_factor)}pt;
+        color: #e0e0e0;
+        outline: none;
+    }}
+    QPushButton#keyboardSpecialKey:pressed {{
+        background-color: #505050;
+    }}
+    QPushButton#keyboardSpaceKey {{
+        background-color: #505050;
+        border: {scaled_border}px solid #707070;
+        border-radius: {scaled_border_radius}px;
+        min-width: {scale_value(200, scale_factor)}px;
+        min-height: {scale_value(40, scale_factor)}px;
+        font-size: {scale_value(base_font_size_pt, scale_factor)}pt;
+        color: #e0e0e0;
+        outline: none;
+    }}
+    QPushButton#keyboardSpaceKey:pressed {{
+        background-color: #606060;
     }}
 
     QFileDialog {{

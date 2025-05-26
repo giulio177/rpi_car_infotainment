@@ -29,6 +29,7 @@ from backend.bluetooth_manager import BluetoothManager
 from backend.obd_manager import OBDManager
 from backend.radio_manager import RadioManager
 from backend.airplay_stream_manager import AirPlayStreamManager
+from backend.wifi_manager import WiFiManager
 
 # Import screens
 from .home_screen import HomeScreen
@@ -38,6 +39,9 @@ from .setting_screen import SettingsScreen
 from .music_player_screen import MusicPlayerScreen
 from .airplay_screen import AirPlayScreen
 
+# Import network dialogs
+from .network_dialogs import BluetoothDialog, WiFiDialog
+
 # --- Icon definitions ---
 ICON_PATH = "assets/icons/"
 ICON_HOME = os.path.join(ICON_PATH, "home.png")
@@ -46,7 +50,8 @@ ICON_VOLUME = os.path.join(ICON_PATH, "volume.png")
 ICON_VOLUME_MUTED = os.path.join(ICON_PATH, "volume_muted.png")
 ICON_RESTART = os.path.join(ICON_PATH, "restart.png")
 ICON_POWER = os.path.join(ICON_PATH, "power.png")
-# ICON_BT_CONNECTED removed - not using icon for now
+ICON_BLUETOOTH = os.path.join(ICON_PATH, "bluetooth.png")
+ICON_WIFI = os.path.join(ICON_PATH, "wifi.png")
 # ---
 
 
@@ -58,6 +63,7 @@ class MainWindow(QMainWindow):
         self.settings_manager = settings_manager
         self.audio_manager = AudioManager()
         self.bluetooth_manager = BluetoothManager()
+        self.wifi_manager = WiFiManager()
         self.airplay_manager = AirPlayStreamManager(main_window=self)
 
         # Flag for initial scaling
@@ -75,13 +81,15 @@ class MainWindow(QMainWindow):
         self.base_layout_margin = 6  # Smaller bottom bar internal margin for 1024x600
         self.base_main_margin = 10  # Smaller child screen margin for 1024x600
 
-        # --- Load Icons (No BT icon needed now) ---
+        # --- Load Icons ---
         self.home_icon = QIcon(ICON_HOME)
         self.settings_icon = QIcon(ICON_SETTINGS)
         self.volume_normal_icon = QIcon(ICON_VOLUME)
         self.volume_muted_icon = QIcon(ICON_VOLUME_MUTED)
         self.restart_icon = QIcon(ICON_RESTART)
         self.power_icon = QIcon(ICON_POWER)
+        self.bluetooth_icon = QIcon(ICON_BLUETOOTH)
+        self.wifi_icon = QIcon(ICON_WIFI)
         # ---
 
         # --- Volume/Mute variables ---
@@ -200,6 +208,19 @@ class MainWindow(QMainWindow):
         self.power_button.setToolTip("Shutdown Raspberry Pi")
         self.power_button.clicked.connect(self.shutdown_system)
 
+        # --- Network Control Buttons ---
+        self.bluetooth_button = QPushButton()
+        self.bluetooth_button.setIcon(self.bluetooth_icon)
+        self.bluetooth_button.setObjectName("bluetoothNavButton")
+        self.bluetooth_button.setToolTip("Bluetooth Settings")
+        self.bluetooth_button.clicked.connect(self.open_bluetooth_dialog)
+
+        self.wifi_button = QPushButton()
+        self.wifi_button.setIcon(self.wifi_icon)
+        self.wifi_button.setObjectName("wifiNavButton")
+        self.wifi_button.setToolTip("WiFi Settings")
+        self.wifi_button.clicked.connect(self.open_wifi_dialog)
+
         # --- Add widgets to bottom bar layout ---
         self.bottom_bar_layout.addWidget(self.home_button_bar)
         self.bottom_bar_layout.addWidget(self.settings_button)
@@ -207,6 +228,8 @@ class MainWindow(QMainWindow):
         # Status labels removed for cleaner bottom bar
         self.bottom_bar_layout.addWidget(self.volume_icon_button)
         self.bottom_bar_layout.addWidget(self.volume_slider)
+        self.bottom_bar_layout.addWidget(self.bluetooth_button)
+        self.bottom_bar_layout.addWidget(self.wifi_button)
         self.bottom_bar_layout.addStretch(1)
         self.bottom_bar_layout.addWidget(self.restart_button_bar)
         self.bottom_bar_layout.addWidget(self.power_button)
@@ -516,6 +539,10 @@ class MainWindow(QMainWindow):
         self.home_button_bar.setFixedSize(scaled_button_size)
         self.settings_button.setIconSize(scaled_icon_size)
         self.settings_button.setFixedSize(scaled_button_size)
+        self.bluetooth_button.setIconSize(scaled_icon_size)
+        self.bluetooth_button.setFixedSize(scaled_button_size)
+        self.wifi_button.setIconSize(scaled_icon_size)
+        self.wifi_button.setFixedSize(scaled_button_size)
         self.volume_icon_button.setIconSize(scaled_icon_size)
         self.volume_icon_button.setFixedSize(scaled_button_size)
         self.restart_button_bar.setIconSize(scaled_icon_size)
@@ -553,6 +580,10 @@ class MainWindow(QMainWindow):
         self.home_button_bar.style().polish(self.home_button_bar)
         self.settings_button.style().unpolish(self.settings_button)
         self.settings_button.style().polish(self.settings_button)
+        self.bluetooth_button.style().unpolish(self.bluetooth_button)
+        self.bluetooth_button.style().polish(self.bluetooth_button)
+        self.wifi_button.style().unpolish(self.wifi_button)
+        self.wifi_button.style().polish(self.wifi_button)
         self.volume_icon_button.style().unpolish(self.volume_icon_button)
         self.volume_icon_button.style().polish(self.volume_icon_button)
         self.restart_button_bar.style().unpolish(self.restart_button_bar)
@@ -637,25 +668,18 @@ class MainWindow(QMainWindow):
     # --- Status Update Slots ---
     @pyqtSlot(bool, str)
     def update_bluetooth_statusbar(self, connected, device_name):
-        """Updates the Bluetooth status name and separator in the BOTTOM status bar."""
+        """Updates the Bluetooth status - now only updates header and home screen."""
         print(
-            f"DEBUG: Updating status bar BT name, Connected={connected}, Name='{device_name}'"
+            f"DEBUG: Updating BT status, Connected={connected}, Name='{device_name}'"
         )
+        # Bottom bar status labels were removed, so we only update header and home screen
         if connected:
-            max_len = 20  # Max length for status bar display
-            display_name = (
-                (device_name[:max_len] + "...")
-                if len(device_name) > max_len
-                else device_name
-            )
-            self.bt_name_label.setText(f"BT: {display_name}")
-            self.bt_name_label.setToolTip(device_name)
-            self.bt_name_label.show()
-            self.bt_separator_label.show()
+            print(f"Bluetooth device connected: {device_name}")
+            # Header status is updated by update_bluetooth_header_status
+            # Home screen media info is updated by the media player signals, not here
         else:
-            self.bt_name_label.hide()
-            # self.bt_battery_label.hide() # No longer exists
-            self.bt_separator_label.hide()
+            print("Bluetooth device disconnected")
+            # Clear home screen media info when device disconnects
             if hasattr(self.home_screen, "clear_media_info"):
                 self.home_screen.clear_media_info()
 
@@ -1094,6 +1118,25 @@ class MainWindow(QMainWindow):
             self.airplay_manager.stop_airplay()
 
         print("AirPlay streaming stopped by user")
+
+    # --- Network Dialog Methods ---
+    @pyqtSlot()
+    def open_bluetooth_dialog(self):
+        """Open the Bluetooth settings dialog."""
+        try:
+            dialog = BluetoothDialog(self.bluetooth_manager, self)
+            dialog.exec()
+        except Exception as e:
+            print(f"Error opening Bluetooth dialog: {e}")
+
+    @pyqtSlot()
+    def open_wifi_dialog(self):
+        """Open the WiFi settings dialog."""
+        try:
+            dialog = WiFiDialog(self.wifi_manager, self)
+            dialog.exec()
+        except Exception as e:
+            print(f"Error opening WiFi dialog: {e}")
 
 
 
