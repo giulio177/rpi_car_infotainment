@@ -1,6 +1,8 @@
 # backend/bluetooth_manager.py
 
+import time
 import traceback
+import dbus
 from PyQt6.QtCore import QThread, pyqtSignal, QVariant, QObject, pyqtSlot
 from PyQt6.QtDBus import QDBusConnection, QDBusInterface, QDBusMessage, QDBusVariant
 
@@ -613,56 +615,86 @@ class BluetoothManager(QThread):
         return self._send_media_command("Previous")
 
     # --- Discoverability Methods ---
-    def is_discoverable(self):
-        """Check if the adapter is discoverable."""
+    # --- NUOVO BLOCCO PER LA GESTIONE DELLA VISIBILITÀ (SOSTITUISCI IL VECCHIO) ---
+
+    # All'interno della classe BluetoothManager
+
+    def set_discoverability(self, state: bool):
+        """
+        Attiva o disattiva la visibilità e l'associabilità dell'adattatore
+        con un ciclo di riprova per la massima affidabilità.
+        """
         if not self.adapter_path or not self.bus.isConnected():
+            print("BT Manager: Adapter not found or bus not connected.")
             return False
 
+        print(f"--- Impostazione visibilità a: {state} ---")
         try:
             adapter_iface = QDBusInterface(
                 BLUEZ_SERVICE, self.adapter_path, ADAPTER_IFACE, self.bus
             )
-            reply = adapter_iface.call("GetAll", ADAPTER_IFACE)
+            props_iface = QDBusInterface(
+                BLUEZ_SERVICE, self.adapter_path, DBUS_PROP_IFACE, self.bus
+            )
+
+            # 1. Imposta le proprietà di base
+            props_iface.call("Set", ADAPTER_IFACE, "Pairable", QDBusVariant(state))
+            props_iface.call("Set", ADAPTER_IFACE, "Discoverable", QDBusVariant(state))
+
+            if state:
+                # 2. Avvia la discovery attiva con un CICLO DI RIPROVA
+                max_retries = 5
+                discovery_started = False
+                for i in range(max_retries):
+                    print(f"Tentativo {i + 1}/{max_retries} di avviare la discovery attiva...")
+                    discovery_reply = adapter_iface.call("StartDiscovery")
+                    
+                    if discovery_reply.type() != QDBusMessage.MessageType.ErrorMessage:
+                        print("Discovery attiva avviata con successo.")
+                        discovery_started = True
+                        break  # Esci dal ciclo se ha successo
+                    
+                    error_message = discovery_reply.errorMessage()
+                    if "Resource Not Ready" in error_message:
+                        print(f"Avviso: risorsa non pronta, nuovo tentativo tra 0.5s...")
+                        time.sleep(0.5)  # Attendi mezzo secondo prima di riprovare
+                    else:
+                        # Se è un errore diverso, è inutile riprovare
+                        print(f"Errore critico nell'avviare la discovery: {error_message}")
+                        break # Esci dal ciclo
+                
+                if not discovery_started:
+                    print("ERRORE: Impossibile avviare la discovery attiva dopo vari tentativi.")
+                    # Non restituiamo False, perché la visibilità di base potrebbe funzionare
+
+            else:
+                # 3. Ferma la discovery quando si nasconde
+                print("Interruzione della sessione di discovery...")
+                adapter_iface.call("StopDiscovery")
+
+            print(f"Procedura di impostazione visibilità a {state} completata.")
+            return True
+
+        except Exception as e:
+            print(f"Eccezione durante l'impostazione della visibilità: {e}")
+            return False
+
+    def is_discoverable(self):
+        """
+        Controlla se l'adattatore è visibile.
+        Questo ora legge direttamente la proprietà.
+        """
+        if not self.adapter_path or not self.bus.isConnected():
+            return False
+        try:
+            props_iface = QDBusInterface(
+                BLUEZ_SERVICE, self.adapter_path, DBUS_PROP_IFACE, self.bus
+            )
+            reply = props_iface.call("Get", ADAPTER_IFACE, "Discoverable")
             if reply.type() == QDBusMessage.MessageType.ErrorMessage:
                 return False
-
-            properties = qvariant_dict_to_python(reply.arguments()[0])
-            return properties.get("Discoverable", False)
-
-        except Exception as e:
-            print(f"Error checking discoverability: {e}")
-            return False
-
-    def set_discoverable(self, discoverable):
-        """Set adapter discoverability."""
-        if not self.adapter_path or not self.bus.isConnected():
-            return False
-
-        try:
-            adapter_iface = QDBusInterface(
-                BLUEZ_SERVICE, self.adapter_path, ADAPTER_IFACE, self.bus
-            )
-            reply = adapter_iface.call("Set", ADAPTER_IFACE, "Discoverable", QDBusVariant(discoverable))
-            return reply.type() != QDBusMessage.MessageType.ErrorMessage
-
-        except Exception as e:
-            print(f"Error setting discoverability: {e}")
-            return False
-
-    def set_pairable(self, pairable):
-        """Set adapter pairability."""
-        if not self.adapter_path or not self.bus.isConnected():
-            return False
-
-        try:
-            adapter_iface = QDBusInterface(
-                BLUEZ_SERVICE, self.adapter_path, ADAPTER_IFACE, self.bus
-            )
-            reply = adapter_iface.call("Set", ADAPTER_IFACE, "Pairable", QDBusVariant(pairable))
-            return reply.type() != QDBusMessage.MessageType.ErrorMessage
-
-        except Exception as e:
-            print(f"Error setting pairability: {e}")
+            return qvariant_dict_to_python(reply.arguments()[0])
+        except:
             return False
 
     def send_stop(self):

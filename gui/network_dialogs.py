@@ -3,11 +3,10 @@
 import subprocess
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
-    QListWidget, QListWidgetItem, QLineEdit, QCheckBox,
-    QMessageBox, QProgressBar, QGroupBox, QFormLayout,
-    QScrollArea, QWidget
+    QListWidget, QLineEdit, QCheckBox, QMessageBox,
+    QGroupBox, QFormLayout
 )
-from PyQt6.QtCore import Qt, QTimer, pyqtSlot
+from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QFont
 
 
@@ -146,121 +145,69 @@ class BluetoothDialog(QDialog):
         self.update_discoverability_status()
 
     def update_discoverability_status(self):
-        """Update the discoverability status display."""
-        try:
-            # Check discoverability using bluetoothctl
-            result = subprocess.run(
-                ["bluetoothctl", "show"],
-                capture_output=True, text=True, timeout=5
-            )
+        """Update the discoverability status display using the BluetoothManager."""
+        if not self.bluetooth_manager:
+            self.discovery_status_label.setText("Unknown (No Manager)")
+            return
 
-            if "Discoverable: yes" in result.stdout:
-                self.discovery_status_label.setText("Discoverable")
-                self.make_discoverable_button.setEnabled(False)
-                self.make_hidden_button.setEnabled(True)
-            else:
-                self.discovery_status_label.setText("Hidden")
-                self.make_discoverable_button.setEnabled(True)
-                self.make_hidden_button.setEnabled(False)
+        # Usa la nuova funzione del manager per controllare lo stato
+        is_discoverable = self.bluetooth_manager.is_discoverable()
 
-        except Exception as e:
-            print(f"Error checking discoverability: {e}")
-            self.discovery_status_label.setText("Unknown")
+        if is_discoverable:
+            self.discovery_status_label.setText("Discoverable")
+            self.make_discoverable_button.setEnabled(False)
+            self.make_hidden_button.setEnabled(True)
+        else:
+            self.discovery_status_label.setText("Hidden")
+            self.make_discoverable_button.setEnabled(True)
+            self.make_hidden_button.setEnabled(False)
 
     def make_discoverable(self):
-        """Make the Raspberry Pi discoverable for pairing with auto-accept."""
-        try:
-            # Ensure PulseAudio is running for Bluetooth audio
-            self.ensure_audio_system()
+        """Make the Raspberry Pi discoverable using the BluetoothManager."""
+        print("UI: 'Make Discoverable' button clicked.")
+        if not self.bluetooth_manager:
+            return
 
-            # Simple and reliable Bluetooth setup
-            commands = [
-                (["bluetoothctl", "power", "on"], "Power On", True),
-                (["bluetoothctl", "discoverable", "on"], "Make Discoverable", True),
-                (["bluetoothctl", "pairable", "on"], "Make Pairable", True),
-                (["bluetoothctl", "agent", "NoInputNoOutput"], "Set Auto-Accept Agent", False),
-                (["bluetoothctl", "default-agent"], "Set Default Agent", False),
-            ]
+        # Chiama la nuova funzione nel manager SENZA l'argomento timeout
+        success = self.bluetooth_manager.set_discoverability(True)
 
-            critical_success = 0
-            all_results = []
-
-            for cmd, desc, critical in commands:
-                result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
-                success = result.returncode == 0
-
-                if success:
-                    print(f"✓ {desc}: Success")
-                    if critical:
-                        critical_success += 1
-                else:
-                    print(f"✗ {desc}: {result.stderr}")
-
-                all_results.append((desc, success, critical))
-
-            # Check if critical commands succeeded
-            if critical_success >= 3:  # Power, Discoverable, Pairable
-                # Trust all existing paired devices
-                self.trust_all_paired_devices()
-
-                # Start auto-pairing monitor
-                self.start_simple_auto_pair()
-
-                QMessageBox.information(
-                    self, "Bluetooth Ready",
-                    "✓ Raspberry Pi is now discoverable as 'Pi'\n"
-                    "✓ Auto-pairing is enabled\n"
-                    "✓ Audio profiles are active\n\n"
-                    "Your iPhone can now connect and stream audio!"
-                )
-                self.update_discoverability_status()
-            else:
-                # Show what worked and what didn't
-                status_msg = "Bluetooth setup partially completed:\n\n"
-                for desc, success, critical in all_results:
-                    status_msg += f"{'✓' if success else '✗'} {desc}\n"
-
-                QMessageBox.warning(
-                    self, "Partial Setup",
-                    status_msg + "\nDevice may still be discoverable. Try connecting from your iPhone."
-                )
-                self.update_discoverability_status()
-
-        except Exception as e:
+        if success:
+            QMessageBox.information(
+                self, "Bluetooth Discoverable",
+                "The device is now discoverable and ready to pair."
+            )
+        else:
             QMessageBox.warning(
                 self, "Error",
-                f"Failed to make device discoverable: {e}"
+                "Failed to make the device discoverable. Check logs."
             )
+        
+        # Aggiorna subito lo stato dei pulsanti
+        self.update_discoverability_status()
 
     def make_hidden(self):
-        """Make the Raspberry Pi hidden (not discoverable)."""
-        try:
-            # Stop auto-trust monitor
-            self.stop_auto_trust_monitor()
+        """Make the Raspberry Pi hidden using the BluetoothManager."""
+        print("UI: 'Make Hidden' button clicked.")
+        if not self.bluetooth_manager:
+            return
 
-            result = subprocess.run(
-                ["bluetoothctl", "discoverable", "off"],
-                capture_output=True, text=True, timeout=10
+        # Chiama la nuova funzione nel manager per disattivare la visibilità.
+        success = self.bluetooth_manager.set_discoverability(False)
+
+        if success:
+            QMessageBox.information(
+                self, "Bluetooth Hidden",
+                "The device is no longer discoverable."
             )
-
-            if result.returncode == 0:
-                QMessageBox.information(
-                    self, "Bluetooth Hidden",
-                    "Raspberry Pi is now hidden from Bluetooth discovery.\n"
-                    "Auto-pairing has been disabled."
-                )
-                self.update_discoverability_status()
-            else:
-                QMessageBox.warning(
-                    self, "Error",
-                    f"Failed to hide device: {result.stderr}"
-                )
-
-        except Exception as e:
+        else:
             QMessageBox.warning(
                 self, "Error",
-                f"Failed to hide device: {e}"
+                "Failed to hide the device. Check logs."
             )
+        
+        # Aggiorna subito lo stato dei pulsanti
+        self.update_discoverability_status()
+
 
     def set_device_name(self):
         """Set the Bluetooth device name."""
@@ -345,292 +292,7 @@ class BluetoothDialog(QDialog):
         keyboard = VirtualKeyboard(line_edit.text(), self)
         if keyboard.exec() == QDialog.DialogCode.Accepted:
             line_edit.setText(keyboard.get_text())
-
-    def setup_auto_pairing(self):
-        """Set up automatic pairing configuration."""
-        try:
-            # Use bluetoothctl commands to set up auto-pairing behavior
-            setup_commands = [
-                ["bluetoothctl", "power", "on"],  # Ensure power is on
-                ["bluetoothctl", "agent", "NoInputNoOutput"],  # Set auto-accept agent
-                ["bluetoothctl", "default-agent"],  # Make it default
-            ]
-
-            for cmd in setup_commands:
-                result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
-                if result.returncode == 0:
-                    print(f"Setup success: {' '.join(cmd)}")
-                else:
-                    print(f"Setup warning: {' '.join(cmd)} - {result.stderr}")
-
-            print("Bluetooth auto-pairing setup completed")
-
-        except Exception as e:
-            print(f"Error setting up auto-pairing: {e}")
-
-    def ensure_bluetooth_service(self):
-        """Ensure Bluetooth service is running and ready."""
-        try:
-            # Check if Bluetooth service is active
-            result = subprocess.run(
-                ["systemctl", "is-active", "bluetooth"],
-                capture_output=True, text=True, timeout=5
-            )
-
-            if result.stdout.strip() != "active":
-                print("Bluetooth service not active, starting...")
-                # Start Bluetooth service
-                start_result = subprocess.run(
-                    ["sudo", "systemctl", "start", "bluetooth"],
-                    capture_output=True, text=True, timeout=10
-                )
-
-                if start_result.returncode != 0:
-                    print(f"Failed to start Bluetooth service: {start_result.stderr}")
-                    return False
-
-                # Wait a moment for service to be ready
-                import time
-                time.sleep(2)
-
-            # Check if bluetoothctl is responsive
-            test_result = subprocess.run(
-                ["bluetoothctl", "show"],
-                capture_output=True, text=True, timeout=5
-            )
-
-            if test_result.returncode != 0:
-                print("bluetoothctl not responsive, restarting service...")
-                # Restart Bluetooth service
-                restart_result = subprocess.run(
-                    ["sudo", "systemctl", "restart", "bluetooth"],
-                    capture_output=True, text=True, timeout=15
-                )
-
-                if restart_result.returncode == 0:
-                    # Wait for service to be ready
-                    import time
-                    time.sleep(3)
-                    print("Bluetooth service restarted successfully")
-                else:
-                    print(f"Failed to restart Bluetooth service: {restart_result.stderr}")
-                    return False
-
-            return True
-
-        except Exception as e:
-            print(f"Error ensuring Bluetooth service: {e}")
-            return False
-
-    def ensure_audio_system(self):
-        """Ensure PulseAudio is running for Bluetooth audio."""
-        try:
-            # Check if PulseAudio is running
-            result = subprocess.run(
-                ["pactl", "info"],
-                capture_output=True, text=True, timeout=5
-            )
-
-            if result.returncode != 0:
-                print("Starting PulseAudio...")
-                # Try to start PulseAudio
-                subprocess.run(["pulseaudio", "--start"], timeout=10)
-
-                # Wait and check again
-                import time
-                time.sleep(2)
-
-                check_result = subprocess.run(
-                    ["pactl", "info"],
-                    capture_output=True, text=True, timeout=5
-                )
-
-                if check_result.returncode == 0:
-                    print("PulseAudio started successfully")
-                else:
-                    print("Warning: PulseAudio may not be running properly")
-            else:
-                print("PulseAudio is already running")
-
-        except Exception as e:
-            print(f"Error ensuring audio system: {e}")
-
-    def start_simple_auto_pair(self):
-        """Start a simple auto-pairing process."""
-        try:
-            # Create a simple auto-pairing script
-            script_content = '''#!/bin/bash
-# Simple Bluetooth auto-pairing
-
-echo "Starting simple auto-pairing..."
-
-# Set up agent for auto-accept
-bluetoothctl agent NoInputNoOutput &
-sleep 1
-
-# Monitor for 60 seconds for pairing events
-timeout 60 bluetoothctl | while read line; do
-    echo "BT: $line"
-
-    # Auto-accept any confirmation requests
-    if [[ "$line" == *"Confirm passkey"* ]] || [[ "$line" == *"Request confirmation"* ]]; then
-        echo "yes"
-    fi
-
-    # Trust any newly connected devices
-    if [[ "$line" == *"Connected: yes"* ]]; then
-        mac=$(echo "$line" | grep -oE '([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})')
-        if [ ! -z "$mac" ]; then
-            bluetoothctl trust "$mac" &
-        fi
-    fi
-done &
-
-echo "Auto-pairing monitor started for 60 seconds"
-'''
-
-            # Write and execute the script
-            with open('/tmp/simple_autopair.sh', 'w') as f:
-                f.write(script_content)
-
-            subprocess.run(["chmod", "+x", "/tmp/simple_autopair.sh"], timeout=5)
-            subprocess.Popen(["/tmp/simple_autopair.sh"],
-                           stdout=subprocess.DEVNULL,
-                           stderr=subprocess.DEVNULL)
-
-            print("Simple auto-pairing started")
-
-        except Exception as e:
-            print(f"Error starting simple auto-pair: {e}")
-
-    def trust_all_paired_devices(self):
-        """Trust all currently paired devices."""
-        try:
-            # Get list of paired devices
-            result = subprocess.run(
-                ["bluetoothctl", "devices", "Paired"],
-                capture_output=True, text=True, timeout=10
-            )
-
-            if result.returncode == 0:
-                for line in result.stdout.strip().split('\n'):
-                    if line.startswith('Device '):
-                        # Extract MAC address
-                        parts = line.split()
-                        if len(parts) >= 2:
-                            mac_address = parts[1]
-                            print(f"Trusting paired device: {mac_address}")
-
-                            # Trust the device
-                            subprocess.run(
-                                ["bluetoothctl", "trust", mac_address],
-                                capture_output=True, timeout=5
-                            )
-
-                            # Try to connect
-                            subprocess.run(
-                                ["bluetoothctl", "connect", mac_address],
-                                capture_output=True, timeout=10
-                            )
-
-        except Exception as e:
-            print(f"Error trusting paired devices: {e}")
-
-    def start_auto_trust_monitor(self):
-        """Start monitoring for new devices to automatically trust them."""
-        try:
-            # Create a more effective auto-trust and pairing script
-            script_content = '''#!/bin/bash
-# Enhanced auto-trust and pairing script for Bluetooth devices
-
-# Set up agent for auto-pairing
-bluetoothctl agent NoInputNoOutput
-bluetoothctl default-agent 2>/dev/null || true
-
-echo "Auto-trust monitor started. Monitoring for new devices..."
-
-while true; do
-    # Monitor bluetoothctl for pairing requests and new devices
-    timeout 10 bluetoothctl | while read -r line; do
-        echo "BT Event: $line"
-
-        # Handle pairing requests
-        if [[ "$line" == *"Request confirmation"* ]] || [[ "$line" == *"Request passkey"* ]] || [[ "$line" == *"Request PIN"* ]]; then
-            echo "Auto-accepting pairing request"
-            echo "yes" | bluetoothctl
-        fi
-
-        # Handle new device discovery
-        if [[ "$line" == *"NEW"* && "$line" == *"Device"* ]]; then
-            mac_address=$(echo "$line" | grep -oE '([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})')
-            if [ ! -z "$mac_address" ]; then
-                echo "New device detected: $mac_address"
-                sleep 1
-                bluetoothctl trust "$mac_address"
-                bluetoothctl pair "$mac_address" &
-            fi
-        fi
-
-        # Handle connection events
-        if [[ "$line" == *"Device"* && "$line" == *"Connected: yes"* ]]; then
-            mac_address=$(echo "$line" | grep -oE '([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})')
-            if [ ! -z "$mac_address" ]; then
-                echo "Device connected: $mac_address - ensuring trust"
-                bluetoothctl trust "$mac_address"
-            fi
-        fi
-    done
-
-    # Also periodically check all devices and trust them
-    bluetoothctl devices | while read -r line; do
-        if [[ "$line" == Device* ]]; then
-            mac_address=$(echo "$line" | awk '{print $2}')
-
-            # Check if device is trusted
-            trusted_status=$(bluetoothctl info "$mac_address" 2>/dev/null | grep "Trusted:" | awk '{print $2}')
-
-            if [[ "$trusted_status" == "no" ]]; then
-                echo "Trusting device: $mac_address"
-                bluetoothctl trust "$mac_address"
-            fi
-        fi
-    done
-
-    # Wait before next check
-    sleep 3
-done
-'''
-
-            # Write the monitoring script
-            with open('/tmp/auto_trust.sh', 'w') as f:
-                f.write(script_content)
-
-            # Make it executable and run it in background
-            subprocess.run(["chmod", "+x", "/tmp/auto_trust.sh"], timeout=5)
-            subprocess.Popen(["/tmp/auto_trust.sh"],
-                           stdout=subprocess.DEVNULL,
-                           stderr=subprocess.DEVNULL)
-
-            print("Enhanced auto-trust monitor started")
-
-        except Exception as e:
-            print(f"Error starting auto-trust monitor: {e}")
-
-    def stop_auto_trust_monitor(self):
-        """Stop the auto-trust monitoring script."""
-        try:
-            # Kill any running auto_trust.sh processes
-            subprocess.run(["pkill", "-f", "auto_trust.sh"],
-                         capture_output=True, timeout=5)
-
-            # Remove the script file
-            subprocess.run(["rm", "-f", "/tmp/auto_trust.sh"], timeout=5)
-
-            print("Auto-trust monitor stopped")
-
-        except Exception as e:
-            print(f"Error stopping auto-trust monitor: {e}")
-
+    
     def scan_devices(self):
         """Scan for Bluetooth devices (placeholder)."""
         QMessageBox.information(
@@ -643,7 +305,6 @@ done
         """Clean up when dialog is closed."""
         if hasattr(self, 'update_timer'):
             self.update_timer.stop()
-        # Don't stop auto-trust monitor on dialog close - let it run in background
         super().closeEvent(event)
 
 
@@ -760,7 +421,6 @@ class WiFiDialog(QDialog):
         # Trigger status update in manager
         self.wifi_manager.update_status()
 
-    @pyqtSlot(bool)
     def on_wifi_status_changed(self, enabled):
         """Handle WiFi status change."""
         self.wifi_status_label.setText("Enabled" if enabled else "Disabled")
@@ -770,7 +430,6 @@ class WiFiDialog(QDialog):
         self.connect_button.setEnabled(enabled)
         self.refresh_button.setEnabled(enabled)
 
-    @pyqtSlot(list)
     def on_networks_updated(self, networks):
         """Handle networks list update."""
         self.networks_list.clear()
@@ -790,7 +449,6 @@ class WiFiDialog(QDialog):
             item.setData(Qt.ItemDataRole.UserRole, network)
             self.networks_list.addItem(item)
 
-    @pyqtSlot(bool, str)
     def on_connection_changed(self, connected, ssid):
         """Handle connection status change."""
         if connected:
