@@ -34,76 +34,297 @@ rpi_car_infotainment/
 - RPi.GPIO - For Raspberry Pi GPIO access
 - yt-dlp - For downloading music (not included in requirements.txt)
 
-## Installation
+## Installation on Raspberry Pi OS Lite
 
-### 1. Clone the Repository
+### 1. Update and install packages
 ```bash
-git clone https://github.com/giulio177/rpi_car_infotainment.git
-cd rpi_car_infotainment
+sudo apt update
+sudo apt full-upgrade -y
 ```
 
 ### 2. Install System Dependencies
 
-#### For Raspberry Pi OS with Desktop
 ```bash
-sudo apt-get update
-sudo apt-get install python3-pyqt6 python3-pip
+sudo apt install -y \
+    git \
+    python3-venv \
+    python3-pyqt6 \
+    qt6-base-dev \
+    qt6-tools-dev \
+    build-essential \
+    alsa-utils \
+    libspa-0.2-bluetooth \
+    xserver-xorg-core \
+    xinit
 ```
 
-#### For Raspberry Pi OS Lite (Minimal Installation)
+### 3. Clone Repository
 ```bash
-sudo apt-get update
-sudo apt-get install -y python3-venv python3-pip xorg alsa-utils
-sudo apt-get install -y python3-pyqt6  # Install PyQt6 from apt
+# Go in the home directory
+cd /home/pi
+
+# Clone the specific branch 'stable-liteOS'
+git clone --branch stable-liteOS https://github.com/giulio177/rpi_car_infotainment.git
 ```
 
-### 3. Set Up Python Virtual Environment
+### 4. Set Up VENV
+
 ```bash
-# Create and activate virtual environment
-python3 -m venv venv
+cd /home/pi/rpi_car_infotainment
+python3 -m venv --system-site-packages venv
 source venv/bin/activate
+```
 
-# Install dependencies
+### 5. Install dependences
+
+```bash
 pip install -r requirements.txt
 
-# For music player functionality
-pip install pygame
+// Deactivate venv
+deactivate
+```
+```bash
+echo "dtoverlay=hifiberry-dac" | sudo tee -a /boot/firmware/config.txt
 
-# For RF tools
-pip install rpi-rf RPi.GPIO
+sudo sed -i 's/^dtparam=audio=on/#dtparam=audio=on/' /boot/firmware/config.txt
 
-# For music downloads (optional)
-pip install yt-dlp
+sudo sed -i '1 s/$/ logo.nologo quiet loglevel=3/' /boot/firmware/cmdline.txt
 ```
 
-### 4. Set Up Configuration
-The application uses a `config.json` file for configuration. If it doesn't exist, it will be created with default values. You can customize it according to your needs:
+Build volume controller software for PipeWire
+```bash
+sudo mkdir -p /etc/wireplumber/main.lua.d
+sudo nano /etc/wireplumber/main.lua.d/51-hifiberry-softvol.lua
+```
+Paste this
 
-```json
-{
-    "theme": "dark",                 # UI theme (dark/light)
-    "obd_port": null,                # OBD port (e.g., "/dev/ttyUSB0")
-    "obd_baudrate": null,            # OBD baudrate (e.g., 38400)
-    "obd_enabled": false,            # Enable OBD functionality
-    "radio_type": "none",            # Radio type
-    "radio_i2c_address": null,       # I2C address for radio
-    "radio_enabled": false,          # Enable radio functionality
-    "last_fm_station": 98.5,         # Last used FM station
-    "window_resolution": [1024, 600],# Window resolution
-    "show_cursor": false,            # Show cursor in UI
-    "position_bottom_right": true,   # Position window at bottom-right
-    "ui_scale_mode": "auto",         # UI scaling mode
-    "developer_mode": false,         # Enable developer features
-    "volume": 48                     # Default volume level
+
+
+### 6. Hardware configuration
+
+```bash
+echo "dtoverlay=hifiberry-dac" | sudo tee -a /boot/firmware/config.txt
+
+sudo sed -i 's/^dtparam=audio=on/#dtparam=audio=on/' /boot/firmware/config.txt
+
+sudo sed -i '1 s/$/ logo.nologo quiet loglevel=3/' /boot/firmware/cmdline.txt
+```
+
+Build volume controller software for PipeWire
+```bash
+sudo mkdir -p /etc/wireplumber/main.lua.d
+sudo nano /etc/wireplumber/main.lua.d/51-hifiberry-softvol.lua
+```
+
+Paste this:
+```lua
+rule = {
+  matches = {
+    {
+      { "node.name", "matches", "alsa_output.platform-soc*sound.stereo-fallback" },
+    },
+  },
+  apply_properties = {
+    ["api.alsa.soft-mixer"] = true,
+  },
 }
+table.insert(alsa_monitor.rules, rule)
 ```
+
+### 7. Automatic Bluetooth Connection Configuration 
+
+```bash
+sudo nano /usr/local/bin/bt-agent-simple.py
+```
+
+Paste this:
+```phyton
+#!/usr/bin/env python3
+
+import dbus
+import dbus.service
+import dbus.mainloop.glib
+from gi.repository import GLib
+
+AGENT_INTERFACE = 'org.bluez.Agent1'
+AGENT_PATH = '/test/agent'
+
+bus = None
+mainloop = None
+
+class Agent(dbus.service.Object):
+    exit_on_release = True
+
+    def set_exit_on_release(self, exit_on_release):
+        self.exit_on_release = exit_on_release
+
+    @dbus.service.method(AGENT_INTERFACE, in_signature="", out_signature="")
+    def Release(self):
+        print("Agent Release")
+        if self.exit_on_release:
+            if mainloop:
+                mainloop.quit()
+
+    @dbus.service.method(AGENT_INTERFACE, in_signature="o", out_signature="")
+    def RequestAuthorization(self, device):
+        print(f"RequestAuthorization for device {device}")
+        # Accetta automaticamente qualsiasi richiesta di autorizzazione
+        return
+
+    @dbus.service.method(AGENT_INTERFACE, in_signature="ou", out_signature="")
+    def RequestConfirmation(self, device, passkey):
+        print(f"RequestConfirmation for device {device} with passkey {passkey}")
+        # Accetta automaticamente qualsiasi richiesta di conferma (accoppiamento "Just Works")
+        return
+
+    @dbus.service.method(AGENT_INTERFACE, in_signature="os", out_signature="")
+    def RequestPinCode(self, device):
+        print(f"RequestPinCode for device {device}")
+        # Rifiuta esplicitamente le richieste di PIN
+        raise dbus.exceptions.DBusException('org.bluez.Error.Rejected', 'Pairing rejected: PIN code not supported')
+
+    @dbus.service.method(AGENT_INTERFACE, in_signature="o", out_signature="s")
+    def RequestPasskey(self, device):
+        print(f"RequestPasskey for device {device}")
+        # Rifiuta esplicitamente le richieste di passkey
+        raise dbus.exceptions.DBusException('org.bluez.Error.Rejected', 'Pairing rejected: Passkey not supported')
+
+    @dbus.service.method(AGENT_INTERFACE, in_signature="", out_signature="")
+    def Cancel(self):
+        print("Pairing Cancelled")
+
+def register_agent():
+    global bus
+    dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
+    bus = dbus.SystemBus()
+    
+    # La capacità "NoInputNoOutput" dice al sistema che non abbiamo né tastiera né display
+    capability = "NoInputNoOutput"
+
+    agent = Agent(bus, AGENT_PATH)
+    
+    try:
+        obj = bus.get_object('org.bluez', '/org/bluez')
+        manager = dbus.Interface(obj, 'org.bluez.AgentManager1')
+        
+        manager.RegisterAgent(AGENT_PATH, capability)
+        manager.RequestDefaultAgent(AGENT_PATH)
+        
+        print(f"Python Agent with '{capability}' capability registered successfully.")
+    except Exception as e:
+        print(f"Failed to register agent: {e}")
+        if mainloop:
+            mainloop.quit()
+
+if __name__ == '__main__':
+    try:
+        register_agent()
+        
+        global mainloop
+        mainloop = GLib.MainLoop()
+        mainloop.run()
+    except KeyboardInterrupt:
+        print("\nCaught KeyboardInterrupt. Unregistering agent...")
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+    finally:
+        if bus:
+            try:
+                obj = bus.get_object('org.bluez', '/org/bluez')
+                manager = dbus.Interface(obj, 'org.bluez.AgentManager1')
+                manager.UnregisterAgent(AGENT_PATH)
+                print("Agent unregistered.")
+            except Exception as e:
+                print(f"Failed to unregister agent: {e}")
+        
+        if mainloop and mainloop.is_running():
+            mainloop.quit()
+        
+        print("Script finished.")
+```
+
+```bash
+sudo chmod +x /usr/local/bin/bt-agent-simple.py
+```
+
+Make the systemd service
+```bash
+sudo nano /etc/systemd/system/bt-agent.service
+```
+Paste this:
+```ini
+[Unit]
+Description=Python Bluetooth Agent for NoInputNoOutput
+Requires=bluetooth.service
+After=bluetooth.service
+
+[Service]
+ExecStart=/usr/local/bin/bt-agent-simple.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=bluetooth.target
+```
+
+Enable it
+```bash
+sudo systemctl enable bt-agent.service
+```
+
+### 8. Configuration Auto Boot Application
+
+```bash
+echo "/home/pi/rpi_car_infotainment/scripts/start_infotainment.sh" > /home/pi/.xinitrc
+echo -e 'if [ -z "$DISPLAY" ] && [ "$(tty)" = "/dev/tty1" ]; then\n  startx\nfi' > /home/pi/.bash_profile
+
+sudo mkdir -p /etc/systemd/system/getty@.service.d
+sudo nano /etc/systemd/system/getty@.service.d/autologin.conf
+```
+Paste this:
+```ini
+[Service]
+ExecStart=
+ExecStart=-/sbin/agetty --autologin pi --noclear %I $TERM
+```
+
+Set correct permits
+```bash
+sudo chown pi:pi /home/pi/.xinitrc /home/pi/.bash_profile
+```
+
+### 9. Reboot and final configuration
+
+```bash
+sudo reboot
+alsamixer
+```
+Select the "snd_rpi_hifiberry_dac" DAC
+Set volume to 100% (it must show 00)
+Click ESC
+
+Save permanently the state of the volume
+```bash
+sudo alsactl store
+```
+
+Run 
+```bash
+amixer scontrols
+```
+to see the controller name (es. 'PCM',0).
+
+Make sure that backend/audio_manager.py use MIXER_CONTROL on that name.
+
+
+
+
+
+
+
+
 
 ## Running the Application
-
-### Normal Mode (with GUI)
-```bash
-python main.py
-```
 
 ### Using the Start Script (Minimal X Server)
 ```bash
