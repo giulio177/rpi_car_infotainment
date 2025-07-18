@@ -371,10 +371,37 @@ def get_light_theme(scale_factor=1.0):
         margin-bottom: {scaled_padding}px;
     }}
 
-    /* --- Special Buttons --- */
-    QPushButton#powerNavButton {{ background-color: #ff8080; border-color: #cc6666; outline: none; }}
-    QPushButton#powerNavButton:pressed {{ background-color: #e67373; }}
-    QPushButton#powerNavButton:focus {{ outline: none; border-color: #cc6666; }}
+    
+    /* --- Special Action Buttons --- */
+    /* Azioni a livello di APP (Grigio scuro, meno prominente) */
+    QPushButton#appActionButton {{
+        background-color: #a9a9a9; /* Dark Gray */
+        border-color: #808080; /* Gray */
+        outline: none;
+    }}
+    QPushButton#appActionButton:pressed {{
+        background-color: #696969; /* Dim Gray */
+    }}
+    QPushButton#appActionButton:focus {{
+        outline: none;
+        border-color: #808080;
+    }}
+
+    /* Azioni a livello di SISTEMA (Rosso, "pericoloso") */
+    QPushButton#systemActionButton {{
+        background-color: #ff8080; /* Rosso Chiaro */
+        border-color: #cc6666;
+        outline: none;
+    }}
+    QPushButton#systemActionButton:pressed {{
+        background-color: #e67373; /* Rosso più scuro quando premuto */
+    }}
+    QPushButton#systemActionButton:focus {{
+        outline: none;
+        border-color: #cc6666;
+    }}
+
+
 
     /* ==================== Dialog and Popup Styles ==================== */
     QMessageBox {{
@@ -871,11 +898,34 @@ def get_dark_theme(scale_factor=1.0):
         margin-bottom: {scaled_padding}px;
     }}
 
-    /* --- Special Buttons --- */
-    QPushButton#powerNavButton {{ background-color: #a04040; border-color: #803333; outline: none; }}
-    QPushButton#powerNavButton:pressed {{ background-color: #b35959; }}
-    QPushButton#powerNavButton:focus {{ outline: none; border-color: #803333; }}
+    /* --- Special Action Buttons --- */
+    /* Azioni a livello di APP (Grigio, si integra) */
+    QPushButton#appActionButton {{
+        background-color: #606060;
+        border-color: #787878;
+        outline: none;
+    }}
+    QPushButton#appActionButton:pressed {{
+        background-color: #707070;
+    }}
+    QPushButton#appActionButton:focus {{
+        outline: none;
+        border-color: #787878;
+    }}
 
+    /* Azioni a livello di SISTEMA (Rosso, "pericoloso") */
+    QPushButton#systemActionButton {{
+        background-color: #a04040; /* Rosso Scuro */
+        border-color: #803333;
+        outline: none;
+    }}
+    QPushButton#systemActionButton:pressed {{
+        background-color: #b35959; /* Rosso più chiaro quando premuto */
+    }}
+    QPushButton#systemActionButton:focus {{
+        outline: none;
+        border-color: #803333;
+    }}
     /* ==================== Dialog and Popup Styles ==================== */
     QMessageBox {{
         background-color: #2e2e2e;

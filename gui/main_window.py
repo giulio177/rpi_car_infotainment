@@ -130,7 +130,7 @@ class MainWindow(QMainWindow):
         # Add quit button in the middle
         self.header_quit_button = QPushButton()
         self.header_quit_button.setIcon(self.power_icon)
-        self.header_quit_button.setObjectName("headerQuitButton")
+        self.header_quit_button.setObjectName("appActionButton")
         self.header_quit_button.setToolTip("Exit Application")
         self.header_quit_button.clicked.connect(self.close)
         self.header_layout.addWidget(self.header_quit_button)
@@ -198,15 +198,15 @@ class MainWindow(QMainWindow):
 
         self.restart_button_bar = QPushButton()
         self.restart_button_bar.setIcon(self.restart_icon)
-        self.restart_button_bar.setObjectName("restartNavButton")
+        self.restart_button_bar.setObjectName("appActionButton")
         self.restart_button_bar.setToolTip("Restart Application")
         self.restart_button_bar.clicked.connect(self.restart_application)
 
         self.power_button = QPushButton()
-        self.power_button.setIcon(self.power_icon)
-        self.power_button.setObjectName("powerNavButton")
-        self.power_button.setToolTip("Shutdown Raspberry Pi")
-        self.power_button.clicked.connect(self.shutdown_system)
+        self.power_button.setIcon(self.restart_icon)
+        self.power_button.setObjectName("systemActionButton")
+        self.power_button.setToolTip("Reboot Raspberry Pi")
+        self.power_button.clicked.connect(self.reboot_system)
 
         # --- Network Control Buttons ---
         self.bluetooth_button = QPushButton()
@@ -888,6 +888,77 @@ class MainWindow(QMainWindow):
                 QApplication.quit()
         else:
             print("Restart cancelled by user.")
+
+    def reboot_system(self):
+        """Gracefully stops threads and reboots the Raspberry Pi."""
+        print("Attempting to reboot system...")
+        
+        # Aggiorna il messaggio di conferma per riflettere l'azione di riavvio
+        confirm = QMessageBox.warning(
+            self,
+            "Reboot Confirmation",  # Titolo aggiornato
+            "Are you sure you want to reboot the Raspberry Pi?", # Messaggio aggiornato
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+
+        if confirm == QMessageBox.StandardButton.Yes:
+            try:
+                # La logica per fermare i thread e salvare le impostazioni rimane la stessa,
+                # ed è una buona pratica anche prima di un riavvio.
+                
+                print("Stopping background threads before reboot...")
+                if hasattr(self, "radio_manager") and self.radio_manager.isRunning():
+                    self.radio_manager.stop()
+                    self.radio_manager.wait(1500)
+                if hasattr(self, "obd_manager") and self.obd_manager.isRunning():
+                    self.obd_manager.stop()
+                    self.obd_manager.wait(1500)
+                if hasattr(self, "bluetooth_manager") and self.bluetooth_manager.isRunning():
+                    self.bluetooth_manager.stop()
+                    self.bluetooth_manager.wait(1500)
+                if hasattr(self, "airplay_manager"):
+                    self.airplay_manager.cleanup()
+                print("Threads stopped.")
+
+                # Salva le impostazioni (identico a prima)
+                if hasattr(self, "radio_manager") and self.radio_manager.radio_type != "none":
+                    self.settings_manager.set(
+                        "last_fm_station", self.radio_manager.current_frequency
+                    )
+                if self.last_volume_level > 0:
+                    self.settings_manager.set("volume", self.last_volume_level)
+                elif self.volume_slider.value() == 0 and not self.is_muted:
+                    self.settings_manager.set("volume", 0)
+
+                print("Settings saved. Initiating system reboot...")
+
+                # Assicura che l'output sia scritto prima del riavvio
+                sys.stdout.flush()
+                sys.stderr.flush()
+
+                # ## MODIFICA CHIAVE: Comando di sistema per il riavvio ##
+                # Usa 'reboot' invece di 'shutdown -h now'
+                try:
+                    result = subprocess.run(["sudo", "reboot"], check=False)
+                    if result.returncode != 0:
+                        raise RuntimeError("Failed to execute reboot command. Please check sudo privileges.")
+                except Exception as e:
+                    print(f"Error executing reboot command: {e}")
+                    QMessageBox.critical(
+                        self, "Reboot Error", f"Could not reboot system:\n{e}\n\nClosing application instead."
+                    )
+                    self.close() # Fallback per chiudere l'app se il reboot fallisce
+
+            except Exception as e:
+                # Aggiorna i messaggi di errore
+                print(f"Error attempting to reboot system: {e}")
+                QMessageBox.critical(
+                    self, "Reboot Error", f"Could not reboot system:\n{e}\n\nClosing application instead."
+                )
+                self.close() # Fallback per chiudere l'app se il reboot fallisce
+        else:
+            print("Reboot cancelled by user.")
 
     def shutdown_system(self):
         """Gracefully stops threads and shuts down the Raspberry Pi."""

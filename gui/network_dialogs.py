@@ -179,9 +179,9 @@ class BluetoothDialog(QDialog):
         """
         print("Worker Thread: Starting removal of all Bluetooth devices...")
         try:
-            get_devices_command = "bluetoothctl devices"
+            get_devices_command = ["bluetoothctl", "devices"]
             result = subprocess.run(
-                get_devices_command, shell=True, check=True, capture_output=True, text=True, timeout=15
+                get_devices_command, check=True, capture_output=True, text=True, timeout=15
             )
             
             devices_output = result.stdout
@@ -193,11 +193,15 @@ class BluetoothDialog(QDialog):
             
             print(f"Worker Thread: Will remove these MACs: {mac_addresses}")
 
+            import re
+            mac_regex = re.compile(r"^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$")
             for mac in mac_addresses:
+                if not mac_regex.match(mac):
+                    print(f"Worker Thread: Skipping invalid MAC address: {mac}")
+                    continue
                 print(f"Worker Thread: Removing {mac}...")
-                remove_command = f"bluetoothctl remove {mac}"
                 subprocess.run(
-                    remove_command, shell=True, check=True, capture_output=True, text=True, timeout=15
+                    ["bluetoothctl", "remove", mac], check=True, capture_output=True, text=True, timeout=15
                 )
                 time.sleep(0.5)
             

@@ -2,6 +2,7 @@
 
 import subprocess
 import threading # Importato per le operazioni in background
+import psutil
 from PyQt6.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -24,6 +25,8 @@ from .styling import scale_value
 
 class SettingsScreen(QWidget):
     screen_title = "Settings"
+
+    info_updated = pyqtSignal(dict)
 
     def __init__(self, settings_manager, main_window_ref, parent=None):
         super().__init__(parent)
@@ -57,6 +60,26 @@ class SettingsScreen(QWidget):
         self.scroll_content_widget.setObjectName("settingsScrollContent")
         self.scroll_layout = QVBoxLayout(self.scroll_content_widget)
         # Spacing set by update_scaling
+
+        # ## NUOVO: Raspberry Pi Info Group (stabile) ##
+        self.pi_info_group = QGroupBox("Raspberry Pi Info")
+        self.pi_info_group.setObjectName("settingsPiInfoGroup")
+        self.pi_info_layout = QFormLayout()
+        self.pi_info_group.setLayout(self.pi_info_layout)
+
+        # Etichette per le informazioni
+        self.cpu_temp_label = QLabel("Loading...")
+        self.cpu_usage_label = QLabel("Loading...")
+        self.ram_usage_label = QLabel("Loading...")
+        self.uptime_label = QLabel("Loading...")
+
+        self.pi_info_layout.addRow("CPU Temperature:", self.cpu_temp_label)
+        self.pi_info_layout.addRow("CPU Usage:", self.cpu_usage_label)
+        self.pi_info_layout.addRow("RAM Usage:", self.ram_usage_label)
+        self.pi_info_layout.addRow("System Uptime:", self.uptime_label)
+        
+        # Aggiunto il nuovo gruppo al layout dello scroll
+        self.scroll_layout.addWidget(self.pi_info_group)
 
         # --- General Settings Group ---
         self.general_group = QGroupBox("General")
@@ -214,6 +237,66 @@ class SettingsScreen(QWidget):
         self.button_layout.addWidget(self.restart_button)
         self.button_layout.addStretch(1)
         self.main_layout.addLayout(self.button_layout)
+
+        # ## MODIFICATO: Collegamento del segnale e avvio del timer stabile ##
+        self.info_updated.connect(self.update_info_labels)
+        self.info_update_timer = QTimer(self)
+        self.info_update_timer.timeout.connect(self.start_info_update_thread)
+        self.info_update_timer.start(10000) # Aggiorna ogni 10 secondi per ridurre il carico
+        self.start_info_update_thread() # Chiamata iniziale
+
+    # ## NUOVO: Funzione per avviare il thread ##
+    def start_info_update_thread(self):
+        """Starts a background thread to fetch system info non-blockingly."""
+        update_thread = threading.Thread(target=self._get_system_info_worker)
+        update_thread.daemon = True # Il thread si chiuderà con l'app
+        update_thread.start()
+
+    # ## NUOVO: Funzione "Worker" che viene eseguita nel thread ##
+    def _get_system_info_worker(self):
+        """Fetches system info in a background thread and emits a signal."""
+        info = {}
+        try:
+            # Temperatura
+            temp_cmd = "awk '{printf \"%.1f°C\", $1/1000}' /sys/class/thermal/thermal_zone0/temp"
+            info['temp'] = subprocess.check_output(temp_cmd, shell=True, text=True).strip()
+        except Exception:
+            info['temp'] = "N/A"
+        
+        try:
+            # Utilizzo CPU (più affidabile con psutil)
+            cpu_percent = psutil.cpu_percent(interval=1)
+            info['cpu'] = f"{cpu_percent}%"
+        except Exception:
+            info['cpu'] = "N/A"
+            
+        try:
+            # Utilizzo RAM
+            ram_cmd = "free -m | grep Mem | awk '{print $3\" MB / \"$2\" MB\"}'"
+            info['ram'] = subprocess.check_output(ram_cmd, shell=True, text=True).strip()
+        except Exception:
+            info['ram'] = "N/A"
+            
+        try:
+            # Uptime
+            uptime_cmd = ["uptime", "-p"]
+            result = subprocess.run(uptime_cmd, capture_output=True, text=True)
+            info['uptime'] = result.stdout.strip().replace("up ", "")
+        except Exception:
+            info['uptime'] = "N/A"
+        
+        # Emette il segnale con i dati raccolti
+        self.info_updated.emit(info)
+
+    # ## NUOVO: Slot per aggiornare la UI in modo sicuro ##
+    @pyqtSlot(dict)
+    def update_info_labels(self, info):
+        """Updates the UI labels with data from the background thread."""
+        self.cpu_temp_label.setText(info.get('temp', 'Error'))
+        self.cpu_usage_label.setText(info.get('cpu', 'Error'))
+        self.ram_usage_label.setText(info.get('ram', 'Error'))
+        self.uptime_label.setText(info.get('uptime', 'Error'))
+
 
     def update_scaling(self, scale_factor, scaled_main_margin):
         """Applies scaling to internal layouts."""

@@ -2,7 +2,7 @@
 
 # --- SCRIPT DI DEBUGGING PER CATTURARE TUTTO L'OUTPUT ---
 
-LOG_FILE="/tmp/infotainment_boot.log"
+LOG_FILE="/home/pi/rpi_car_infotainment/docs/infotainment_boot.log"
 
 # Pulisci il log precedente ad ogni avvio
 echo "" > $LOG_FILE
