@@ -1,6 +1,8 @@
 # gui/network_dialogs.py
 
 import subprocess
+import threading
+import time
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
     QListWidget, QLineEdit, QCheckBox, QMessageBox,
@@ -19,23 +21,19 @@ class BluetoothDialog(QDialog):
         self.setWindowTitle("Bluetooth Settings")
         self.setModal(True)
         self.resize(600, 500)
-
-        # Apply consistent theming
         self.setObjectName("networkDialog")
 
         self.setup_ui()
         self.update_status()
 
-        # Update timer
         self.update_timer = QTimer()
         self.update_timer.timeout.connect(self.update_status)
-        self.update_timer.start(2000)  # Update every 2 seconds
+        self.update_timer.start(2000)
 
     def setup_ui(self):
         """Setup the Bluetooth dialog UI."""
         layout = QVBoxLayout(self)
 
-        # Title
         title_label = QLabel("Bluetooth Settings")
         title_label.setObjectName("dialogTitle")
         font = QFont()
@@ -44,25 +42,19 @@ class BluetoothDialog(QDialog):
         title_label.setFont(font)
         layout.addWidget(title_label)
 
-        # Status section
         status_group = QGroupBox("Status")
         status_layout = QFormLayout(status_group)
-
         self.status_label = QLabel("Checking...")
         self.connected_device_label = QLabel("None")
         self.battery_label = QLabel("N/A")
-
         status_layout.addRow("Bluetooth:", self.status_label)
         status_layout.addRow("Connected Device:", self.connected_device_label)
         status_layout.addRow("Battery Level:", self.battery_label)
-
         layout.addWidget(status_group)
 
-        # Discoverability controls section
-        discovery_group = QGroupBox("Discoverability")
+        discovery_group = QGroupBox("Device Control")
         discovery_layout = QVBoxLayout(discovery_group)
 
-        # Status display
         discovery_status_layout = QHBoxLayout()
         discovery_status_layout.addWidget(QLabel("Status:"))
         self.discovery_status_label = QLabel("Checking...")
@@ -70,19 +62,21 @@ class BluetoothDialog(QDialog):
         discovery_status_layout.addStretch()
         discovery_layout.addLayout(discovery_status_layout)
 
-        # Control buttons
-        discovery_buttons_layout = QHBoxLayout()
-        self.make_discoverable_button = QPushButton("Make Discoverable")
-        self.make_hidden_button = QPushButton("Make Hidden")
+        # ## MODIFICATO: Layout dei pulsanti di controllo ##
+        control_buttons_layout = QHBoxLayout()
+        
+        # Pulsante unico per discoverability
+        self.toggle_discoverability_button = QPushButton("Loading...")
+        self.toggle_discoverability_button.clicked.connect(self.toggle_discoverability)
+        control_buttons_layout.addWidget(self.toggle_discoverability_button)
 
-        self.make_discoverable_button.clicked.connect(self.make_discoverable)
-        self.make_hidden_button.clicked.connect(self.make_hidden)
+        # Pulsante per disconnettere tutti i dispositivi
+        self.disconnect_all_button = QPushButton("Disconnect All")
+        self.disconnect_all_button.clicked.connect(self.confirm_disconnect_all)
+        control_buttons_layout.addWidget(self.disconnect_all_button)
+        
+        discovery_layout.addLayout(control_buttons_layout)
 
-        discovery_buttons_layout.addWidget(self.make_discoverable_button)
-        discovery_buttons_layout.addWidget(self.make_hidden_button)
-        discovery_layout.addLayout(discovery_buttons_layout)
-
-        # Device name setting
         name_layout = QHBoxLayout()
         name_layout.addWidget(QLabel("Device Name:"))
         self.device_name_input = QLineEdit()
@@ -90,29 +84,20 @@ class BluetoothDialog(QDialog):
         self.device_name_input.mousePressEvent = lambda event: self.show_keyboard(self.device_name_input)
         self.set_name_button = QPushButton("Set Name")
         self.set_name_button.clicked.connect(self.set_device_name)
-
         name_layout.addWidget(self.device_name_input)
         name_layout.addWidget(self.set_name_button)
         discovery_layout.addLayout(name_layout)
-
         layout.addWidget(discovery_group)
 
-        # Device management section
         device_group = QGroupBox("Device Management")
         device_layout = QVBoxLayout(device_group)
-
-        # Scan button
         self.scan_button = QPushButton("Scan for Devices")
         self.scan_button.clicked.connect(self.scan_devices)
         device_layout.addWidget(self.scan_button)
-
-        # Device list (placeholder - would need more complex implementation)
         self.device_list = QListWidget()
         device_layout.addWidget(self.device_list)
-
         layout.addWidget(device_group)
 
-        # Close button
         close_button = QPushButton("Close")
         close_button.clicked.connect(self.accept)
         layout.addWidget(close_button)
@@ -122,93 +107,107 @@ class BluetoothDialog(QDialog):
         if not self.bluetooth_manager:
             return
 
-        # Update connection status
         connected = self.bluetooth_manager.connected_device_path is not None
         self.status_label.setText("Connected" if connected else "Disconnected")
 
-        # Update device info
         if connected:
             device_name = self.bluetooth_manager.connected_device_name
             self.connected_device_label.setText(device_name)
-
-            # Update battery
             battery = self.bluetooth_manager.current_battery
-            if battery is not None:
-                self.battery_label.setText(f"{battery}%")
-            else:
-                self.battery_label.setText("N/A")
+            self.battery_label.setText(f"{battery}%" if battery is not None else "N/A")
         else:
             self.connected_device_label.setText("None")
             self.battery_label.setText("N/A")
 
-        # Update discoverability status
         self.update_discoverability_status()
-
+    
+    # ## MODIFICATO: Logica di aggiornamento per il pulsante unico ##
     def update_discoverability_status(self):
-        """Update the discoverability status display using the BluetoothManager."""
+        """Update the discoverability status display and button."""
         if not self.bluetooth_manager:
             self.discovery_status_label.setText("Unknown (No Manager)")
+            self.toggle_discoverability_button.setEnabled(False)
             return
 
-        # Usa la nuova funzione del manager per controllare lo stato
         is_discoverable = self.bluetooth_manager.is_discoverable()
+        self.toggle_discoverability_button.setEnabled(True)
 
         if is_discoverable:
             self.discovery_status_label.setText("Discoverable")
-            self.make_discoverable_button.setEnabled(False)
-            self.make_hidden_button.setEnabled(True)
+            self.toggle_discoverability_button.setText("Make Hidden")
         else:
             self.discovery_status_label.setText("Hidden")
-            self.make_discoverable_button.setEnabled(True)
-            self.make_hidden_button.setEnabled(False)
-
-    def make_discoverable(self):
-        """Make the Raspberry Pi discoverable using the BluetoothManager."""
-        print("UI: 'Make Discoverable' button clicked.")
+            self.toggle_discoverability_button.setText("Make Discoverable")
+    
+    # ## NUOVO: Funzione unica per gestire il click del pulsante discoverability ##
+    def toggle_discoverability(self):
+        """Toggle the device's discoverability status."""
         if not self.bluetooth_manager:
             return
 
-        # Chiama la nuova funzione nel manager SENZA l'argomento timeout
-        success = self.bluetooth_manager.set_discoverability(True)
+        is_currently_discoverable = self.bluetooth_manager.is_discoverable()
+        # Esegui l'azione opposta allo stato attuale
+        success = self.bluetooth_manager.set_discoverability(not is_currently_discoverable)
 
-        if success:
-            QMessageBox.information(
-                self, "Bluetooth Discoverable",
-                "The device is now discoverable and ready to pair."
-            )
-        else:
-            QMessageBox.warning(
-                self, "Error",
-                "Failed to make the device discoverable. Check logs."
-            )
+        # Non è più necessario mostrare un pop-up, l'UI si aggiornerà da sola
+        if not success:
+            QMessageBox.warning(self, "Error", "Failed to change discoverability status. Check logs.")
         
-        # Aggiorna subito lo stato dei pulsanti
+        # Forza un aggiornamento immediato dell'UI
         self.update_discoverability_status()
 
-    def make_hidden(self):
-        """Make the Raspberry Pi hidden using the BluetoothManager."""
-        print("UI: 'Make Hidden' button clicked.")
-        if not self.bluetooth_manager:
-            return
+    # ## NUOVO: Funzioni per il pulsante "Disconnect All" ##
+    def confirm_disconnect_all(self):
+        """Show a confirmation dialog before disconnecting all devices."""
+        reply = QMessageBox.question(
+            self, "Confirm Action",
+            "Are you sure you want to make this Raspberry Pi forget all saved Bluetooth devices?\n"
+            "You will need to pair them again.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
 
-        # Chiama la nuova funzione nel manager per disattivare la visibilità.
-        success = self.bluetooth_manager.set_discoverability(False)
+        if reply == QMessageBox.StandardButton.Yes:
+            # Avvia la funzione in un thread separato per non bloccare la GUI
+            thread = threading.Thread(target=self._disconnect_all_devices_worker)
+            thread.start()
 
-        if success:
-            QMessageBox.information(
-                self, "Bluetooth Hidden",
-                "The device is no longer discoverable."
+    def _disconnect_all_devices_worker(self):
+        """
+        Worker function to remove all known Bluetooth devices.
+        This runs in a background thread.
+        """
+        print("Worker Thread: Starting removal of all Bluetooth devices...")
+        try:
+            get_devices_command = "bluetoothctl devices"
+            result = subprocess.run(
+                get_devices_command, shell=True, check=True, capture_output=True, text=True, timeout=15
             )
-        else:
-            QMessageBox.warning(
-                self, "Error",
-                "Failed to hide the device. Check logs."
-            )
-        
-        # Aggiorna subito lo stato dei pulsanti
-        self.update_discoverability_status()
+            
+            devices_output = result.stdout
+            if not devices_output.strip():
+                print("Worker Thread: No known devices found.")
+                return
+
+            mac_addresses = [line.split()[1] for line in devices_output.strip().split('\n')]
+            
+            print(f"Worker Thread: Will remove these MACs: {mac_addresses}")
+
+            for mac in mac_addresses:
+                print(f"Worker Thread: Removing {mac}...")
+                remove_command = f"bluetoothctl remove {mac}"
+                subprocess.run(
+                    remove_command, shell=True, check=True, capture_output=True, text=True, timeout=15
+                )
+                time.sleep(0.5)
+            
+            print("Worker Thread: All devices removed successfully.")
+
+        except Exception as e:
+            print(f"Worker Thread: An error occurred during device removal: {e}")
 
 
+    # Le altre funzioni (set_device_name, show_keyboard, ecc.) rimangono invariate...
     def set_device_name(self):
         """Set the Bluetooth device name."""
         name = self.device_name_input.text().strip()

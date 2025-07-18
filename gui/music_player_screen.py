@@ -266,10 +266,11 @@ class MusicPlayerScreen(QWidget):
         self.is_local_playback = False
 
         # --- Create default album art ---
-        self.default_album_art = QPixmap(
-            self.base_album_art_size, self.base_album_art_size
-        )
-        self.default_album_art.fill(Qt.GlobalColor.darkGray)
+        self.default_album_art = QPixmap("assets/default_album_art.png")
+        if self.default_album_art.isNull():
+            # Create a default album art if the file doesn't exist
+            self.default_album_art = QPixmap(100, 100)
+            self.default_album_art.fill(Qt.GlobalColor.lightGray)
 
         # --- Create media player for local files ---
         self.media_player = PygameMediaPlayer()

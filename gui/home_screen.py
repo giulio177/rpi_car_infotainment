@@ -57,7 +57,7 @@ class HomeScreen(QWidget):
         if self.default_album_art.isNull():
             # Create a default album art if the file doesn't exist
             self.default_album_art = QPixmap(100, 100)
-            self.default_album_art.fill(Qt.GlobalColor.lightGray)
+            self.default_album_art.fill(Qt.GlobalColor.darkGray)
 
         # --- Main Layout (Vertical) ---
         self.main_layout = QVBoxLayout(self)

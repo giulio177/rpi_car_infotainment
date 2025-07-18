@@ -1,5 +1,7 @@
 # gui/setting_screen.py
 
+import subprocess
+import threading # Importato per le operazioni in background
 from PyQt6.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -15,7 +17,7 @@ from PyQt6.QtWidgets import (
     QScrollArea,
     QCheckBox,
 )
-from PyQt6.QtCore import QTimer, QDateTime, pyqtSlot, Qt
+from PyQt6.QtCore import QTimer, QDateTime, pyqtSlot, Qt, pyqtSignal
 
 from .styling import scale_value
 
