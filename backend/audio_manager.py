@@ -1,26 +1,114 @@
 # backend/audio_manager.py
 
 import subprocess
-import re  # Regular expressions for parsing amixer output
+import re
+from PyQt6.QtCore import QObject, QThread, pyqtSignal, Qt, pyqtSlot
+
+# Importa le tue funzioni che fanno le chiamate di rete
 from .media_info import get_album_art, get_lyrics
 
 
-class AudioManager:
+# Questa classe farà il lavoro bloccante in un thread separato.
+class MetadataWorker(QObject):
+    # Segnale per comunicare i risultati: (url_copertina, testo_canzone)
+    finished = pyqtSignal(str, str)
+
+    def __init__(self):
+        super().__init__()
+
+    @pyqtSlot(str, str)
+    def do_work(self, title, artist):
+        """
+        Questo è lo slot che riceve il lavoro da fare.
+        Contiene le chiamate di rete bloccanti.
+        """
+        print(f"[Worker Thread] Ricevuto lavoro: {artist} - {title}")
+        
+        cover_url = get_album_art(title, artist)
+        lyrics = get_lyrics(title, artist)
+        
+        # Emette i risultati quando ha finito
+        self.finished.emit(cover_url, lyrics)
+
+
+class AudioManager(QObject):
     """
     Manages system audio by controlling the default PipeWire mixer ('Master')
     using the 'amixer' command-line utility.
     """
     
+    # Segnale per dire al worker di iniziare a lavorare
+    start_work = pyqtSignal(str, str)
+
+    # Nuovo segnale che l'AudioManager emetterà quando i dati sono pronti
+    metadata_ready = pyqtSignal(str, str)
+
     # Come hai scoperto, il controllo creato da PipeWire si chiama "Master".
     MIXER_CONTROL = "Master"
-    def get_media_info(self, title, artist):
-        """Get album art and lyrics for a song"""
-        if not title or not artist or title == "---" or artist == "---":
-            return None, "No lyrics available"
 
-        cover_url = get_album_art(title, artist)
-        lyrics = get_lyrics(title, artist)
-        return cover_url, lyrics
+    def __init__(self):
+        super().__init__()
+        
+        # --- Creazione del thread e del worker una sola volta ---
+        self.worker_thread = QThread()
+        self.worker = MetadataWorker()
+        
+        # Sposta il worker sul thread
+        self.worker.moveToThread(self.worker_thread)
+        
+        # --- Connessioni permanenti ---
+        # 1. Quando diciamo al worker di partire, lui esegue do_work
+        self.start_work.connect(self.worker.do_work)
+        
+        # 2. Quando il worker finisce, i suoi risultati vengono emessi dal segnale di AudioManager
+        self.worker.finished.connect(self.metadata_ready)
+        
+        # 3. Gestisci la pulizia quando l'applicazione si chiude
+        self.worker_thread.finished.connect(self.worker.deleteLater)
+        
+        # Avvia il thread. Rimarrà in attesa di lavoro.
+        self.worker_thread.start()
+        print("[AudioManager] Worker thread avviato e in attesa di lavoro.")
+
+
+    # Questo metodo ora è asincrono. Ritorna immediatamente.
+    def request_media_info(self, title, artist):
+        """
+        Avvia il recupero dei metadati in un thread separato.
+        Questa versione è stata resa più robusta per prevenire crash
+        quando le richieste avvengono in rapida successione.
+        """
+        # Se un thread precedente è ancora in esecuzione, fermalo.
+        # Questo è fondamentale per quando l'utente cambia canzone velocemente.
+        if hasattr(self, 'thread') and self.thread is not None and self.thread.isRunning():
+            print("[AudioManager] Un thread precedente è attivo. Lo fermo prima di avviare quello nuovo.")
+            self.worker.stop()
+            self.thread.quit()
+            self.thread.wait() # Attendi che termini completamente.
+
+    def request_media_info(self, title, artist):
+        """
+        Invia un nuovo lavoro al worker esistente.
+        Questa funzione è ora molto semplice e sicura.
+        """
+        # Emette un segnale per dire al worker di iniziare a lavorare con i nuovi dati.
+        # Questa operazione è asincrona e non blocca nulla.
+        self.start_work.emit(title, artist)
+
+    def cleanup(self):
+        """Metodo da chiamare alla chiusura dell'app per pulire il thread."""
+        print("[AudioManager] Pulizia del worker thread...")
+        if self.worker_thread.isRunning():
+            self.worker_thread.quit()
+            self.worker_thread.wait(2000) # Attendi max 2 secondi
+
+    def on_worker_finished(self, cover_url, lyrics):
+        """
+        Questo slot viene eseguito quando il worker ha finito.
+        Emette il segnale pubblico che la UI sta ascoltando.
+        """
+        print("[AudioManager] Worker ha finito. Emetto il segnale metadata_ready.")
+        self.metadata_ready.emit(cover_url, lyrics)
 
     def _run_amixer_command(self, args):
         """Helper function to run amixer commands on the default card."""

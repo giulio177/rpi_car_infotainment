@@ -53,9 +53,16 @@ sudo apt install -y \
     qt6-tools-dev \
     build-essential \
     alsa-utils \
-    libspa-0.2-bluetooth \
+    pulseaudio \
+    pulseaudio-module-bluetooth \
     xserver-xorg-core \
-    xinit
+    xinit \
+    libdbus-1-dev \
+    libglib2.0-dev \
+    python3-dev \
+    pkg-config \
+    ffmpeg \
+    python3-pydbus
 ```
 
 ### 3. Clone Repository
@@ -83,58 +90,40 @@ pip install -r requirements.txt
 // Deactivate venv
 deactivate
 ```
-```bash
-echo "dtoverlay=hifiberry-dac" | sudo tee -a /boot/firmware/config.txt
-
-sudo sed -i 's/^dtparam=audio=on/#dtparam=audio=on/' /boot/firmware/config.txt
-
-sudo sed -i '1 s/$/ logo.nologo quiet loglevel=3/' /boot/firmware/cmdline.txt
-```
-
-Build volume controller software for PipeWire
-```bash
-sudo mkdir -p /etc/wireplumber/main.lua.d
-sudo nano /etc/wireplumber/main.lua.d/51-hifiberry-softvol.lua
-```
-Paste this
-
 
 
 ### 6. Hardware configuration
 
+This is a critical step to ensure the HiFiBerry DAC works correctly and doesn't conflict with the onboard HDMI audio.
+
+
+Enable the HiFiBerry DAC overlay
 ```bash
 echo "dtoverlay=hifiberry-dac" | sudo tee -a /boot/firmware/config.txt
-
-sudo sed -i 's/^dtparam=audio=on/#dtparam=audio=on/' /boot/firmware/config.txt
-
-sudo sed -i '1 s/$/ logo.nologo quiet loglevel=3/' /boot/firmware/cmdline.txt
 ```
 
-Build volume controller software for PipeWire
+IMPORTANT: Completely disable the onboard HDMI audio to prevent conflicts
 ```bash
-sudo mkdir -p /etc/wireplumber/main.lua.d
-sudo nano /etc/wireplumber/main.lua.d/51-hifiberry-softvol.lua
+echo "dtparam=audio=off" | sudo tee -a /boot/firmware/config.txt
 ```
 
-Paste this:
-```lua
-rule = {
-  matches = {
-    {
-      { "node.name", "matches", "alsa_output.platform-soc*sound.stereo-fallback" },
-    },
-  },
-  apply_properties = {
-    ["api.alsa.soft-mixer"] = true,
-  },
-}
-table.insert(alsa_monitor.rules, rule)
+Add kernel parameters to hide boot messages and the cursor for a cleaner startup
+```bash
+sudo sed -i '1 s/$/ logo.nologo quiet loglevel=3 vt.global_cursor_default=0/' /boot/firmware/cmdline.txt
 ```
+
+Since we are using PulseAudio as the sound server, we must ensure it loads the necessary modules to discover and manage Bluetooth audio devices.
+This command appends the required configuration to the default PulseAudio script.
+```bash
+echo -e "\n# Load Bluetooth discovery and policy modules for A2DP Sink profile\nload-module module-bluetooth-policy\nload-module module-bluetooth-discover" | sudo tee -a /etc/pulse/default.pa
+```
+
+
 
 ### 7. Automatic Bluetooth Connection Configuration 
 
 ```bash
-sudo nano /usr/local/bin/bt-agent-simple.py
+sudo nano /usr/local/bin/bt-agent-rpi.py
 ```
 
 Paste this:
@@ -146,105 +135,86 @@ import dbus.service
 import dbus.mainloop.glib
 from gi.repository import GLib
 
-AGENT_INTERFACE = 'org.bluez.Agent1'
-AGENT_PATH = '/test/agent'
-
-bus = None
-mainloop = None
+AGENT_PATH = "/test/agent"
+AGENT_INTERFACE = "org.bluez.Agent1"
+CAPABILITY = "NoInputNoOutput"
 
 class Agent(dbus.service.Object):
-    exit_on_release = True
+    def __init__(self, bus, path):
+        super().__init__(bus, path)
+        self.bus = bus
+        print("Agent: Initialized")
 
-    def set_exit_on_release(self, exit_on_release):
-        self.exit_on_release = exit_on_release
+    def set_trusted(self, path):
+        try:
+            props = dbus.Interface(self.bus.get_object("org.bluez", path), "org.freedesktop.DBus.Properties")
+            props.Set("org.bluez.Device1", "Trusted", True)
+            print(f"Agent: Device {path} set to trusted")
+        except Exception as e:
+            print(f"Agent: Error setting trust for {path}: {e}")
 
     @dbus.service.method(AGENT_INTERFACE, in_signature="", out_signature="")
     def Release(self):
-        print("Agent Release")
-        if self.exit_on_release:
-            if mainloop:
-                mainloop.quit()
+        print("Agent: Released")
 
-    @dbus.service.method(AGENT_INTERFACE, in_signature="o", out_signature="")
-    def RequestAuthorization(self, device):
-        print(f"RequestAuthorization for device {device}")
-        # Accetta automaticamente qualsiasi richiesta di autorizzazione
-        return
+    @dbus.service.method(AGENT_INTERFACE, in_signature="o", out_signature="s")
+    def RequestPinCode(self, device):
+        print(f"Agent: RequestPinCode for {device}")
+        self.set_trusted(device)
+        return "0000"
+
+    @dbus.service.method(AGENT_INTERFACE, in_signature="o", out_signature="u")
+    def RequestPasskey(self, device):
+        print(f"Agent: RequestPasskey for {device}")
+        self.set_trusted(device)
+        return dbus.UInt32(0000)
+
+    @dbus.service.method(AGENT_INTERFACE, in_signature="ou", out_signature="")
+    def DisplayPasskey(self, device, passkey):
+        print(f"Agent: DisplayPasskey {passkey} for {device}")
+
+    @dbus.service.method(AGENT_INTERFACE, in_signature="os", out_signature="")
+    def DisplayPinCode(self, device, pincode):
+        print(f"Agent: DisplayPinCode {pincode} for {device}")
 
     @dbus.service.method(AGENT_INTERFACE, in_signature="ou", out_signature="")
     def RequestConfirmation(self, device, passkey):
-        print(f"RequestConfirmation for device {device} with passkey {passkey}")
-        # Accetta automaticamente qualsiasi richiesta di conferma (accoppiamento "Just Works")
+        print(f"Agent: RequestConfirmation for {device} with passkey {passkey}")
+        self.set_trusted(device)
+        return
+
+    @dbus.service.method(AGENT_INTERFACE, in_signature="o", out_signature="")
+    def RequestAuthorization(self, device):
+        print(f"Agent: RequestAuthorization for {device}")
+        self.set_trusted(device)
         return
 
     @dbus.service.method(AGENT_INTERFACE, in_signature="os", out_signature="")
-    def RequestPinCode(self, device):
-        print(f"RequestPinCode for device {device}")
-        # Rifiuta esplicitamente le richieste di PIN
-        raise dbus.exceptions.DBusException('org.bluez.Error.Rejected', 'Pairing rejected: PIN code not supported')
-
-    @dbus.service.method(AGENT_INTERFACE, in_signature="o", out_signature="s")
-    def RequestPasskey(self, device):
-        print(f"RequestPasskey for device {device}")
-        # Rifiuta esplicitamente le richieste di passkey
-        raise dbus.exceptions.DBusException('org.bluez.Error.Rejected', 'Pairing rejected: Passkey not supported')
+    def AuthorizeService(self, device, uuid):
+        print(f"Agent: AuthorizeService for {device} with UUID {uuid}")
+        self.set_trusted(device)
+        return
 
     @dbus.service.method(AGENT_INTERFACE, in_signature="", out_signature="")
     def Cancel(self):
-        print("Pairing Cancelled")
+        print("Agent: Cancelled")
 
-def register_agent():
-    global bus
+if __name__ == "__main__":
     dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
     bus = dbus.SystemBus()
-    
-    # La capacità "NoInputNoOutput" dice al sistema che non abbiamo né tastiera né display
-    capability = "NoInputNoOutput"
-
     agent = Agent(bus, AGENT_PATH)
     
-    try:
-        obj = bus.get_object('org.bluez', '/org/bluez')
-        manager = dbus.Interface(obj, 'org.bluez.AgentManager1')
-        
-        manager.RegisterAgent(AGENT_PATH, capability)
-        manager.RequestDefaultAgent(AGENT_PATH)
-        
-        print(f"Python Agent with '{capability}' capability registered successfully.")
-    except Exception as e:
-        print(f"Failed to register agent: {e}")
-        if mainloop:
-            mainloop.quit()
-
-if __name__ == '__main__':
-    try:
-        register_agent()
-        
-        global mainloop
-        mainloop = GLib.MainLoop()
-        mainloop.run()
-    except KeyboardInterrupt:
-        print("\nCaught KeyboardInterrupt. Unregistering agent...")
-    except Exception as e:
-        print(f"An unexpected error occurred: {e}")
-    finally:
-        if bus:
-            try:
-                obj = bus.get_object('org.bluez', '/org/bluez')
-                manager = dbus.Interface(obj, 'org.bluez.AgentManager1')
-                manager.UnregisterAgent(AGENT_PATH)
-                print("Agent unregistered.")
-            except Exception as e:
-                print(f"Failed to unregister agent: {e}")
-        
-        if mainloop and mainloop.is_running():
-            mainloop.quit()
-        
-        print("Script finished.")
+    obj = bus.get_object("org.bluez", "/org/bluez")
+    manager = dbus.Interface(obj, "org.bluez.AgentManager1")
+    manager.RegisterAgent(AGENT_PATH, CAPABILITY)
+    manager.RequestDefaultAgent(AGENT_PATH)
+    
+    print("Agent: Registered and running...")
+    GLib.MainLoop().run()
 ```
 
 ```bash
-sudo chmod +x /usr/local/bin/bt-agent-simple.py
+sudo chmod +x /usr/local/bin/bt-agent-rpi.py
 ```
 
 Make the systemd service
@@ -254,12 +224,12 @@ sudo nano /etc/systemd/system/bt-agent.service
 Paste this:
 ```ini
 [Unit]
-Description=Python Bluetooth Agent for NoInputNoOutput
+Description=Bluetooth Auto-Pairing Agent (RPi Car Infotainment)
 Requires=bluetooth.service
 After=bluetooth.service
 
 [Service]
-ExecStart=/usr/local/bin/bt-agent-simple.py
+ExecStart=/usr/local/bin/bt-agent-rpi.py
 Restart=always
 RestartSec=5
 
@@ -274,13 +244,20 @@ sudo systemctl enable bt-agent.service
 
 ### 8. Configuration Auto Boot Application
 
+This will configure the system to auto-login the pi user on the main console and immediately start the graphical infotainment application.
+
 ```bash
+# Create the .xinitrc file to tell the X server what to run
 echo "/home/pi/rpi_car_infotainment/scripts/start_infotainment.sh" > /home/pi/.xinitrc
+
+# Configure the user's profile to launch the X server on login
 echo -e 'if [ -z "$DISPLAY" ] && [ "$(tty)" = "/dev/tty1" ]; then\n  startx\nfi' > /home/pi/.bash_profile
 
-sudo mkdir -p /etc/systemd/system/getty@.service.d
-sudo nano /etc/systemd/system/getty@.service.d/autologin.conf
+# Create the systemd override for auto-login
+sudo mkdir -p /etc/systemd/system/getty@tty1.service.d
+sudo nano /etc/systemd/system/getty@tty1.service.d/autologin.conf
 ```
+
 Paste this:
 ```ini
 [Service]
@@ -288,15 +265,20 @@ ExecStart=
 ExecStart=-/sbin/agetty --autologin pi --noclear %I $TERM
 ```
 
-Set correct permits
+Set correct ownership for the new user files
 ```bash
 sudo chown pi:pi /home/pi/.xinitrc /home/pi/.bash_profile
 ```
+
 
 ### 9. Reboot and final configuration
 
 ```bash
 sudo reboot
+```
+
+After the reboot
+```bash
 alsamixer
 ```
 Select the "snd_rpi_hifiberry_dac" DAC
@@ -315,6 +297,7 @@ amixer scontrols
 to see the controller name (es. 'PCM',0).
 
 Make sure that backend/audio_manager.py use MIXER_CONTROL on that name.
+
 
 
 

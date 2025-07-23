@@ -276,6 +276,8 @@ class HomeScreen(QWidget):
         self.album_name_label.setText(album if album else "(Album Unknown)")
 
         # Update time label
+        duration_ms = track_info.get("Duration", 0)
+        position_ms = properties.get("Position", 0)
         pos_sec = position_ms // 1000
         dur_sec = duration_ms // 1000
         pos_str = f"{pos_sec // 60:02d}:{pos_sec % 60:02d}"
@@ -286,24 +288,7 @@ class HomeScreen(QWidget):
         if title != self.current_title or artist != self.current_artist:
             self.current_title = title
             self.current_artist = artist
-
-            # Only fetch album art if we have valid title and artist
-            if title != "---" and artist != "---" and self.main_window:
-                # Check if we have an audio_manager
-                if hasattr(self.main_window, "audio_manager"):
-                    cover_url, _ = self.main_window.audio_manager.get_media_info(
-                        title, artist
-                    )
-                    if cover_url:
-                        # Download album art
-                        request = QNetworkRequest(QUrl(cover_url))
-                        self.network_manager.get(request)
-                    else:
-                        # Use default album art if no cover URL is available
-                        self.album_art_label.setPixmap(self.default_album_art)
-                else:
-                    # Use default album art if no audio_manager is available
-                    self.album_art_label.setPixmap(self.default_album_art)
+            self.album_art_label.setPixmap(self.default_album_art)
 
     @pyqtSlot(str)
     def update_playback_status(self, status):
@@ -318,6 +303,26 @@ class HomeScreen(QWidget):
             # Clear info ONLY if stopped and track info is already present
             if status == "stopped" and self.track_title_label.text() != "---":
                 self.clear_media_info()
+
+    
+    @pyqtSlot(QPixmap)
+    def update_album_art(self, pixmap):
+        """
+        Questo slot riceve la copertina dell'album direttamente da un'altra schermata (es. MusicPlayerScreen).
+        """
+        print("[HomeScreen] Ricevuto segnale per aggiornare la copertina.")
+        if not pixmap.isNull():
+            # Ridimensiona il pixmap per adattarlo alla label della HomeScreen
+            # Usiamo self.album_art_label.size() per ottenere le dimensioni attuali,
+            # che potrebbero essere state modificate dallo scaling.
+            scaled_pixmap = pixmap.scaled(
+                self.album_art_label.size(), 
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+            self.album_art_label.setPixmap(scaled_pixmap)
+        else:
+            self.album_art_label.setPixmap(self.default_album_art)
 
     @pyqtSlot(int, int)
     def update_position(self, _position, _duration):

@@ -18,7 +18,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, QTimer, pyqtSlot, pyqtSignal, QUrl
 from PyQt6.QtGui import QPixmap
-from PyQt6.QtNetwork import QNetworkAccessManager, QNetworkRequest
+from PyQt6.QtNetwork import QNetworkAccessManager, QNetworkRequest, QNetworkReply
 import os
 import subprocess
 import threading
@@ -48,9 +48,15 @@ class PygameMediaPlayer:
             "position_changed": [],
             "duration_changed": [],
             "state_changed": [],
+            "song_finished": [],
         }
         self._playing = False
         self._current_file = None
+        self._seek_offset = 0
+
+    def songFinished(self, callback):
+        """Connect a callback to the song finished event."""
+        self._callbacks["song_finished"].append(callback)
 
     def setSource(self, url):
         """Set the source file to play."""
@@ -64,6 +70,8 @@ class PygameMediaPlayer:
             file_path = str(url)
 
         self._current_file = file_path
+
+        self._seek_offset = 0
 
         # Stop any current playback
         self.stop()
@@ -94,7 +102,14 @@ class PygameMediaPlayer:
 
         if self._current_file:
             try:
-                pygame.mixer.music.play()
+                # Se la canzone è in pausa (posizione > 0 e non sta suonando),
+                # usa unpause() per riprendere.
+                if self._position > 0 and not self._playing:
+                    pygame.mixer.music.unpause()
+                else:
+                    # Altrimenti, avviala dall'inizio.
+                    pygame.mixer.music.play()
+                
                 self._playing = True
 
                 # Start position tracking
@@ -108,7 +123,7 @@ class PygameMediaPlayer:
                 # Notify state change
                 for callback in self._callbacks["state_changed"]:
                     callback(1)  # 1 = playing (similar to QMediaPlayer.PlayingState)
-
+                
                 return True
             except Exception as e:
                 print(f"Error playing audio: {e}")
@@ -134,6 +149,7 @@ class PygameMediaPlayer:
             pygame.mixer.music.stop()
         self._playing = False
         self._position = 0
+        self._seek_offset = 0
 
         # Notify position change
         for callback in self._callbacks["position_changed"]:
@@ -144,18 +160,40 @@ class PygameMediaPlayer:
             callback(0)  # 0 = stopped (similar to QMediaPlayer.StoppedState)
 
     def setPosition(self, position):
-        """Set the playback position in milliseconds."""
-        if not self._mixer_available:
+        """
+        Sets the playback position robustly, handling both playing and paused states.
+        This method stops and restarts playback from the new position to ensure accuracy.
+        """
+        if not self._mixer_available or not self._current_file:
             return
 
-        if self._current_file:
-            position_seconds = position / 1000.0
-            pygame.mixer.music.set_pos(position_seconds)
-            self._position = position
+        # Memorizza lo stato di riproduzione attuale (se era in play o in pausa)
+        was_playing = self._playing
 
-            # Notify position change
-            for callback in self._callbacks["position_changed"]:
-                callback(position)
+        # Ferma la musica per garantire un "seek" pulito.
+        # Questo resetta il timer interno di pygame.mixer.music.get_pos().
+        pygame.mixer.music.stop()
+
+        # Imposta immediatamente la nostra variabile di posizione interna
+        self._position = position
+        self._seek_offset = position
+        position_seconds = position / 1000.0
+
+        # Riavvia la riproduzione dal nuovo punto usando il parametro 'start'.
+        # Questo comando funziona anche se intendiamo mettere in pausa subito dopo.
+        pygame.mixer.music.play(start=position_seconds)
+
+        # Se prima la musica NON era in riproduzione, mettila in pausa immediatamente.
+        # Questo gestisce il caso di spostamento dello slider mentre la musica è ferma.
+        if not was_playing:
+            pygame.mixer.music.pause()
+
+        # Ripristina lo stato di 'playing' a quello che era prima della chiamata
+        self._playing = was_playing
+
+        # Notifica a chi è in ascolto che la posizione è cambiata
+        for callback in self._callbacks["position_changed"]:
+            callback(self._position)
 
     def position(self):
         """Get the current playback position in milliseconds."""
@@ -174,18 +212,26 @@ class PygameMediaPlayer:
             # This is an approximation since pygame doesn't provide exact position
             elapsed_ms = pygame.mixer.music.get_pos()
             if elapsed_ms >= 0:
-                self._position = elapsed_ms
-
-                # Notify position change
+                # La posizione assoluta è l'offset + il tempo trascorso
+                self._position = self._seek_offset + elapsed_ms
+                
+                # Notifica la nuova posizione CORRETTA
                 for callback in self._callbacks["position_changed"]:
                     callback(self._position)
         else:
             # Check if playback has ended
+            # Controlla se la canzone è finita NATURALMENTE
             if self._playing and not pygame.mixer.music.get_busy():
+                print("[PygameMediaPlayer] La canzone è terminata.")
                 self._playing = False
                 self._position = 0
+                self._seek_offset = 0
 
-                # Notify state change
+                # Emetti il nostro nuovo segnale PRIMA di fare altro
+                for callback in self._callbacks["song_finished"]:
+                    callback()
+
+                # Poi, notifica il cambio di stato generico
                 for callback in self._callbacks["state_changed"]:
                     callback(0)  # 0 = stopped
 
@@ -221,6 +267,7 @@ class MusicPlayerScreen(QWidget):
     local_playback_started = pyqtSignal(dict)
     local_playback_status_changed = pyqtSignal(str)
     local_playback_position_changed = pyqtSignal(int, int)  # position, duration
+    album_art_updated = pyqtSignal(QPixmap)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -278,6 +325,7 @@ class MusicPlayerScreen(QWidget):
         # --- Connect media player signals ---
         self.media_player.positionChanged(self.update_position)
         self.media_player.durationChanged(self.update_duration)
+        self.media_player.songFinished(self.play_next_song)
 
         # --- Create main layout ---
         self.main_layout = QVBoxLayout(self)
@@ -481,7 +529,7 @@ class MusicPlayerScreen(QWidget):
         # --- Library file list ---
         self.library_list = QListWidget()
         self.library_list.setObjectName("libraryList")
-        self.library_list.itemDoubleClicked.connect(self.play_selected_file)
+        self.library_list.itemClicked.connect(self.play_selected_file)
         self.library_layout.addWidget(self.library_list)
 
         # --- Add widgets to stacked widget ---
@@ -505,6 +553,11 @@ class MusicPlayerScreen(QWidget):
         self.lyrics_button.setText("Show Lyrics")
         self.lyrics_scroll_area.setVisible(False)
         self.show_player()
+
+        # Connetti il segnale dell'AudioManager a uno slot in questa classe.
+        # Questo è il cuore della comunicazione asincrona.
+        if self.main_window and hasattr(self.main_window, "audio_manager"):
+            self.main_window.audio_manager.metadata_ready.connect(self.on_metadata_received)
 
     def update_scaling(self, scale_factor, margin):
         """Updates UI element sizes based on the current scale factor."""
@@ -575,6 +628,38 @@ class MusicPlayerScreen(QWidget):
             folder_name = os.path.basename(folder_path)
             self.library_title.setText(f"Music Library - {folder_name}")
 
+    @pyqtSlot()
+    def play_next_song(self):
+        """
+        Chiamato automaticamente quando una canzone finisce.
+        Riproduce la traccia successiva nella libreria, tornando alla prima se è l'ultima.
+        """
+        print("[MusicPlayerScreen] Canzone finita, avvio la successiva.")
+        
+        # Funziona solo se stiamo riproducendo dalla libreria locale
+        if not self.is_local_playback:
+            return
+
+        # Controlla se la libreria è vuota per evitare errori
+        num_tracks = self.library_list.count()
+        if num_tracks == 0:
+            return
+
+        # Calcola l'indice della prossima canzone usando l'operatore modulo.
+        # Questo gestisce automaticamente il "ritorno alla prima" (looping).
+        # Es: Se ci sono 5 canzoni (indici 0-4) e siamo alla 4,
+        # (4 + 1) % 5 = 5 % 5 = 0. Torna alla prima.
+        next_index = (self.current_playlist_index + 1) % num_tracks
+        
+        # Prendi l'elemento della lista corrispondente al nuovo indice
+        next_item = self.library_list.item(next_index)
+
+        # Se l'elemento esiste, riproducilo
+        if next_item:
+            print(f"Riproduco la traccia all'indice: {next_index}")
+            self.play_selected_file(next_item)
+
+
     def load_library_files(self):
         """Load music files from the music directory."""
         # Clear the current list
@@ -622,83 +707,63 @@ class MusicPlayerScreen(QWidget):
 
     def play_selected_file(self, item):
         """Play the selected music file from the library."""
+
         file_path = item.data(Qt.ItemDataRole.UserRole)
-        if file_path:
-            # Store current playlist index
-            self.current_playlist_index = self.library_list.row(item)
+        if not file_path:
+            return
 
-            # Set local playback flag
-            self.is_local_playback = True
+        # 1. Avvia la riproduzione (rimane uguale)
+        self.current_playlist_index = self.library_list.row(item)
+        self.is_local_playback = True
+        self.media_player.stop()
+        self.media_player.setSource(QUrl.fromLocalFile(file_path))
+        self.media_player.play()
+        self.btn_play_pause.setText("⏸")
 
-            # Stop any current playback
-            self.media_player.stop()
+        # --- Aggiornamento preliminare della UI (con valori locali) ---
+        filename = os.path.basename(file_path)
+        name_parts = os.path.splitext(filename)[0].split(" - ", 1)
+        artist, title = (name_parts[0], name_parts[1]) if len(name_parts) > 1 else ("Unknown Artist", name_parts[0])
 
-            # Set the new source
-            self.media_player.setSource(QUrl.fromLocalFile(file_path))
+        self.current_title = title
+        self.current_artist = artist
+        self.current_album = "Local File"
 
-            # Start playback
-            self.media_player.play()
+        self.track_title_label.setText(title)
+        self.track_artist_label.setText(artist)
+        self.album_name_label.setText("Local File")
+        
+        # Pulisci immediatamente le informazioni precedenti per evitare di mostrarle
+        self.album_art_label.setPixmap(self.default_album_art)
+        self.lyrics_content.setText("Loading lyrics...")
 
-            # Update UI
-            self.btn_play_pause.setText("⏸")
+        # --- CAMBIO DI SCHERMATA IMMEDIATO ---
+        # Questa è la modifica cruciale: torna al player senza attendere la rete.
+        self.show_player()
 
-            # Extract metadata from filename
-            filename = os.path.basename(file_path)
-            name_parts = os.path.splitext(filename)[0].split(" - ", 1)
+        # 4. MODIFICA CHIAVE: Avvia la richiesta asincrona
+        # Questa chiamata ritorna IMMEDIATAMENTE, non blocca nulla.
+        if self.main_window and hasattr(self.main_window, "audio_manager"):
+            self.main_window.audio_manager.request_media_info(title, artist)
 
-            if len(name_parts) > 1:
-                artist = name_parts[0]
-                title = name_parts[1]
-            else:
-                artist = "Unknown Artist"
-                title = name_parts[0]
+    @pyqtSlot(str, str)
+    def on_metadata_received(self, cover_url, lyrics):
+        """
+        Questo slot viene eseguito nel thread principale quando AudioManager
+        emette il segnale 'metadata_ready'. Aggiorna la UI in sicurezza.
+        """
+        print(f"[UI Thread] Ricevuti metadati. Aggiorno l'interfaccia.")
+        
+        self.current_lyrics = lyrics if lyrics else "No lyrics available"
+        self.parse_lyrics(self.current_lyrics)
+        self.update_lyrics_display()
 
-            # Update current track info
-            self.current_title = title
-            self.current_artist = artist
-            self.current_album = "Local File"
-
-            # Update display
-            self.track_title_label.setText(title)
-            self.track_artist_label.setText(artist)
-            self.album_name_label.setText("Local File")
-
-            # Fetch album art and lyrics
-            if self.main_window and hasattr(self.main_window, "audio_manager"):
-                cover_url, lyrics = self.main_window.audio_manager.get_media_info(
-                    title, artist
-                )
-
-                # Update lyrics
-                self.current_lyrics = lyrics if lyrics else "No lyrics available"
-                self.parse_lyrics(self.current_lyrics)
-                self.update_lyrics_display()
-
-                # Download album art
-                if cover_url:
-                    request = QNetworkRequest(QUrl(cover_url))
-                    self.network_manager.get(request)
-                else:
-                    # Use default album art if no cover URL is available
-                    self.album_art_label.setPixmap(self.default_album_art)
-
-            # Emit signal for local playback
-            track_info = {
-                "Track": {
-                    "Title": title,
-                    "Artist": artist,
-                    "Album": "Local File",
-                    "Duration": self.media_player.duration(),
-                },
-                "Position": self.media_player.position(),
-                "IsLocal": True,
-                "FilePath": file_path,
-            }
-            self.local_playback_started.emit(track_info)
-            self.local_playback_status_changed.emit("playing")
-
-            # Switch back to player view
-            self.show_player()
+        if cover_url:
+            request = QNetworkRequest(QUrl(cover_url))
+            self.network_manager.get(request)
+        else:
+            self.album_art_label.setPixmap(self.default_album_art)
+            self.album_art_updated.emit(self.default_album_art)
 
     def update_position(self, position):
         """Update the current position from the media player."""
@@ -739,21 +804,12 @@ class MusicPlayerScreen(QWidget):
         self._slider_drag_start_position = self.current_position_ms
 
     def seek_position(self, position):
-        """Seek to the position when the slider is moved."""
-        # This is called during slider movement
+        """
+        Chiamato MENTRE lo slider viene trascinato.
+        Aggiorna SOLO l'etichetta del tempo per un feedback visivo immediato e fluido.
+        Non esegue il "seek" audio per evitare scatti.
+        """
         self.current_time_label.setText(self.format_time(position))
-
-        # Always update the current position for UI purposes
-        self.current_position_ms = position
-
-        # Real-time seeking during drag for local playback
-        if self.is_local_playback:
-            # Update the media player position in real-time
-            self.media_player.setPosition(position)
-
-            # Update lyrics highlighting if lyrics view is active
-            if self.lyrics_view_active and self.lyrics_lines:
-                self.highlight_current_lyrics_line()
 
     def slider_value_changed(self, _):
         """Called when the slider value changes."""
@@ -764,25 +820,28 @@ class MusicPlayerScreen(QWidget):
                 self.highlight_current_lyrics_line()
 
     def slider_released(self):
-        """Set the position when the slider is released."""
-        position = self.time_slider.value()
+        """
+        Chiamato QUANDO l'utente rilascia lo slider.
+        Questo è il momento in cui eseguiamo il vero "seek".
+        """
+        # Prendi la posizione finale dello slider
+        new_position = self.time_slider.value()
 
-        # Always update the current position for UI purposes
-        self.current_position_ms = position
-
-        if (
-            self.main_window
-            and self.main_window.bluetooth_manager
-            and self.main_window.bluetooth_manager.media_player_path
-        ):
-            # For Bluetooth playback, we would need to implement seeking through D-Bus
-            # This is not implemented in the current BluetoothManager
-            print("Seeking in Bluetooth playback not implemented")
+        # Aggiorna la nostra variabile di posizione interna
+        self.current_position_ms = new_position
+        
+        # Chiama il nostro nuovo e robusto metodo setPosition
+        print(f"Slider rilasciato. Eseguo lo seek alla posizione: {new_position} ms")
+        if self.is_local_playback:
+            self.media_player.setPosition(new_position)
         else:
-            # For local playback
-            self.media_player.setPosition(position)
+            # Qui andrebbe la logica per il seek su Bluetooth, se implementata
+            print("Seek in modalità Bluetooth non supportato.")
 
-        # Update lyrics highlighting if lyrics view is active
+        # Aggiorna il testo del tempo per coerenza finale
+        self.current_time_label.setText(self.format_time(new_position))
+
+        # Aggiorna l'evidenziazione del testo della canzone, se attivo
         if self.lyrics_view_active and self.lyrics_lines:
             self.highlight_current_lyrics_line()
 
@@ -805,6 +864,9 @@ class MusicPlayerScreen(QWidget):
 
     def on_album_art_downloaded(self, reply):
         """Handle downloaded album art."""
+
+        pixmap_to_emit = self.default_album_art
+
         if reply.error() == QNetworkReply.NetworkError.NoError:
             data = reply.readAll()
             pixmap = QPixmap()
@@ -818,12 +880,14 @@ class MusicPlayerScreen(QWidget):
                     Qt.TransformationMode.SmoothTransformation,
                 )
                 self.album_art_label.setPixmap(scaled_pixmap)
+                pixmap_to_emit = scaled_pixmap
             else:
                 self.album_art_label.setPixmap(self.default_album_art)
         else:
             print(f"Error downloading album art: {reply.errorString()}")
             self.album_art_label.setPixmap(self.default_album_art)
         reply.deleteLater()
+        self.album_art_updated.emit(pixmap_to_emit)
 
     @pyqtSlot(dict)
     def update_media_info(self, properties):
@@ -1164,6 +1228,15 @@ class MusicPlayerScreen(QWidget):
             )
             return
 
+        # Check if FFmpeg is installed
+        if not self._is_ffmpeg_available():
+            QMessageBox.critical(
+                self,
+                "Conversion Tool Not Available",
+                "FFmpeg is not installed. It is required to convert songs to MP3 format.\n\nPlease install it with:\nsudo apt install ffmpeg",
+            )
+            return
+
         # Check if internet connection is available
         if not self._is_internet_available():
             QMessageBox.warning(
@@ -1206,6 +1279,21 @@ class MusicPlayerScreen(QWidget):
         except OSError:
             return False
 
+    def _is_ffmpeg_available(self):
+        """Check if FFmpeg is installed and available."""
+        try:
+            # Eseguiamo ffmpeg con -version, che ha sempre un codice di uscita 0
+            result = subprocess.run(
+                ["ffmpeg", "-version"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=2,
+            )
+            return result.returncode == 0
+        except (subprocess.SubprocessError, FileNotFoundError):
+            return False
+
     def _download_song_thread(self):
         """Background thread for downloading songs."""
         try:
@@ -1236,7 +1324,6 @@ class MusicPlayerScreen(QWidget):
                 "--default-search",
                 "ytsearch",
                 "--newline",  # Important for parsing progress
-                "--progress",
                 query,
             ]
 

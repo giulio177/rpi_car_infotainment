@@ -13,8 +13,8 @@ set -e
 # --- PERCORSI ASSOLUTI PER LA MASSIMA AFFIDABILITÀ CON SYSTEMD ---
 APP_DIR="/home/pi/rpi_car_infotainment"
 VENV_DIR="/home/pi/rpi_car_infotainment/venv"
-TOUCHSCREEN_DEVICE="/dev/input/touchscreen"  # È consigliato usare il link udev
-# TOUCHSCREEN_DEVICE="/dev/input/event1"   # Usa questo se non hai la regola udev
+# TOUCHSCREEN_DEVICE="/dev/input/touchscreen"  # È consigliato usare il link udev
+TOUCHSCREEN_DEVICE="/dev/input/event0"   # Usa questo se non hai la regola udev
 
 # In alternativa, puoi usare il percorso diretto (ma potrebbe cambiare al riavvio):
 # TOUCHSCREEN_DEVICE="/dev/input/event1"
@@ -42,7 +42,7 @@ start_application() {
     # Imposta la piattaforma Qt per usare:
     # - linuxfb: per disegnare direttamente sul display (framebuffer)
     # - evdev: per gestire l'input dal dispositivo touchscreen specificato
-    export QT_QPA_PLATFORM="linuxfb:evdev-touch-screen=${TOUCHSCREEN_DEVICE}"
+    export QT_QPA_PLATFORM="linuxfb:fb=/dev/fb0;evdev-touch-screen=${TOUCHSCREEN_DEVICE}"
 
     # Forza l'applicazione ad avviarsi in modalità fullscreen
     export QT_QPA_FB_FORCE_FULLSCREEN=1

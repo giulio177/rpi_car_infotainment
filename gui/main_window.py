@@ -311,6 +311,10 @@ class MainWindow(QMainWindow):
             self.home_screen.update_position
         )
 
+        self.music_player_screen.album_art_updated.connect(
+            self.home_screen.update_album_art
+        )
+
         # Connect AirPlay stream signals
         if hasattr(self.airplay_manager, 'show_stream_widget'):
             self.airplay_manager.show_stream_widget.connect(self.on_airplay_stream_widget)
@@ -1034,6 +1038,12 @@ class MainWindow(QMainWindow):
             self.settings_manager.set("volume", 0)
 
         print("Close event triggered. Stopping background threads...")
+
+        # Chiama il nuovo metodo di pulizia per l'AudioManager
+        if hasattr(self, "audio_manager"):
+            self.audio_manager.cleanup()
+
+            
         # Stop threads gracefully
         if hasattr(self, "radio_manager") and self.radio_manager.isRunning():
             self.radio_manager.stop()
