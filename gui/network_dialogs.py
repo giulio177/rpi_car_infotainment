@@ -6,7 +6,7 @@ import time
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
     QListWidget, QLineEdit, QCheckBox, QMessageBox,
-    QGroupBox, QFormLayout
+    QGroupBox, QFormLayout, QListWidgetItem
 )
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QFont

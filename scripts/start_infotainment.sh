@@ -19,6 +19,8 @@ TOUCHSCREEN_DEVICE="/dev/input/event0"   # Usa questo se non hai la regola udev
 # In alternativa, puoi usare il percorso diretto (ma potrebbe cambiare al riavvio):
 # TOUCHSCREEN_DEVICE="/dev/input/event1"
 
+LOG_FILE="/tmp/app_output.log"
+
 
 # --- FUNZIONI ---
 
@@ -47,10 +49,13 @@ start_application() {
     # Forza l'applicazione ad avviarsi in modalità fullscreen
     export QT_QPA_FB_FORCE_FULLSCREEN=1
 
+    # svuota log precedente (opzionale)
+    > "$LOG_FILE"
+
     # Esegui l'applicazione Python
     echo "Esecuzione di: $VENV_DIR/bin/python3 main.py"
     # --- MODIFICA CHIAVE: USA IL PERCORSO COMPLETO AL PYTHON DEL VENV ---
-    "$VENV_DIR/bin/python3" main.py
+    "$VENV_DIR/bin/python3" main.py 2>&1 | tee "$LOG_FILE"
 }
 
 

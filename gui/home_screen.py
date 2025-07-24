@@ -83,6 +83,7 @@ class HomeScreen(QWidget):
             ("Radio", "radio-icon.png"),
             ("Equalizer", "eq-icon.png"),
             ("Settings", "settings-icon.png"),
+            ("Logs", "logs-icon.png"),
         ]
 
         target_cols = 5
@@ -474,23 +475,25 @@ class HomeScreen(QWidget):
     def on_home_button_clicked(self, button_name):
         """Handle clicks on the main grid buttons and navigate."""
         print(f"Home button clicked: {button_name}")
+
         if self.main_window is not None and hasattr(self.main_window, "navigate_to"):
             if button_name == "OBD" and hasattr(self.main_window, "obd_screen"):
                 self.main_window.navigate_to(self.main_window.obd_screen)
+
             elif button_name == "Radio" and hasattr(self.main_window, "radio_screen"):
                 self.main_window.navigate_to(self.main_window.radio_screen)
-            elif button_name == "Settings" and hasattr(
-                self.main_window, "settings_screen"
-            ):
+
+            elif button_name == "Settings" and hasattr(self.main_window, "settings_screen"):
                 self.main_window.navigate_to(self.main_window.settings_screen)
-            elif button_name == "Music" and hasattr(
-                self.main_window, "music_player_screen"
-            ):
+
+            elif button_name == "Music" and hasattr(self.main_window, "music_player_screen"):
                 self.main_window.navigate_to(self.main_window.music_player_screen)
-            elif button_name == "Mirroring" and hasattr(
-                self.main_window, "airplay_screen"
-            ):
+                
+            elif button_name == "Mirroring" and hasattr(self.main_window, "airplay_screen"):
                 self.main_window.navigate_to(self.main_window.airplay_screen)
+            
+            elif button_name == "Logs" and hasattr(self.main_window, "logs_screen"):
+                self.main_window.navigate_to(self.main_window.logs_screen)
             # ... other navigation cases ...
             else:
                 print(f"No navigation action defined for: {button_name}")

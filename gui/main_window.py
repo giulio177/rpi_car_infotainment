@@ -28,7 +28,7 @@ from backend.audio_manager import AudioManager
 from backend.bluetooth_manager import BluetoothManager
 from backend.obd_manager import OBDManager
 from backend.radio_manager import RadioManager
-from backend.airplay_stream_manager import AirPlayStreamManager
+from backend.airplay_manager import AirPlayManager
 from backend.wifi_manager import WiFiManager
 
 # Import screens
@@ -38,6 +38,7 @@ from .obd_screen import OBDScreen
 from .setting_screen import SettingsScreen
 from .music_player_screen import MusicPlayerScreen
 from .airplay_screen import AirPlayScreen
+from .logs_screen import LogsScreen
 
 # Import network dialogs
 from .network_dialogs import BluetoothDialog, WiFiDialog
@@ -64,7 +65,8 @@ class MainWindow(QMainWindow):
         self.audio_manager = AudioManager()
         self.bluetooth_manager = BluetoothManager()
         self.wifi_manager = WiFiManager()
-        self.airplay_manager = AirPlayStreamManager(main_window=self)
+        self.airplay_manager = AirPlayManager()
+        
 
         # Flag for initial scaling
         self._has_scaled_correctly = False
@@ -256,13 +258,15 @@ class MainWindow(QMainWindow):
         self.settings_screen = SettingsScreen(self.settings_manager, self)
         self.music_player_screen = MusicPlayerScreen(parent=self)
         self.airplay_screen = AirPlayScreen(self.airplay_manager, parent=self)
+        self.logs_screen = LogsScreen(parent=self)
         self.all_screens = [
             self.home_screen,
             self.radio_screen,
             self.obd_screen,
             self.settings_screen,
             self.music_player_screen,
-            self.airplay_screen
+            self.airplay_screen,
+            self.logs_screen
         ]
 
         # --- Add Screens to Stack ---
@@ -1042,6 +1046,12 @@ class MainWindow(QMainWindow):
         # Chiama il nuovo metodo di pulizia per l'AudioManager
         if hasattr(self, "audio_manager"):
             self.audio_manager.cleanup()
+
+
+        if hasattr(self, "airplay_manager"):
+            print("Stopping AirPlay Manager...")
+            self.airplay_manager.cleanup()
+            print("AirPlay Manager stopped.")
 
             
         # Stop threads gracefully

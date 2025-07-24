@@ -7,9 +7,8 @@ pygame>=2.0.0
 psutil
 dbus-python
 pygame
-yt-dlp
+yt-dlp>=2023.3.4
 # Optional dependencies
 # rpi-rf>=0.9.7
 # RPi.GPIO>=0.7.0
-# yt-dlp>=2023.3.4
 # Added for process check to prevent multiple app instances

@@ -16,7 +16,9 @@ def scale_value(base_value, scale_factor):
         return 1
 
 
-BASE_SLIDER_THICKNESS = 15  # <<< --- ADJUSTED FOR 1024x600 RESOLUTION --- >>>
+BASE_SLIDER_THICKNESS = 25  # <<< --- ADJUSTED FOR 1024x600 RESOLUTION --- >>>
+
+SCROLL_BAR_WIDTH = 25 # spessore barra di scorrimento impostazioni e logs
 
 # --- Theme Functions accepting scale_factor ---
 
@@ -44,7 +46,7 @@ def get_light_theme(scale_factor=1.0):
     # Handle size based on groove thickness (e.g., 1.8x thickness, ensure minimum size)
     scaled_slider_handle_s = max(
         scaled_slider_thickness + scale_value(10, scale_factor),
-        scale_value(BASE_SLIDER_THICKNESS * 1.8, scale_factor),
+        scale_value(BASE_SLIDER_THICKNESS * 1.2, scale_factor),
     )  # Slightly smaller ratio?
     scaled_slider_handle_s = (
         int(math.ceil(scaled_slider_handle_s / 2.0)) * 2
@@ -54,7 +56,7 @@ def get_light_theme(scale_factor=1.0):
         -(scaled_slider_handle_s - scaled_slider_thickness) // 2
     )  # Vertical margin
     scaled_slider_handle_margin_h = (
-        scaled_slider_handle_s // 4
+        scaled_slider_handle_s // 20
     )  # Horizontal margin based on handle size (prevents clipping groove too much)
 
     # Generate QSS String
@@ -127,8 +129,7 @@ def get_light_theme(scale_factor=1.0):
         background: #e8e8e8;
         height: {scaled_slider_thickness}px; /* Use derived scaled thickness */
         border-radius: {scaled_slider_thickness // 2}px;
-        /* Adjust horizontal margin based on derived handle size to avoid clipping */
-        margin: 0px {scaled_slider_handle_margin_h}px;
+        margin: 0px {scaled_slider_handle_margin_h}px; /* Adjust horizontal margin based on derived handle size to avoid clipping */
     }}
     QSlider#volumeSlider::handle:horizontal, QSlider#timeSlider::handle:horizontal {{
         background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #7070ff, stop:1 #4040fa);
@@ -176,7 +177,7 @@ def get_light_theme(scale_factor=1.0):
     QScrollArea#settingsScrollArea {{ border: none; background-color: transparent; }}
     QScrollBar:vertical {{
         border: {scaled_border}px solid #c0c0c0; background: #e0e0e0;
-        width: {scale_value(14, scale_factor)}px; margin: 0px;
+        width: {scale_value(SCROLL_BAR_WIDTH, scale_factor)}px; margin: 0px;
     }}
     QScrollBar::handle:vertical {{
         background: #a0a0a0; min-height: {scale_value(30, scale_factor)}px;
@@ -342,6 +343,21 @@ def get_light_theme(scale_factor=1.0):
         border-radius: {scaled_border_radius}px;
         background-color: #f8f8f8;
     }}
+
+    /* --- Logs Screen --- */
+
+    QPlainTextEdit#logsText {{
+        font-size: {scale_value(base_font_size_pt, scale_factor)}pt;
+        padding: {scaled_padding}px;
+        line-height: 150%;
+        background-color: #f8f8f8;
+        color: #333333;
+    }}
+
+    QPlainTextEdit#logsText QScrollBar:vertical {{
+        width: {scale_value(SCROLL_BAR_WIDTH, scale_factor)}px;
+    }}
+
 
     /* --- AirPlay Screen (scroll area removed) --- */
 
@@ -581,13 +597,13 @@ def get_dark_theme(scale_factor=1.0):
     scaled_slider_thickness = scale_value(BASE_SLIDER_THICKNESS, scale_factor)
     scaled_slider_handle_s = max(
         scaled_slider_thickness + scale_value(10, scale_factor),
-        scale_value(BASE_SLIDER_THICKNESS * 1.8, scale_factor),
+        scale_value(BASE_SLIDER_THICKNESS * 1.2, scale_factor),
     )
     scaled_slider_handle_s = int(math.ceil(scaled_slider_handle_s / 2.0)) * 2
     scaled_slider_handle_margin_v = (
         -(scaled_slider_handle_s - scaled_slider_thickness) // 2
     )
-    scaled_slider_handle_margin_h = scaled_slider_handle_s // 4
+    scaled_slider_handle_margin_h = scaled_slider_handle_s // 20
 
     # Generate QSS String
     return f"""
@@ -655,7 +671,8 @@ def get_dark_theme(scale_factor=1.0):
     }}
 
     QSlider#volumeSlider::groove:horizontal, QSlider#timeSlider::groove:horizontal {{
-        border: {scaled_border}px solid #555555; background: #444444;
+        border: {scaled_border}px solid #555555; 
+        background: #444444;
         height: {scaled_slider_thickness}px;
         border-radius: {scaled_slider_thickness // 2}px;
         margin: 0px {scaled_slider_handle_margin_h}px; /* Use derived horizontal margin */
@@ -704,7 +721,7 @@ def get_dark_theme(scale_factor=1.0):
     QScrollArea#settingsScrollArea {{ border: none; background-color: transparent; }}
     QScrollBar:vertical {{
         border: {scaled_border}px solid #505050; background: #3a3a3a;
-        width: {scale_value(14, scale_factor)}px; margin: 0px;
+        width: {scale_value(SCROLL_BAR_WIDTH, scale_factor)}px; margin: 0px;
     }}
     QScrollBar::handle:vertical {{
         background: #686868; min-height: {scale_value(30, scale_factor)}px;
@@ -868,6 +885,20 @@ def get_dark_theme(scale_factor=1.0):
         border: {scaled_border}px solid #505050;
         border-radius: {scaled_border_radius}px;
         background-color: #383838;
+    }}
+
+    /* --- Logs Screen --- */
+
+    QPlainTextEdit#logsText {{
+        font-size: {scale_value(base_font_size_pt, scale_factor)}pt;
+        padding: {scaled_padding}px;
+        line-height: 150%;
+        background-color: #383838;
+        color: #e0e0e0;
+    }}
+
+    QPlainTextEdit#logsText QScrollBar:vertical {{
+        width: {scale_value(SCROLL_BAR_WIDTH, scale_factor)}px;
     }}
 
     /* --- AirPlay Screen (scroll area removed) --- */
