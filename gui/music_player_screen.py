@@ -530,7 +530,7 @@ class MusicPlayerScreen(QWidget):
         # Add reduced spacing between lyrics and bottom buttons
         self.player_layout.addSpacing(5)  # Reduced from default spacing
 
-        # --- Button Layout (only for progress bar now) ---
+        # --- Button Layout (progress bar) ---
         self.button_layout = QVBoxLayout()  # Vertical to accommodate progress bar
         self.button_layout.setSpacing(5)  # Reduced spacing between button row and progress bar
 
@@ -541,7 +541,7 @@ class MusicPlayerScreen(QWidget):
         self.download_progress_bar.setRange(0, 100)
         self.download_progress_bar.setValue(0)
         self.download_progress_bar.setTextVisible(True)
-        self.download_progress_bar.setFormat("Downloading... %p%")
+        self.download_progress_bar.setFormat("Downloading... %p%") # Explicitly set format
         self.download_progress_bar.setVisible(False)  # Hide initially
         self.download_progress_layout.addWidget(self.download_progress_bar)
 
@@ -580,6 +580,9 @@ class MusicPlayerScreen(QWidget):
         
         # --- Create Tab Widget ---
         self.library_tab_widget = QTabWidget()
+        # Apply system theme to the tab widget itself if possible, though often automatic.
+        # You can add custom stylesheet here if needed:
+        # self.library_tab_widget.setStyleSheet("QTabWidget::pane { border: 1px solid grey; }") 
         self.library_layout.addWidget(self.library_tab_widget)
 
         # --- Library Tab ---
@@ -595,6 +598,8 @@ class MusicPlayerScreen(QWidget):
         # --- Downloads Tab ---
         self.downloads_widget = QWidget()
         self.downloads_layout = QVBoxLayout(self.downloads_widget)
+        # Apply system theme to the tab content.
+        # The default behavior of QWidgets/QListWidgets should align with the system.
 
         # Queue Section
         self.queue_label = QLabel("Download Queue")
@@ -639,12 +644,13 @@ class MusicPlayerScreen(QWidget):
         self.show_player()
 
         # Connetti il segnale dell'AudioManager a uno slot in questa classe.
-        # Questo è il cuore della comunicazione asincrona.
         if self.main_window and hasattr(self.main_window, "audio_manager"):
             self.main_window.audio_manager.metadata_ready.connect(self.on_metadata_received)
             
         # Load download history
         self._load_download_history()
+        # Initial update of queue UI
+        self._update_queue_list_ui()
 
     def update_scaling(self, scale_factor, margin):
         """Updates UI element sizes based on the current scale factor."""
@@ -916,8 +922,7 @@ class MusicPlayerScreen(QWidget):
         if self.is_local_playback:
             self.media_player.setPosition(new_position)
         else:
-            # Qui andrebbe la logica per il seek su Bluetooth, se implementata
-            print("Seek in modalità Bluetooth non supportato.")
+            print("Seek in Bluetooth mode not supported.")
 
         # Aggiorna il testo del tempo per coerenza finale
         self.current_time_label.setText(self.format_time(new_position))
@@ -1004,11 +1009,7 @@ class MusicPlayerScreen(QWidget):
             if title != "---" and artist != "---" and self.main_window:
                 # Check if we have an audio_manager
                 if hasattr(self.main_window, "audio_manager"):
-                    cover_url, lyrics = self.main_window.audio_manager.get_media_info(
-                        title, artist
-                    )
-
-                    # Update lyrics
+                    cover_url, lyrics = self.main_window.audio_manager.get_media_info(title, artist)
                     self.current_lyrics = lyrics if lyrics else "No lyrics available"
                     self.parse_lyrics(self.current_lyrics)
                     self.update_lyrics_display()
@@ -1032,7 +1033,7 @@ class MusicPlayerScreen(QWidget):
             symbol_manager.update_button_symbol(self.btn_play_pause, "pause")
         elif status == "paused":
             symbol_manager.update_button_symbol(self.btn_play_pause, "play")
-        else:  # stopped, etc.
+        else:
             symbol_manager.update_button_symbol(self.btn_play_pause, "play")
             # Clear info ONLY if stopped and track info is already present
             if status == "stopped" and self.track_title_label.text() != "---":
@@ -1061,20 +1062,12 @@ class MusicPlayerScreen(QWidget):
             # Give lyrics area more stretch factor to take up more space
             # Remove and re-add with higher stretch factor
             self.player_layout.removeWidget(self.lyrics_scroll_area)
-            self.player_layout.addWidget(self.lyrics_scroll_area, 10)  # High stretch factor
-
-            # Style title for lyrics view (centered, compact)
+            self.player_layout.addWidget(self.lyrics_scroll_area, 10)
             self.track_title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.track_title_label.setStyleSheet(
-                "font-size: 14pt; font-weight: bold; margin-bottom: 5px; margin-top: 0px;"
-            )
-
-            # Make controls more compact in lyrics view
-            self.left_side_layout.setSpacing(1)  # Very tight spacing
-            self.track_info_layout.setSpacing(1)  # Very tight spacing
-            self.playback_layout.setSpacing(5)  # Compact media controls
-
-            # Highlight current lyrics line and scroll to it
+            self.track_title_label.setStyleSheet("font-size: 14pt; font-weight: bold; margin-bottom: 5px; margin-top: 0px;")
+            self.left_side_layout.setSpacing(1)
+            self.track_info_layout.setSpacing(1)
+            self.playback_layout.setSpacing(5)
             if self.lyrics_lines:
                 self.highlight_current_lyrics_line()
 
@@ -1097,9 +1090,7 @@ class MusicPlayerScreen(QWidget):
 
             # Reset stretch factor - remove and re-add with normal stretch
             self.player_layout.removeWidget(self.lyrics_scroll_area)
-            self.player_layout.addWidget(self.lyrics_scroll_area, 0)  # Normal stretch factor
-
-            # Reset title styling back to normal
+            self.player_layout.addWidget(self.lyrics_scroll_area, 0)
             self.track_title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.track_title_label.setStyleSheet("")
 
@@ -1112,12 +1103,7 @@ class MusicPlayerScreen(QWidget):
 
     def parse_lyrics(self, lyrics_text):
         """Parse lyrics into lines and estimate time positions."""
-        # Split lyrics into lines, filtering out empty lines
-        self.lyrics_lines = [
-            line.strip() for line in lyrics_text.split("\n") if line.strip()
-        ]
-
-        # Reset current line
+        self.lyrics_lines = [line.strip() for line in lyrics_text.split("\n") if line.strip()]
         self.current_lyrics_line = 0
 
         # Estimate time positions for each line (evenly distributed)
@@ -1137,7 +1123,6 @@ class MusicPlayerScreen(QWidget):
         # Find the current line based on playback position
         current_position = self.current_position_ms
         new_line = 0
-
         for i, position in enumerate(self.lyrics_line_positions):
             if current_position >= position:
                 new_line = i
@@ -1151,12 +1136,7 @@ class MusicPlayerScreen(QWidget):
             if self.lyrics_view_active:
                 # Get the scroll area viewport height
                 viewport_height = self.lyrics_scroll_area.viewport().height()
-
-                # Estimate line height (can be adjusted based on font size)
-                line_height = 30  # Increased for better spacing
-
-                # Calculate the position to scroll to (center the current line)
-                # We want the current line to be in the middle of the viewport
+                line_height = 30
                 middle_offset = viewport_height // 2
                 scroll_position = max(0, (self.current_lyrics_line * line_height) - middle_offset + (line_height // 2))
                 # Set the scroll position
@@ -1216,8 +1196,7 @@ class MusicPlayerScreen(QWidget):
             else:
                 self.main_window.bluetooth_manager.send_play()
         else:
-            # Handle local playback
-            if self.media_player._playing:  # Check if playing
+            if self.media_player._playing:
                 self.media_player.pause()
                 symbol_manager.update_button_symbol(self.btn_play_pause, "play")
                 if self.is_local_playback: self.local_playback_status_changed.emit("paused")
@@ -1269,14 +1248,22 @@ class MusicPlayerScreen(QWidget):
     def _process_download_queue(self):
         """Processes the next song in the queue if no download is active."""
         if self.current_download is None and self.download_queue:
-            self.current_download = self.download_queue[0]  # Peek at the next item
-            
             if not self._is_ytdlp_available() or not self._is_ffmpeg_available() or not self._is_internet_available():
                 reason = "yt-dlp/ffmpeg is not installed or no internet."
                 if not self._is_ytdlp_available(): reason = "yt-dlp is not installed. Please install it with: pip install yt-dlp"
                 elif not self._is_ffmpeg_available(): reason = "FFmpeg is not installed. Please install it on your system."
                 elif not self._is_internet_available(): reason = "No internet connection."
-                self.download_complete(False, self.current_download, reason)
+                
+                # If requirements not met, mark the first item as failed and process it.
+                song_to_fail = self.download_queue.popleft()
+                song_to_fail['status'] = 'Failed'
+                self.download_history.insert(0, {**song_to_fail, 'timestamp': datetime.datetime.now().isoformat(), 'error': reason})
+                self._save_download_history()
+                self._update_history_list_ui()
+                self._update_queue_list_ui() # Update queue to remove failed item
+                
+                QMessageBox.warning(self, "Download Requirement", reason)
+                self._process_download_queue() # Try to process the next item
                 return
 
             self.current_download = self.download_queue.popleft()
@@ -1294,9 +1281,11 @@ class MusicPlayerScreen(QWidget):
         """Refreshes the download queue list widget."""
         self.download_queue_list.clear()
         if self.current_download:
-            self.download_queue_list.addItem(f"{self.current_download['artist']} - {self.current_download['title']} [Downloading...]")
+            # Display currently downloading item first
+            self.download_queue_list.addItem(f"{self.current_download.get('artist', 'Unknown Artist')} - {self.current_download.get('title', 'Unknown Title')} [Downloading...]")
+        # Display remaining queued items
         for song in self.download_queue:
-            self.download_queue_list.addItem(f"{song['artist']} - {song['title']} [{song['status']}]")
+            self.download_queue_list.addItem(f"{song.get('artist', 'Unknown Artist')} - {song.get('title', 'Unknown Title')} [{song.get('status', 'Queued')}]")
 
     def _update_history_list_ui(self):
         """Refreshes the download history list widget."""
@@ -1306,17 +1295,30 @@ class MusicPlayerScreen(QWidget):
                 ts = datetime.datetime.fromisoformat(song.get('timestamp', '')).strftime('%Y-%m-%d %H:%M')
             except:
                 ts = "N/A"
-            self.download_history_list.addItem(f"{song['artist']} - {song['title']} (Downloaded: {ts})")
+            status_indicator = f"[{song.get('status', 'Unknown')}]" if song.get('status') != 'Completed' else ""
+            if song.get('status') == 'Failed':
+                status_indicator = f"[Failed: {song.get('error', 'Error')}]"
+            self.download_history_list.addItem(f"{song.get('artist', 'Unknown Artist')} - {song.get('title', 'Unknown Title')} {status_indicator} (Downloaded: {ts})")
 
     def _load_download_history(self):
         """Loads download history from a JSON file."""
         if not os.path.exists(self.history_file): return
         try:
             with open(self.history_file, 'r') as f:
-                self.download_history = json.load(f)
+                data = json.load(f)
+                # Ensure history is a list and items are dictionaries
+                if isinstance(data, list):
+                    self.download_history = [item for item in data if isinstance(item, dict)]
+                else:
+                    self.download_history = [] # Corrupted file, reset
             self._update_history_list_ui()
-        except (json.JSONDecodeError, IOError) as e:
-            print(f"Error loading download history: {e}")
+        except (json.JSONDecodeError, IOError, TypeError) as e:
+            print(f"Error loading download history: {e}. Resetting history.")
+            self.download_history = [] # Reset on error
+            # Optionally, delete corrupted file or log it
+            try: os.remove(self.history_file) 
+            except OSError: pass
+
 
     def _save_download_history(self):
         """Saves download history to a JSON file."""
@@ -1327,13 +1329,16 @@ class MusicPlayerScreen(QWidget):
             print(f"Error saving download history: {e}")
 
     def _is_ytdlp_available(self):
+        """Check if yt-dlp is installed and available."""
         try:
+            # Using capture_output=True for cleaner handling and check=True for error checking
             subprocess.run(["yt-dlp", "--version"], capture_output=True, check=True, timeout=2)
             return True
         except (subprocess.SubprocessError, FileNotFoundError):
             return False
 
     def _is_internet_available(self):
+        """Check if internet connection is available."""
         try:
             socket.create_connection(("8.8.8.8", 53), timeout=3)
             return True
@@ -1341,6 +1346,7 @@ class MusicPlayerScreen(QWidget):
             return False
 
     def _is_ffmpeg_available(self):
+        """Check if FFmpeg is installed and available."""
         try:
             subprocess.run(["ffmpeg", "-version"], capture_output=True, check=True, timeout=2)
             return True
@@ -1351,57 +1357,127 @@ class MusicPlayerScreen(QWidget):
         """Background thread for downloading songs."""
         try:
             query = f"{song_info['artist']} - {song_info['title']} audio"
+            # Create a safer filename by removing invalid characters
             safe_filename = "".join(c for c in f"{song_info['artist']} - {song_info['title']}" if c.isalnum() or c in " .-_").rstrip()
             output_path = os.path.join(self.music_dir, f"{safe_filename}.%(ext)s")
 
-            cmd = ["yt-dlp", "--extract-audio", "--audio-format", "mp3", "--audio-quality", "0",
-                   "--output", output_path, "--no-playlist", "--default-search", "ytsearch", "--newline", query]
+            expected_filepath = os.path.join(self.music_dir, f"{safe_filename}.mp3")
 
-            process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True, bufsize=1)
+            cmd = [
+                "yt-dlp",
+                "--extract-audio",
+                "--audio-format",
+                "mp3",
+                "--audio-quality",
+                "0",  # Best quality
+                "--output",
+                output_path,
+                "--no-playlist",
+                "--default-search",
+                "ytsearch",
+                "--newline",  # Important for parsing progress
+                query,
+            ]
+
+            process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                universal_newlines=True,
+                bufsize=1, # Line buffered
+            )
             
+            # Read output line by line to parse progress
             for line in iter(process.stdout.readline, ""):
                 if "[download]" in line and "%" in line:
                     try:
-                        percent = float(line.split("%")[0].split()[-1])
+                        # Extract percentage string and convert to float
+                        percent_str = line.split("%")[0].split()[-1]
+                        percent = float(percent_str)
+                        # Update progress bar in the main thread
                         QTimer.singleShot(0, lambda p=percent: self.update_progress(p))
                     except (ValueError, IndexError):
-                        pass
+                        # Ignore lines that don't parse correctly
+                        pass 
 
-            process.stdout.close()
-            if process.wait() == 0:
+            # Wait for process to finish and get return code
+            return_code = process.wait()
+
+            file_exists = os.path.exists(expected_filepath)
+
+            if return_code == 0 or file_exists:
+                # Download succeeded
                 self.download_complete(True, song_info)
             else:
-                self.download_complete(False, song_info, "Download process failed.")
+                # Download failed, try to get a more specific error message if possible
+                error_msg = f"yt-dlp exited with code {return_code}."
+                if return_code == 1: error_msg = "No suitable format found or content unavailable."
+                elif return_code == 2: error_msg = "Network error occurred."
+                elif return_code == 3: error_msg = "Copyright or terms of service violation."
+                elif return_code == 4: error_msg = "Download was interrupted."
+                elif return_code == 101: error_msg = "Configuration error."
+                elif return_code == 102: error_msg = "Internal error."
+                
+                self.download_complete(False, song_info, error_msg)
         except Exception as e:
-            self.download_complete(False, song_info, f"An error occurred: {e}")
+            # Catch any exceptions during thread execution
+            self.download_complete(False, song_info, f"An unexpected error occurred: {e}")
 
     def update_progress(self, percent):
-        """Update the progress bar (called from main thread)."""
+        """Update the progress bar value (called from main thread)."""
         self.download_progress_bar.setValue(int(percent))
 
     def download_complete(self, success, song_info, error_message=None):
-        """Called when download completes (from any thread)."""
+        """
+        Callback executed when the download thread finishes.
+        Schedules the UI update on the main thread.
+        """
         QTimer.singleShot(0, lambda: self._update_ui_after_download(success, error_message, song_info))
 
     def _update_ui_after_download(self, success, error_message, completed_song_info):
-        """Update UI after download (must be called on main thread)."""
+        """
+        Updates UI elements after download completion (must run on main thread).
+        Handles state changes, history logging, and queue processing.
+        """
         if success:
             self.download_progress_bar.setValue(100)
+            # Hide progress bar after a short delay
             QTimer.singleShot(2000, lambda: self.download_progress_bar.setVisible(False))
             
+            # Update status and log to history
             completed_song_info['status'] = 'Completed'
             completed_song_info['timestamp'] = datetime.datetime.now().isoformat()
+            self.download_history.insert(0, completed_song_info) # Add to beginning of history
+            self._save_download_history()
+            self._update_history_list_ui()
+
+            QMessageBox.information(self, "Download Complete", f"Successfully downloaded '{completed_song_info.get('title', 'Unknown Title')}'.")
+            
+            # Refresh library list if it's visible, so new file can be seen immediately
+            if self.stacked_widget.currentWidget() == self.library_widget:
+                # Select the correct tab first if needed (Downloads tab might be active)
+                current_tab_index = self.library_tab_widget.currentIndex()
+                if current_tab_index != 0: # 0 is the index for "My Library"
+                    self.library_tab_widget.setCurrentIndex(0) # Switch to Library tab
+                self.load_library_files() # Refresh the library
+
+        else:
+            # Download failed
+            self.download_progress_bar.setVisible(False) # Hide progress bar immediately
+            
+            QMessageBox.warning(self, "Download Failed", f"Failed to download '{completed_song_info.get('title', 'Unknown Title')}'.\n\nReason: {error_message}")
+            
+            # Update status to Failed in history
+            completed_song_info['status'] = 'Failed'
+            completed_song_info['timestamp'] = datetime.datetime.now().isoformat()
+            completed_song_info['error'] = error_message # Store error reason
             self.download_history.insert(0, completed_song_info)
             self._save_download_history()
             self._update_history_list_ui()
 
-            QMessageBox.information(self, "Download Complete", f"Successfully downloaded '{completed_song_info['title']}'.")
-            if self.stacked_widget.currentWidget() == self.library_widget:
-                self.load_library_files()
-        else:
-            self.download_progress_bar.setVisible(False)
-            QMessageBox.warning(self, "Download Failed", f"Failed to download '{completed_song_info['title']}'.\n\nReason: {error_message}")
-
+        # CRITICAL: Reset current_download to None to allow the next download to start
         self.current_download = None
+        # Update the UI to reflect the changed queue and processing state
         self._update_queue_list_ui()
+        # CRITICAL: Attempt to process the next item in the queue
         self._process_download_queue()
