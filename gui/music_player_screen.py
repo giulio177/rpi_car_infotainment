@@ -18,6 +18,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, QTimer, pyqtSlot, pyqtSignal, QUrl
 from PyQt6.QtGui import QPixmap
+from .symbol_manager import symbol_manager
 from PyQt6.QtNetwork import QNetworkAccessManager, QNetworkRequest, QNetworkReply
 import os
 import subprocess
@@ -341,14 +342,46 @@ class MusicPlayerScreen(QWidget):
         # --- Track if we're in lyrics view mode ---
         self.lyrics_view_active = False
 
-        # --- Create top section with album art and info ---
-        self.top_section = QHBoxLayout()
+        # --- Create main content section ---
+        self.main_content = QHBoxLayout()
 
-        # --- Track info and controls section (LEFT SIDE) ---
+        # --- Left navigation buttons (LEFTMOST) ---
+        self.left_nav_layout = QVBoxLayout()
+        self.left_nav_layout.setSpacing(5)
+
+        # Lyrics Button (vertical stack)
+        self.lyrics_button = QPushButton("Show Lyrics")
+        self.lyrics_button.setObjectName("lyricsButton")
+        self.lyrics_button.clicked.connect(self.toggle_lyrics_view)
+        self.lyrics_button.setFixedSize(100, 40)
+        self.left_nav_layout.addWidget(self.lyrics_button)
+
+        # Library Button (vertical stack)
+        self.library_button = QPushButton("Library")
+        self.library_button.setObjectName("libraryButton")
+        self.library_button.clicked.connect(self.show_library)
+        self.library_button.setFixedSize(100, 40)
+        self.left_nav_layout.addWidget(self.library_button)
+
+        # Add stretch to push buttons to top
+        self.left_nav_layout.addStretch(1)
+
+        # Add left nav to main content
+        self.main_content.addLayout(self.left_nav_layout)
+
+        # Add some spacing between nav buttons and content
+        self.main_content.addSpacing(10)
+
+        # --- Center content section ---
+        self.center_section = QHBoxLayout()
+
+        # --- Track info and controls section (LEFT SIDE OF CENTER) ---
         self.left_side_layout = QVBoxLayout()
+        self.left_side_layout.setSpacing(3)  # Reduced from 8 to 3
 
         # --- Track info section ---
         self.track_info_layout = QVBoxLayout()
+        self.track_info_layout.setSpacing(2)  # Reduced from 5 to 2
 
         # Album Label
         self.album_name_label = ScrollingLabel("(Album)")
@@ -356,11 +389,31 @@ class MusicPlayerScreen(QWidget):
         self.album_name_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.track_info_layout.addWidget(self.album_name_label)
 
+        # Title section with download button
+        self.title_section = QHBoxLayout()
+        self.title_section.setSpacing(5)  # Reduced from 8 to 5
+
+        # Add stretch to center the title and download button
+        self.title_section.addStretch(1)
+
         # Title Label
         self.track_title_label = ScrollingLabel()
         self.track_title_label.setObjectName("trackTitleLabel")
         self.track_title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.track_info_layout.addWidget(self.track_title_label)
+        self.title_section.addWidget(self.track_title_label)
+
+        # Download Button (bigger, next to title)
+        self.download_button = QPushButton()
+        self.download_button.setObjectName("downloadButton")
+        self.download_button.clicked.connect(self.download_current_song)
+        self.download_button.setFixedSize(40, 40)  # Bigger square button
+        symbol_manager.setup_button_symbol(self.download_button, "download")
+        self.title_section.addWidget(self.download_button)
+
+        # Add stretch to center the title and download button
+        self.title_section.addStretch(1)
+
+        self.track_info_layout.addLayout(self.title_section)
 
         # Artist Label
         self.track_artist_label = ScrollingLabel()
@@ -371,15 +424,21 @@ class MusicPlayerScreen(QWidget):
         # Add track info to left side
         self.left_side_layout.addLayout(self.track_info_layout)
 
-        # --- Playback Controls ---
+        # --- Playback Controls (centered to align with track info) ---
         self.playback_layout = QHBoxLayout()
-        self.btn_prev = QPushButton("<<")
-        self.btn_play_pause = QPushButton("▶")
-        self.btn_next = QPushButton(">>")
+        self.btn_prev = QPushButton()
+        self.btn_play_pause = QPushButton()
+        self.btn_next = QPushButton()
         self.btn_prev.setObjectName("mediaPrevButton")
         self.btn_play_pause.setObjectName("mediaPlayPauseButton")
         self.btn_next.setObjectName("mediaNextButton")
 
+        # Setup symbols using centralized symbol manager
+        symbol_manager.setup_button_symbol(self.btn_prev, "previous")
+        symbol_manager.setup_button_symbol(self.btn_play_pause, "play")
+        symbol_manager.setup_button_symbol(self.btn_next, "next")
+
+        # Center the media controls
         self.playback_layout.addStretch(1)
         self.playback_layout.addWidget(self.btn_prev)
         self.playback_layout.addWidget(self.btn_play_pause)
@@ -389,12 +448,10 @@ class MusicPlayerScreen(QWidget):
         # Add playback controls to left side
         self.left_side_layout.addLayout(self.playback_layout)
 
-        # Add left side layout to top section
-        self.top_section.addLayout(
-            self.left_side_layout, 1
-        )  # Give it stretch factor of 1
+        # Add left side layout to center section
+        self.center_section.addLayout(self.left_side_layout, 1)
 
-        # --- Album art section (RIGHT SIDE) ---
+        # --- Album art section (RIGHT SIDE OF CENTER) ---
         self.album_art_layout = QVBoxLayout()
         self.album_art_label = QLabel()
         self.album_art_label.setPixmap(self.default_album_art)
@@ -402,11 +459,17 @@ class MusicPlayerScreen(QWidget):
         self.album_art_label.setObjectName("albumArtLabel")
         self.album_art_layout.addWidget(self.album_art_label)
 
-        # --- Add album art to top section ---
-        self.top_section.addLayout(self.album_art_layout)
+        # Add album art to center section
+        self.center_section.addLayout(self.album_art_layout)
 
-        # --- Add top section to player layout ---
-        self.player_layout.addLayout(self.top_section)
+        # Add center section to main content
+        self.main_content.addLayout(self.center_section)
+
+        # --- Add main content to player layout ---
+        self.player_layout.addLayout(self.main_content)
+
+        # Add reduced spacing between playback controls and time slider
+        self.player_layout.addSpacing(5)  # Reduced from default spacing
 
         # --- Time Slider (below top section, full width) ---
         self.time_slider_layout = QHBoxLayout()
@@ -427,6 +490,9 @@ class MusicPlayerScreen(QWidget):
 
         # Add time slider to player layout (full width)
         self.player_layout.addLayout(self.time_slider_layout)
+
+        # Add reduced spacing between time slider and lyrics
+        self.player_layout.addSpacing(5)  # Reduced from default spacing
 
         # --- Lyrics Section ---
         self.lyrics_scroll_area = QScrollArea()
@@ -449,38 +515,12 @@ class MusicPlayerScreen(QWidget):
         # Initially hide the lyrics area until the user clicks the lyrics button
         self.lyrics_scroll_area.setVisible(False)
 
-        # --- Button Layout ---
+        # Add reduced spacing between lyrics and bottom buttons
+        self.player_layout.addSpacing(5)  # Reduced from default spacing
+
+        # --- Button Layout (only for progress bar now) ---
         self.button_layout = QVBoxLayout()  # Vertical to accommodate progress bar
-
-        # Button row - all buttons in one horizontal line
-        self.button_row = QHBoxLayout()
-
-        # Lyrics Button
-        self.lyrics_button = QPushButton("Show Lyrics")
-        self.lyrics_button.setObjectName("lyricsButton")
-        self.lyrics_button.clicked.connect(self.toggle_lyrics_view)
-        self.lyrics_button.setFixedWidth(120)
-        self.button_row.addWidget(self.lyrics_button)
-
-        # Library Button
-        self.library_button = QPushButton("Library")
-        self.library_button.setObjectName("libraryButton")
-        self.library_button.clicked.connect(self.show_library)
-        self.library_button.setFixedWidth(120)
-        self.button_row.addWidget(self.library_button)
-
-        # Download Button
-        self.download_button = QPushButton("Download")
-        self.download_button.setObjectName("downloadButton")
-        self.download_button.clicked.connect(self.download_current_song)
-        self.download_button.setFixedWidth(120)
-        self.button_row.addWidget(self.download_button)
-
-        # Add stretch to keep buttons compact
-        self.button_row.addStretch(1)
-
-        # Add button row to main button layout
-        self.button_layout.addLayout(self.button_row)
+        self.button_layout.setSpacing(5)  # Reduced spacing between button row and progress bar
 
         # Download Progress Bar
         self.download_progress_layout = QHBoxLayout()
@@ -571,13 +611,26 @@ class MusicPlayerScreen(QWidget):
         self.main_layout.setSpacing(scaled_spacing)
         self.player_layout.setSpacing(scaled_spacing)
         self.library_layout.setSpacing(scaled_spacing)
+        self.main_content.setSpacing(scaled_spacing)
+        self.center_section.setSpacing(scaled_spacing)
+        self.left_nav_layout.setSpacing(scaled_spacing)
 
         # Scale album art
         self.album_art_label.setFixedSize(scaled_album_art_size, scaled_album_art_size)
 
-        # Scale buttons
+        # Scale media control buttons
         for btn in [self.btn_prev, self.btn_play_pause, self.btn_next]:
             btn.setFixedSize(scaled_button_size, scaled_button_size)
+
+        # Scale navigation buttons (rectangular, stacked vertically)
+        nav_button_width = int(100 * scale_factor)
+        nav_button_height = int(40 * scale_factor)
+        for btn in [self.lyrics_button, self.library_button]:
+            btn.setFixedSize(nav_button_width, nav_button_height)
+
+        # Scale download button (bigger square)
+        download_button_size = int(40 * scale_factor)
+        self.download_button.setFixedSize(download_button_size, download_button_size)
 
     def show_player(self):
         """Switch to the player view."""
@@ -718,7 +771,7 @@ class MusicPlayerScreen(QWidget):
         self.media_player.stop()
         self.media_player.setSource(QUrl.fromLocalFile(file_path))
         self.media_player.play()
-        self.btn_play_pause.setText("⏸")
+        symbol_manager.update_button_symbol(self.btn_play_pause, "pause")
 
         # --- Aggiornamento preliminare della UI (con valori locali) ---
         filename = os.path.basename(file_path)
@@ -949,11 +1002,11 @@ class MusicPlayerScreen(QWidget):
     def update_playback_status(self, status):
         """Updates the play/pause button icon based on playback status."""
         if status == "playing":
-            self.btn_play_pause.setText("⏸")
+            symbol_manager.update_button_symbol(self.btn_play_pause, "pause")
         elif status == "paused":
-            self.btn_play_pause.setText("▶")
+            symbol_manager.update_button_symbol(self.btn_play_pause, "play")
         else:  # stopped, etc.
-            self.btn_play_pause.setText("▶")
+            symbol_manager.update_button_symbol(self.btn_play_pause, "play")
             # Clear info ONLY if stopped and track info is already present
             if status == "stopped" and self.track_title_label.text() != "---":
                 self.clear_media_info()
@@ -963,66 +1016,83 @@ class MusicPlayerScreen(QWidget):
         self.lyrics_view_active = not self.lyrics_view_active
 
         if self.lyrics_view_active:
-            # Switch to lyrics view
+            # Switch to lyrics view - show ONLY title, controls, slider, and lyrics
             self.lyrics_button.setText("Hide Lyrics")
 
-            # Hide all elements except title
-            self.album_art_label.setVisible(False)
-            self.album_name_label.setVisible(False)
-            self.track_artist_label.setVisible(False)
+            # Hide everything except essentials
+            self.album_art_label.hide()
+            self.album_name_label.hide()
+            self.track_artist_label.hide()
+            self.download_button.hide()
+            self.library_button.hide()
+            # Keep lyrics button visible so user can exit lyrics view
 
-            # Show lyrics and make it take up more space
+            # Show lyrics in full space
             self.lyrics_scroll_area.setVisible(True)
 
-            # Make lyrics scroll area fill the remaining space
+            # Set minimum height to make lyrics box much bigger
+            self.lyrics_scroll_area.setMinimumHeight(400)  # Force bigger minimum size
+            self.lyrics_scroll_area.setMaximumHeight(16777215)  # No max limit
             self.lyrics_scroll_area.setSizePolicy(
                 QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
             )
-            # Remove any fixed height constraints
-            self.lyrics_scroll_area.setMinimumHeight(0)
-            self.lyrics_scroll_area.setMaximumHeight(16777215)  # QWIDGETSIZE_MAX
 
-            # Move title to the button row
-            # First, remove it from its current layout
-            self.track_info_layout.removeWidget(self.track_title_label)
-            # Add it to the button row at the beginning
-            self.button_row.insertWidget(0, self.track_title_label)
-            # Style it appropriately
-            self.track_title_label.setAlignment(
-                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
-            )
+            # Give lyrics area more stretch factor to take up more space
+            # Remove and re-add with higher stretch factor
+            self.player_layout.removeWidget(self.lyrics_scroll_area)
+            self.player_layout.addWidget(self.lyrics_scroll_area, 10)  # High stretch factor
+
+            # Style title for lyrics view (centered, compact)
+            self.track_title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.track_title_label.setStyleSheet(
-                "font-size: 14pt; font-weight: bold; margin-right: 20px;"
+                "font-size: 14pt; font-weight: bold; margin-bottom: 5px; margin-top: 0px;"
             )
+
+            # Make controls more compact in lyrics view
+            self.left_side_layout.setSpacing(1)  # Very tight spacing
+            self.track_info_layout.setSpacing(1)  # Very tight spacing
+            self.playback_layout.setSpacing(5)  # Compact media controls
 
             # Highlight current lyrics line and scroll to it
             if self.lyrics_lines:
                 self.highlight_current_lyrics_line()
+
+            print("DEBUG: Switched to lyrics view - showing only title, controls, slider, and lyrics")
         else:
-            # Switch back to normal view
+            # Switch back to normal view - restore all elements
             self.lyrics_button.setText("Show Lyrics")
 
-            # Show all elements
-            self.album_art_label.setVisible(True)
-            self.album_name_label.setVisible(True)
-            self.track_artist_label.setVisible(True)
+            # Show all hidden elements
+            self.album_art_label.show()
+            self.album_name_label.show()
+            self.track_artist_label.show()
+            self.download_button.show()
+            self.library_button.show()
+
+            # Hide lyrics
             self.lyrics_scroll_area.setVisible(False)
 
-            # Reset lyrics scroll area size policy
+            # Reset lyrics scroll area constraints
+            self.lyrics_scroll_area.setMinimumHeight(0)  # Reset minimum height
+            self.lyrics_scroll_area.setMaximumHeight(16777215)
             self.lyrics_scroll_area.setSizePolicy(
                 QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred
             )
-            self.lyrics_scroll_area.setMinimumHeight(0)
-            self.lyrics_scroll_area.setMaximumHeight(16777215)  # QWIDGETSIZE_MAX
 
-            # Move title back to its original position
-            # First, remove it from the button row
-            self.button_row.removeWidget(self.track_title_label)
-            # Add it back to the track info layout at its original position (index 1)
-            self.track_info_layout.insertWidget(1, self.track_title_label)
-            # Reset alignment and style
+            # Reset stretch factor - remove and re-add with normal stretch
+            self.player_layout.removeWidget(self.lyrics_scroll_area)
+            self.player_layout.addWidget(self.lyrics_scroll_area, 0)  # Normal stretch factor
+
+            # Reset title styling back to normal
             self.track_title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.track_title_label.setStyleSheet("")
+
+            # Restore normal spacing
+            self.left_side_layout.setSpacing(3)  # Back to normal
+            self.track_info_layout.setSpacing(2)  # Back to normal
+            self.playback_layout.setSpacing(8)  # Back to normal
+
+            print("DEBUG: Switched to normal view - restored all elements")
 
     def parse_lyrics(self, lyrics_text):
         """Parse lyrics into lines and estimate time positions."""
@@ -1103,10 +1173,10 @@ class MusicPlayerScreen(QWidget):
         for i, line in enumerate(self.lyrics_lines):
             if i == self.current_lyrics_line:
                 # Highlight the current line with blue color, bold text, and larger font
-                html += f"<p style='color: #007bff; font-weight: bold; font-size: 120%; margin: 15px 0;'>{line}</p>"
+                html += f"<p style='color: #007bff; font-weight: bold; font-size: 140%; margin: 20px 0;'>{line}</p>"
             else:
-                # Add more spacing between lines for better readability
-                html += f"<p style='margin: 12px 0; color: #666666;'>{line}</p>"
+                # Add more spacing between lines for better readability - bigger font for bigger box
+                html += f"<p style='margin: 15px 0; color: #666666; font-size: 110%;'>{line}</p>"
 
         # Add padding at the bottom too
         html += "<div style='height: 100px;'></div>"
@@ -1161,12 +1231,12 @@ class MusicPlayerScreen(QWidget):
             # Handle local playback
             if self.media_player._playing:  # Check if playing
                 self.media_player.pause()
-                self.btn_play_pause.setText("▶")
+                symbol_manager.update_button_symbol(self.btn_play_pause, "play")
                 if self.is_local_playback:
                     self.local_playback_status_changed.emit("paused")
             else:
                 self.media_player.play()
-                self.btn_play_pause.setText("⏸")
+                symbol_manager.update_button_symbol(self.btn_play_pause, "pause")
                 if self.is_local_playback:
                     self.local_playback_status_changed.emit("playing")
 

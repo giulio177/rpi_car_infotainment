@@ -104,28 +104,47 @@ if __name__ == "__main__":
     target_height = resolution[1]
     logging.info(f"Impostazione dimensione finestra a: {target_width}x{target_height}")
 
-    # Position the window
+    # Force window to stay exactly within screen bounds
     position_bottom_right = settings_manager.get("position_bottom_right")
     primary_screen = app.primaryScreen()
 
     if primary_screen is not None:
         desktop = primary_screen.geometry()
-        logging.info(f"Schermo primario trovato con geometria: {desktop.width()}x{desktop.height()}")
+        screen_width = desktop.width()
+        screen_height = desktop.height()
+        logging.info(f"Schermo primario trovato con geometria: {screen_width}x{screen_height}")
+
+        # Ensure the window never exceeds screen dimensions
+        actual_width = min(target_width, screen_width)
+        actual_height = min(target_height, screen_height)
+
+        if actual_width != target_width or actual_height != target_height:
+            logging.info(f"Dimensioni finestra ridotte per adattarsi allo schermo: {actual_width}x{actual_height}")
 
         if position_bottom_right:
-            x = desktop.width() - target_width
-            y = desktop.height() - target_height
+            # Position in bottom-right, ensuring it stays within screen bounds
+            x = max(0, screen_width - actual_width)
+            y = max(0, screen_height - actual_height)
             logging.info(f"Posizionamento finestra in basso a destra: ({x}, {y})")
-            main_win.setGeometry(x, y, target_width, target_height)
+            main_win.setGeometry(x, y, actual_width, actual_height)
         else:
+            # Position at top-left (0, 0)
             logging.info("Posizionamento finestra in alto a sinistra.")
-            main_win.resize(target_width, target_height)
+            main_win.setGeometry(0, 0, actual_width, actual_height)
+
+        # Set size constraints to prevent the window from being resized beyond screen bounds
+        main_win.setMinimumSize(actual_width, actual_height)
+        main_win.setMaximumSize(actual_width, actual_height)
+
     else:
         logging.warning("Nessuno schermo primario disponibile, imposto dimensione di default.")
-        main_win.resize(target_width, target_height)
+        main_win.setGeometry(0, 0, target_width, target_height)
+        main_win.setMinimumSize(target_width, target_height)
+        main_win.setMaximumSize(target_width, target_height)
 
-    main_win.showFullScreen()
-    logging.info("Finestra principale mostrata a schermo intero.")
+    # Show the window normally instead of fullscreen to maintain exact control
+    main_win.show()
+    logging.info("Finestra principale mostrata con dimensioni fisse.")
 
     # Timer for reliable Ctrl+C handling in Qt loop
     signal_timer = QTimer()

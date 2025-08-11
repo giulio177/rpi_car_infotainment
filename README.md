@@ -10,8 +10,17 @@ rpi_car_infotainment/
 ├── backend/            # Backend functionality
 ├── deployment/         # Service files, installation scripts, and deployment configs
 ├── gui/                # GUI components and screens
+│   ├── symbol_manager.py    # Centralized emoji/symbol management system
+│   ├── main_window.py       # Main application window
+│   ├── home_screen.py       # Home screen with media controls
+│   ├── music_player_screen.py # Music player interface
+│   ├── setting_screen.py    # Settings interface with floating buttons
+│   └── ...                  # Other GUI components
 ├── music/              # Music library and related files
 ├── scripts/            # Shell scripts and utilities
+│   ├── install_emoji_fonts.sh   # Emoji font installation script
+│   ├── test_emoji_support.py    # Emoji support testing tool
+│   └── start_infotainment.sh    # Application launcher
 ├── tests/              # Test files
 ├── tools/              # RF communication and other tools
 ├── config.json         # Configuration file
@@ -62,8 +71,24 @@ sudo apt install -y \
     python3-dev \
     pkg-config \
     ffmpeg \
-    python3-pydbus
+    python3-pydbus \
+    fonts-noto-color-emoji \
+    fontconfig
 ```
+
+### 2.1. Install Emoji Font Support (Optional but Recommended)
+
+For proper emoji rendering in the UI (settings buttons, media controls):
+
+```bash
+# Install emoji fonts
+sudo apt install -y fonts-noto-color-emoji
+
+# Update font cache
+sudo fc-cache -fv
+```
+
+**Note**: Without emoji fonts, the application will automatically fall back to Unicode symbols (⬇, ↻, ▶, ⏸) which still work perfectly but are less visually appealing than colorful emoji (💾, 🔄, ▶️, ⏸️).
 
 ### 3. Clone Repository
 ```bash
@@ -348,6 +373,18 @@ python tests/test_dependencies.py
 python tests/test_music_player.py
 ```
 
+### Testing Emoji Support
+```bash
+# Test emoji font detection and rendering
+python3 scripts/test_emoji_support.py
+```
+
+### Installing Emoji Fonts (Alternative Method)
+```bash
+# Use the provided installation script
+sudo bash scripts/install_emoji_fonts.sh
+```
+
 ### RF Communication Tools
 To send RF codes:
 ```bash
@@ -361,12 +398,20 @@ python tools/receive_code.py -g 23
 
 ## Features
 
+### User Interface
+- **Smart Symbol System**: Automatic emoji/Unicode symbol detection and fallback
+- **Emoji Support**: Colorful emoji in buttons when emoji fonts are available (💾, 🔄, ▶️, ⏸️, ⏮️, ⏭️)
+- **Unicode Fallback**: Reliable Unicode symbols when emoji fonts are not available (⬇, ↻, ▶, ⏸, <<, >>)
+- **Consistent Design**: Centralized symbol management across all UI components
+- **Responsive Layout**: Automatic scaling and positioning for different screen sizes
+
 ### Music Player
 - Playback of local music files from the `music/library` folder
 - Download functionality with progress indicator
 - Album art display
 - Lyrics display with synchronization
 - Volume control
+- Emoji-enhanced media controls (⏮️ Previous, ▶️ Play, ⏸️ Pause, ⏭️ Next)
 
 ### OBD-II Integration
 - Connect to vehicle's OBD-II port for diagnostics
@@ -383,6 +428,13 @@ python tools/receive_code.py -g 23
 - See the RPiPlay Integration section below for setup instructions
 
 ## Troubleshooting
+
+### Emoji and Symbol Issues
+- **Rectangles Instead of Emoji**: Install emoji fonts with `sudo apt install -y fonts-noto-color-emoji && sudo fc-cache -fv`
+- **Testing Emoji Support**: Run `python3 scripts/test_emoji_support.py` to check font availability
+- **Automatic Fallback**: If emoji don't work, the app automatically uses Unicode symbols (⬇, ↻, ▶, ⏸)
+- **Font Detection**: Check console output for "SymbolManager: Using emoji font: [font name]" messages
+- **Manual Installation**: Use `sudo bash scripts/install_emoji_fonts.sh` for comprehensive emoji font setup
 
 ### Music Player Issues
 - **No Sound**: Ensure pygame is installed correctly and audio output is configured
@@ -483,6 +535,32 @@ sudo systemctl enable rpi-airplay
 sudo systemctl start rpi-airplay
 ```
 
+## Technical Architecture
+
+### Symbol Management System
+The application uses a centralized symbol management system (`gui/symbol_manager.py`) that provides:
+
+- **Automatic Font Detection**: Detects available emoji fonts on system startup
+- **Smart Fallback**: Automatically switches between emoji and Unicode symbols based on font availability
+- **Lazy Initialization**: Avoids Qt font database access before QApplication is created
+- **Consistent API**: Single interface for all UI components to request symbols
+
+#### Symbol Types Available:
+- **Media Controls**: play (▶️/▶), pause (⏸️/⏸), previous (⏮️/<<), next (⏭️/>>)
+- **Settings**: save (💾/⬇), restart (🔄/↻), success (✅/✓), none (➖/−)
+- **Extensible**: Easy to add new symbol types for future features
+
+#### Usage Example:
+```python
+from gui.symbol_manager import symbol_manager
+
+# Setup a button with automatic symbol selection
+symbol_manager.setup_button_symbol(button, "play", font_size=20)
+
+# Update button symbol dynamically
+symbol_manager.update_button_symbol(button, "pause")
+```
+
 ## Development
 
 ### Running Tests
@@ -492,13 +570,17 @@ python tests/test_dependencies.py
 
 # Test music player
 python tests/test_music_player.py
+
+# Test emoji support
+python3 scripts/test_emoji_support.py
 ```
 
 ### Adding New Features
 1. Backend functionality should be added to the `backend/` directory
 2. GUI components should be added to the `gui/` directory
-3. Update `config.json` with any new configuration options
-4. Update tests as needed
+3. For new UI symbols, add them to `symbol_manager.py` with emoji/Unicode fallback pairs
+4. Update `config.json` with any new configuration options
+5. Update tests as needed
 
 ## License
 

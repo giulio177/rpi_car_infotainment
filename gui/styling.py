@@ -109,6 +109,25 @@ def get_light_theme(scale_factor=1.0):
     QPushButton:disabled {{ background-color: #e8e8e8; color: #a0a0a0; border-color: #c0c0c0; }}
     QPushButton:focus {{ outline: none; border: {scaled_border}px solid #b0b0b0; }} /* Remove focus dotted outline */
 
+    /* Compact floating buttons - override all size constraints */
+    QPushButton#tinyFloatingButton {{
+        background-color: #dcdcdc;
+        border: {scaled_border}px solid #b0b0b0;
+        border-radius: {scaled_border_radius}px;
+        min-height: 50px !important;  /* Updated size for emoji */
+        max-height: 50px !important;
+        min-width: 50px !important;
+        max-width: 50px !important;
+        padding: 0px;  /* No padding for compact buttons */
+        font-size: 24px;  /* Optimal size for emoji */
+        font-weight: normal;  /* Normal weight for emoji */
+        font-family: "Noto Color Emoji", "Noto Emoji", "DejaVu Sans", Arial, sans-serif;  /* Raspberry Pi emoji fonts first */
+        outline: none;
+    }}
+    QPushButton#tinyFloatingButton:pressed {{ background-color: #c0c0c0; }}
+    QPushButton#tinyFloatingButton:disabled {{ background-color: #e8e8e8; color: #a0a0a0; }}
+    QPushButton#tinyFloatingButton:focus {{ outline: none; border: {scaled_border}px solid #b0b0b0; }}
+
     QLabel {{ padding: {scaled_padding // 4}px; background-color: transparent; }}
 
     QLineEdit, QComboBox {{
@@ -654,6 +673,26 @@ def get_dark_theme(scale_factor=1.0):
     QPushButton:pressed {{ background-color: #606060; }}
     QPushButton:disabled {{ background-color: #404040; color: #808080; border-color: #555555; }}
     QPushButton:focus {{ outline: none; border: {scaled_border}px solid #707070; }} /* Remove focus dotted outline */
+
+    /* Compact floating buttons - override all size constraints */
+    QPushButton#tinyFloatingButton {{
+        background-color: #505050;
+        border: {scaled_border}px solid #707070;
+        color: #e0e0e0;
+        border-radius: {scaled_border_radius}px;
+        min-height: 50px !important;  /* Updated size for emoji */
+        max-height: 50px !important;
+        min-width: 50px !important;
+        max-width: 50px !important;
+        padding: 0px;  /* No padding for compact buttons */
+        font-size: 24px;  /* Optimal size for emoji */
+        font-weight: normal;  /* Normal weight for emoji */
+        font-family: "Noto Color Emoji", "Noto Emoji", "DejaVu Sans", Arial, sans-serif;  /* Raspberry Pi emoji fonts first */
+        outline: none;
+    }}
+    QPushButton#tinyFloatingButton:pressed {{ background-color: #606060; }}
+    QPushButton#tinyFloatingButton:disabled {{ background-color: #404040; color: #808080; }}
+    QPushButton#tinyFloatingButton:focus {{ outline: none; border: {scaled_border}px solid #707070; }}
 
     QLabel {{ padding: {scaled_padding // 4}px; background-color: transparent; }}
 

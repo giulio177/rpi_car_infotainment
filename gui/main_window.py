@@ -382,10 +382,14 @@ class MainWindow(QMainWindow):
 
     # --- Event Handlers ---
     def resizeEvent(self, event):
-        """Override resizeEvent to apply scaling ONLY after fullscreen is settled."""
+        """Override resizeEvent to apply scaling and enforce screen bounds."""
         super().resizeEvent(event)
         current_size = event.size()
         print(f"DEBUG: resizeEvent triggered with Size: {current_size}")
+
+        # Enforce screen bounds - prevent window from exceeding screen size
+        self._enforce_screen_bounds()
+
         # Check if the size matches our target base (allowing for small variations if necessary)
         is_target_size = (
             abs(current_size.width() - self.BASE_RESOLUTION.width()) < 5
@@ -408,6 +412,46 @@ class MainWindow(QMainWindow):
             print(
                 f"Ignoring resize event (Size: {current_size}, Scaled Flag: {self._has_scaled_correctly})"
             )
+
+    def _enforce_screen_bounds(self):
+        """Ensure the window stays within screen boundaries."""
+        screen = QApplication.primaryScreen()
+        if screen is None:
+            return
+
+        screen_geometry = screen.geometry()
+        screen_width = screen_geometry.width()
+        screen_height = screen_geometry.height()
+
+        # Get current window geometry
+        window_geometry = self.geometry()
+        x, y, width, height = window_geometry.x(), window_geometry.y(), window_geometry.width(), window_geometry.height()
+
+        # Constrain size to screen dimensions
+        constrained_width = min(width, screen_width)
+        constrained_height = min(height, screen_height)
+
+        # Constrain position to keep window fully on screen
+        constrained_x = max(0, min(x, screen_width - constrained_width))
+        constrained_y = max(0, min(y, screen_height - constrained_height))
+
+        # Apply constraints if needed
+        if (constrained_x != x or constrained_y != y or
+            constrained_width != width or constrained_height != height):
+            print(f"Enforcing screen bounds: {constrained_x}, {constrained_y}, {constrained_width}x{constrained_height}")
+            self.setGeometry(constrained_x, constrained_y, constrained_width, constrained_height)
+
+    def moveEvent(self, event):
+        """Override moveEvent to ensure window stays within screen bounds."""
+        super().moveEvent(event)
+        # Enforce screen bounds whenever the window is moved
+        self._enforce_screen_bounds()
+
+    def showEvent(self, event):
+        """Override showEvent to ensure proper initial positioning."""
+        super().showEvent(event)
+        # Enforce screen bounds when the window is first shown
+        self._enforce_screen_bounds()
 
     # --- Scaling ---
     def _apply_scaling(self):

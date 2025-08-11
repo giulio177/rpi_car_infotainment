@@ -12,6 +12,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, pyqtSlot, QUrl
 from PyQt6.QtGui import QPixmap
+from .symbol_manager import symbol_manager
 from PyQt6.QtNetwork import QNetworkAccessManager, QNetworkRequest, QNetworkReply
 
 # --- Import scale_value helper ---
@@ -172,12 +173,17 @@ class HomeScreen(QWidget):
         # --- Playback Controls (Default vertical space) ---
         self.playback_layout = QHBoxLayout()  # Store reference
         # Spacing set by update_scaling
-        self.btn_prev = QPushButton("<<")
-        self.btn_play_pause = QPushButton("▶")  # Text updated by update_playback_status
-        self.btn_next = QPushButton(">>")
+        self.btn_prev = QPushButton()
+        self.btn_play_pause = QPushButton()  # Symbol updated by update_playback_status
+        self.btn_next = QPushButton()
         self.btn_prev.setObjectName("mediaPrevButton")
         self.btn_play_pause.setObjectName("mediaPlayPauseButton")
         self.btn_next.setObjectName("mediaNextButton")
+
+        # Setup symbols using centralized symbol manager
+        symbol_manager.setup_button_symbol(self.btn_prev, "previous")
+        symbol_manager.setup_button_symbol(self.btn_play_pause, "play")
+        symbol_manager.setup_button_symbol(self.btn_next, "next")
 
         self.playback_layout.addStretch(1)
         self.playback_layout.addWidget(self.btn_prev)
@@ -296,11 +302,11 @@ class HomeScreen(QWidget):
         """Updates the play/pause button icon based on playback status."""
         print(f"HomeScreen received playback status: {status}")
         if status == "playing":
-            self.btn_play_pause.setText("⏸")
+            symbol_manager.update_button_symbol(self.btn_play_pause, "pause")
         elif status == "paused":
-            self.btn_play_pause.setText("▶")
+            symbol_manager.update_button_symbol(self.btn_play_pause, "play")
         else:  # stopped, etc.
-            self.btn_play_pause.setText("▶")
+            symbol_manager.update_button_symbol(self.btn_play_pause, "play")
             # Clear info ONLY if stopped and track info is already present
             if status == "stopped" and self.track_title_label.text() != "---":
                 self.clear_media_info()

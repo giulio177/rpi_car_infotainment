@@ -19,6 +19,7 @@ from PyQt6.QtWidgets import (
     QCheckBox,
 )
 from PyQt6.QtCore import QTimer, QDateTime, pyqtSlot, Qt, pyqtSignal
+from .symbol_manager import symbol_manager
 
 from .styling import scale_value
 
@@ -214,29 +215,41 @@ class SettingsScreen(QWidget):
         # ---
         self.scroll_layout.addWidget(self.radio_group)  # Add group to scroll area
 
-        # Add stretch at the end of the scroll content
+        # --- Floating Icon Buttons (positioned absolutely, not taking scroll space) ---
+        # Create compact square icon buttons that will float over the content
+        self.save_button = QPushButton()
+        self.save_button.setObjectName("tinyFloatingButton")  # Special object name for styling
+        self.save_button.clicked.connect(self.apply_settings)
+        self.save_button.setFixedSize(50, 50)  # Slightly bigger square
+        self.save_button.setMinimumSize(50, 50)  # Override global minimum
+        self.save_button.setMaximumSize(50, 50)  # Force exact size
+
+        # Setup symbols using centralized symbol manager
+        symbol_manager.setup_button_symbol(self.save_button, "save", 20)
+        self.save_button.setToolTip("Apply Settings")
+        self.save_button.setParent(self.scroll_area)  # Parent to scroll area for positioning
+
+        self.restart_button = QPushButton()
+        self.restart_button.setObjectName("tinyFloatingButton")  # Special object name for styling
+        self.restart_button.clicked.connect(self.apply_and_restart)
+        self.restart_button.setFixedSize(50, 50)  # Slightly bigger square
+        self.restart_button.setMinimumSize(50, 50)  # Override global minimum
+        self.restart_button.setMaximumSize(50, 50)  # Force exact size
+        symbol_manager.setup_button_symbol(self.restart_button, "restart", 20)
+        self.restart_button.setToolTip("Apply Settings and Restart")
+        self.restart_button.setParent(self.scroll_area)  # Parent to scroll area for positioning
+
+        # Add stretch at the end of the scroll content to push everything up
         self.scroll_layout.addStretch(1)
+
         # Set the content widget for the scroll area
         self.scroll_area.setWidget(self.scroll_content_widget)
-        # Add scroll area to the main layout
+
+        # Add scroll area to the main layout with maximum stretch to occupy most space
         self.main_layout.addWidget(self.scroll_area, 1)
 
-        # AirPlay info button moved to AirPlay screen settings section
-
-        # --- Button Layout ---
-        self.button_layout = QHBoxLayout()
-        # Spacing set by update_scaling
-        self.save_button = QPushButton("Apply Settings")
-        self.save_button.setObjectName("settingsSaveButton")
-        self.save_button.clicked.connect(self.apply_settings)
-        self.restart_button = QPushButton("Apply and Restart")
-        self.restart_button.setObjectName("settingsRestartButton")
-        self.restart_button.clicked.connect(self.apply_and_restart)
-        self.button_layout.addStretch(1)
-        self.button_layout.addWidget(self.save_button)
-        self.button_layout.addWidget(self.restart_button)
-        self.button_layout.addStretch(1)
-        self.main_layout.addLayout(self.button_layout)
+        # Position the floating buttons (will be called after the widget is shown)
+        QTimer.singleShot(100, self._position_floating_buttons)
 
         # ## MODIFICATO: Collegamento del segnale e avvio del timer stabile ##
         self.info_updated.connect(self.update_info_labels)
@@ -244,6 +257,129 @@ class SettingsScreen(QWidget):
         self.info_update_timer.timeout.connect(self.start_info_update_thread)
         self.info_update_timer.start(10000) # Aggiorna ogni 10 secondi per ridurre il carico
         self.start_info_update_thread() # Chiamata iniziale
+
+    def _position_floating_buttons(self):
+        """Position the floating buttons in the top-right corner of the scroll area, avoiding the scrollbar."""
+        try:
+            # Debug: Print all available fonts using static method
+            available_families = QFontDatabase.families()
+
+            print("=== Available Font Families ===")
+            emoji_related = [f for f in available_families if any(keyword in f.lower() for keyword in ['emoji', 'symbol', 'noto'])]
+            if emoji_related:
+                print("Emoji/Symbol fonts found:")
+                for font in emoji_related:
+                    print(f"  - {font}")
+            else:
+                print("No emoji fonts found in system")
+
+            # List of emoji fonts to try (in order of preference)
+            emoji_fonts = [
+                "Noto Color Emoji",
+                "Noto Emoji",
+                "Apple Color Emoji",
+                "Segoe UI Emoji",
+                "EmojiOne",
+                "Symbola",
+                "DejaVu Sans"
+            ]
+
+            emoji_font = None
+            for font_name in emoji_fonts:
+                if font_name in available_families:
+                    emoji_font = QFont(font_name, 20)  # 20pt for good visibility
+                    print(f"Using font: {font_name}")
+                    break
+
+            if emoji_font is None:
+                # Fallback: use a standard font with larger size
+                emoji_font = QFont("Arial", 18)
+                print("Using Arial fallback font")
+
+            # Apply the font to both buttons
+            if hasattr(self, 'save_button'):
+                self.save_button.setFont(emoji_font)
+            if hasattr(self, 'restart_button'):
+                self.restart_button.setFont(emoji_font)
+
+        except Exception as e:
+            print(f"Error setting up button fonts: {e}")
+            # Simple fallback without font detection
+            fallback_font = QFont("Arial", 18)
+            if hasattr(self, 'save_button'):
+                self.save_button.setFont(fallback_font)
+            if hasattr(self, 'restart_button'):
+                self.restart_button.setFont(fallback_font)
+
+    def _set_button_symbol(self, button, symbol_type):
+        """Set button symbol with fallback options."""
+        # Check if we have emoji fonts available
+        available_families = QFontDatabase.families()
+        has_emoji_fonts = any(font in available_families for font in ["Noto Color Emoji", "Noto Emoji"])
+
+        if has_emoji_fonts:
+            # Use emoji if available
+            symbols = {
+                "save": "�",     # Floppy disk emoji
+                "restart": "🔄",  # Refresh emoji
+                "success": "✅",  # Green checkmark emoji
+                "none": "➖"      # Minus emoji
+            }
+        else:
+            # Use Unicode symbols that render reliably
+            symbols = {
+                "save": "⬇",      # Down arrow (save/download)
+                "restart": "↻",   # Refresh symbol
+                "success": "✓",   # Checkmark
+                "none": "−"       # Minus sign
+            }
+
+        if symbol_type in symbols:
+            button.setText(symbols[symbol_type])
+            print(f"Set {symbol_type} button to: {symbols[symbol_type]}")
+            button.update()
+
+    def _position_floating_buttons(self):
+        """Position the floating buttons in the top-right corner of the scroll area, avoiding the scrollbar."""
+        if not self.scroll_area or not self.save_button or not self.restart_button:
+            return
+
+        # Get scroll area dimensions
+        scroll_width = self.scroll_area.width()
+        scroll_height = self.scroll_area.height()
+
+        # Position buttons in top-right corner with margin to avoid scrollbar
+        margin = 10
+        scrollbar_width = 20  # Approximate scrollbar width
+        button_spacing = 5
+
+        # Position restart button (rightmost, but left of scrollbar)
+        restart_x = scroll_width - self.restart_button.width() - margin - scrollbar_width
+        restart_y = margin
+        self.restart_button.move(restart_x, restart_y)
+
+        # Position save button (left of restart button)
+        save_x = restart_x - self.save_button.width() - button_spacing
+        save_y = margin
+        self.save_button.move(save_x, save_y)
+
+        # Ensure buttons are visible and on top
+        self.save_button.raise_()
+        self.restart_button.raise_()
+        self.save_button.show()
+        self.restart_button.show()
+
+    def resizeEvent(self, event):
+        """Handle resize events to reposition floating buttons."""
+        super().resizeEvent(event)
+        # Reposition buttons when the widget is resized
+        QTimer.singleShot(10, self._position_floating_buttons)
+
+    def showEvent(self, event):
+        """Handle show events to position floating buttons."""
+        super().showEvent(event)
+        # Position buttons when the widget is shown
+        QTimer.singleShot(50, self._position_floating_buttons)
 
     # ## NUOVO: Funzione per avviare il thread ##
     def start_info_update_thread(self):
@@ -318,9 +454,9 @@ class SettingsScreen(QWidget):
             scaled_main_margin,
         )
         self.main_layout.setSpacing(scaled_spacing)
-        self.button_layout.setSpacing(
-            scaled_button_layout_spacing
-        )  # Scale button spacing
+
+        # Reposition floating buttons after scaling changes
+        QTimer.singleShot(50, self._position_floating_buttons)
 
         # Apply to the layout INSIDE the scroll area
         self.scroll_layout.setContentsMargins(0, 0, 0, 0)
@@ -496,30 +632,32 @@ class SettingsScreen(QWidget):
                         " Restart required for resolution, cursor, or position changes."
                     )
                 print(status_message)
-                self.save_button.setText("Applied!")
-                self.restart_button.setText("Applied!")
+                # Change symbols to show success
+                symbol_manager.update_button_symbol(self.save_button, "success")
+                symbol_manager.update_button_symbol(self.restart_button, "success")
                 self.save_button.setEnabled(False)
                 self.restart_button.setEnabled(False)
                 QTimer.singleShot(
                     2000,
                     lambda: (
-                        self.save_button.setText("Apply Settings"),
-                        self.restart_button.setText("Apply and Restart"),
+                        symbol_manager.update_button_symbol(self.save_button, "save"),
+                        symbol_manager.update_button_symbol(self.restart_button, "restart"),
                         self.save_button.setEnabled(True),
                         self.restart_button.setEnabled(True),
                     ),
                 )
             else:
                 print("Settings applied (No changes detected).")
-                self.save_button.setText("No Changes")
-                self.restart_button.setText("No Changes")
+                # Change symbols to show no changes
+                symbol_manager.update_button_symbol(self.save_button, "none")
+                symbol_manager.update_button_symbol(self.restart_button, "none")
                 self.save_button.setEnabled(False)
                 self.restart_button.setEnabled(False)
                 QTimer.singleShot(
                     1500,
                     lambda: (
-                        self.save_button.setText("Apply Settings"),
-                        self.restart_button.setText("Apply and Restart"),
+                        symbol_manager.update_button_symbol(self.save_button, "save"),
+                        symbol_manager.update_button_symbol(self.restart_button, "restart"),
                         self.save_button.setEnabled(True),
                         self.restart_button.setEnabled(True),
                     ),
