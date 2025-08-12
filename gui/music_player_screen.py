@@ -288,6 +288,7 @@ class MusicPlayerScreen(QWidget):
         self.download_queue = collections.deque()
         self.download_history = []
         self.current_download = None  # Holds info on the active download
+        self.download_process = None # Will hold the running subprocess
         self.history_file = os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "download_history.json"
         )
@@ -1336,6 +1337,32 @@ class MusicPlayerScreen(QWidget):
             return True
         except (subprocess.SubprocessError, FileNotFoundError):
             return False
+
+    def cancel_current_download(self):
+        """Cancels the currently active download."""
+        if self.current_download and self.download_process:
+            print(f"Cancelling download for: {self.current_download['title']}")
+            # Terminate the yt-dlp process
+            self.download_process.terminate()
+
+            # Immediately update the UI to show cancellation
+            song_info = self.current_download
+            song_info['status'] = 'Cancelled'
+            song_info['timestamp'] = datetime.datetime.now().isoformat()
+            
+            self.download_history.insert(0, song_info)
+            self._save_download_history()
+            self._update_history_list_ui()
+            
+            # Reset state and hide UI
+            self.current_download = None
+            self.download_process = None
+            self.download_progress_bar.setVisible(False)
+            self.cancel_download_button.setVisible(False)
+
+            # Update queue UI and process the next item
+            self._update_queue_list_ui()
+            self._process_download_queue()
 
     def _is_internet_available(self):
         """Check if internet connection is available."""
