@@ -95,7 +95,7 @@ sudo fc-cache -fv
 # Go in the home directory
 cd /home/pi
 
-# Clone the specific branch 'stable-liteOS'
+# Clone the specific branch 'stable-liteOS-pi5'
 git clone --branch stable-liteOS-pi5 https://github.com/giulio177/rpi_car_infotainment.git
 ```
 
