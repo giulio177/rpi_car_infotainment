@@ -94,25 +94,27 @@ deactivate
 
 ### 6. Hardware configuration
 
-This is a critical step to ensure the HiFiBerry DAC works correctly and doesn't conflict with the onboard HDMI audio.
+This is a critical step to ensure the 3.5mm audio jack output is enabled and set as the default.
 
 
-Enable the HiFiBerry DAC overlay
+Enable the 3.5mm Audio Jack Output
+
+By default, the Raspberry Pi might prioritize the HDMI output. Run this command to set the 3.5mm jack as the default audio output:
 ```bash
-echo "dtoverlay=hifiberry-dac" | sudo tee -a /boot/firmware/config.txt
+amixer cset numid=3 1
 ```
 
-IMPORTANT: Completely disable the onboard HDMI audio to prevent conflicts
+IMPORTANT: To make this setting permanent and ensure it's applied at every boot, it's recommended to add it to a startup file.
 ```bash
-echo "dtparam=audio=off" | sudo tee -a /boot/firmware/config.txt
+echo "amixer cset numid=3 1" | sudo tee -a /etc/rc.local
 ```
 
-Add kernel parameters to hide boot messages and the cursor for a cleaner startup
+Add kernel parameters to hide boot messages and the cursor for a cleaner startup:
 ```bash
 sudo sed -i '1 s/$/ logo.nologo quiet loglevel=3 vt.global_cursor_default=0/' /boot/firmware/cmdline.txt
 ```
 
-Since we are using PulseAudio as the sound server, we must ensure it loads the necessary modules to discover and manage Bluetooth audio devices.
+Since we are using PulseAudio as the sound server, we must ensure it loads the necessary modules to discover and manage Bluetooth audio devices. 
 This command appends the required configuration to the default PulseAudio script.
 ```bash
 echo -e "\n# Load Bluetooth discovery and policy modules for A2DP Sink profile\nload-module module-bluetooth-policy\nload-module module-bluetooth-discover" | sudo tee -a /etc/pulse/default.pa
@@ -281,22 +283,22 @@ After the reboot
 ```bash
 alsamixer
 ```
-Select the "snd_rpi_hifiberry_dac" DAC
-Set volume to 100% (it must show 00)
-Click ESC
+Press F6 to select the sound card. Choose "bcm2835 Headphones".
 
-Save permanently the state of the volume
+Set the volume to the desired level (e.g., 100%). Press ESC to exit.
+
+Save the volume state permanently:
 ```bash
 sudo alsactl store
 ```
 
-Run 
+Run this command to see the available control names:
 ```bash
 amixer scontrols
 ```
-to see the controller name (es. 'PCM',0).
-
-Make sure that backend/audio_manager.py use MIXER_CONTROL on that name.
+You should see an output that includes a control like 'Headphone',0 or similar. 
+Make sure that the backend/audio_manager.py file in your project uses the correct name for MIXER_CONTROL. 
+For example, you might need to change it to MIXER_CONTROL = 'Headphone'.
 
 
 
