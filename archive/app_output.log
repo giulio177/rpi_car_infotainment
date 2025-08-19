@@ -1,0 +1,65 @@
+pygame 2.6.1 (SDL 2.28.4, Python 3.11.2)
+Hello from the pygame community. https://www.pygame.org/contribute.html
+2025-08-19 22:51:39,454 - INFO - [root:31] - --- Inizio del Log di RPi Car Infotainment ---
+2025-08-19 22:51:39,454 - INFO - [root:60] - Applicazione in avvio. Controllo istanze multiple...
+2025-08-19 22:51:39,470 - INFO - [root:74] - Nessuna altra istanza trovata. Proseguo con l'avvio.
+2025-08-19 22:51:39,708 - INFO - [root:85] - QApplication creata.
+2025-08-19 22:51:39,709 - INFO - [root:88] - SettingsManager inizializzato.
+2025-08-19 22:51:39,732 - INFO - [root:94] - Cursore nascosto in base alle impostazioni.
+[AudioManager] Worker thread avviato e in attesa di lavoro.
+DEBUG: BluetoothManager.__init__
+SymbolManager: Scanning available fonts...
+SymbolManager: Found emoji-related fonts: ['.Apple Color Emoji UI', 'Apple Color Emoji', 'Noto Color Emoji', 'Noto Mono', 'Noto Sans Mono', 'Standard Symbols PS [URW ]', 'Standard Symbols PS [urw]']
+SymbolManager: Checking fonts in priority order: ['Apple Color Emoji', 'Apple Color Emoji.ttc', '.Apple Color Emoji', 'Twemoji', 'EmojiOne', 'Noto Color Emoji', 'Noto Emoji', 'Segoe UI Emoji', 'Symbola']
+SymbolManager: ✅ FOUND and using emoji font: Apple Color Emoji
+SymbolManager: Set previous button to '◀◀' with large font
+SymbolManager: Set play button to '▶' with large font
+SymbolManager: Set next button to '▶▶' with large font
+SymbolManager: Set save button to '💾' with large font
+SymbolManager: Set restart button to '🔄' with large font
+Music library directory: /home/pi/rpi_car_infotainment/music/library
+SymbolManager: Set download button to '⬇' with large font
+SymbolManager: Set previous button to '◀◀' with large font
+SymbolManager: Set play button to '▶' with large font
+SymbolManager: Set next button to '▶▶' with large font
+SymbolManager: Updated play button to '▶'
+DEBUG: Header title set to: Home
+AudioManager: Setting volume to 100% using 'amixer'
+Slider changed to 100. Set system volume.
+AudioManager: Setting volume to 100% using 'amixer'
+Starting Bluetooth Manager...
+BluetoothManager thread started.
+DEBUG: BluetoothManager.find_adapter - Entered
+DEBUG: BluetoothManager.find_adapter - Calling GetManagedObjects...
+Applying initial scaling based on fixed BASE_RESOLUTION.
+2025-08-19 22:51:40,170 - INFO - [root:99] - Finestra principale creata.
+2025-08-19 22:51:40,170 - INFO - [root:105] - Impostazione dimensione finestra a: 1024x600
+DEBUG: BluetoothManager.find_adapter - GetManagedObjects returned type: MessageType.ReplyMessage
+DEBUG: BluetoothManager.find_adapter - Processing 9 managed objects...
+BT Manager: Found adapter at /org/bluez/hci0
+DEBUG: BluetoothManager.run - Adapter found: /org/bluez/hci0
+2025-08-19 22:51:40,172 - INFO - [root:115] - Schermo primario trovato con geometria: 1024x600
+2025-08-19 22:51:40,175 - INFO - [root:128] - Posizionamento finestra in basso a destra: (0, 0)
+DEBUG: BluetoothManager.run - Processing 9 initial objects...
+DEBUG: process_device_properties - Final Battery for iPhone di Giulio: None
+DEBUG: process_device_properties - Final Battery for iPhone di Giulio: None
+DEBUG: process_device_properties - Final Battery for Redmi Note 11S: None
+DEBUG: process_device_properties - Final Battery for iPhone (2): None
+DEBUG: process_device_properties - Final Battery for Giulio’s Apple Watch: None
+DEBUG: process_device_properties - Final Battery for Redmi Note 12 Pro 5G ti: None
+DEBUG: process_device_properties - Final Battery for Kevin’s iPhone: None
+DEBUG: BluetoothManager.run - Initial object processing done.
+DEBUG: BluetoothManager.run - Connecting D-Bus signals (Polling approach)...
+DEBUG: resizeEvent triggered with Size: PyQt6.QtCore.QSize(1024, 600)
+Applying initial scaling for size: PyQt6.QtCore.QSize(1024, 600)
+DEBUG: Using AUTO scaling mode. Scale factor: 1.000
+DEBUG: _apply_scaling factor: 1.000 (Height: 600)
+DEBUG: Signal connection status: InterfacesRemoved=True
+BT Manager: Entering polling loop.
+DEBUG: apply_theme called. Theme: dark, Scale: 1.00
+DEBUG: Header title set to: Home
+DEBUG Paint: Text='(No Media)', Widget H=23, Text H=19, Ascent=15, Draw Y=15
+DEBUG Paint: Text='---', Widget H=26, Text H=25, Ascent=20, Draw Y=20
+DEBUG Paint: Text='---', Widget H=34, Text H=22, Ascent=18, Draw Y=18
+2025-08-19 22:51:40,411 - INFO - [root:147] - Finestra principale mostrata con dimensioni fisse.
+2025-08-19 22:51:40,411 - INFO - [root:154] - Avvio del ciclo di eventi dell'applicazione (app.exec).

@@ -19,7 +19,7 @@ TOUCHSCREEN_DEVICE="/dev/input/event0"   # Usa questo se non hai la regola udev
 # In alternativa, puoi usare il percorso diretto (ma potrebbe cambiare al riavvio):
 # TOUCHSCREEN_DEVICE="/dev/input/event1"
 
-LOG_FILE="/tmp/app_output.log"
+LOG_FILE="/home/pi/rpi_car_infotainment/archive/app_output.log"
 
 
 # --- FUNZIONI ---

@@ -25,6 +25,8 @@ import os
 import subprocess
 import threading
 import socket
+import signal
+import re
 import pygame  # Using pygame for audio playback instead of QtMultimedia
 import collections  # Import collections for deque
 import json  # Import json for history
@@ -43,8 +45,6 @@ class PygameMediaPlayer:
             self._mixer_available = True
         except pygame.error as e:
             print(f"Warning: Could not initialize audio mixer: {e}")
-            print("Music playback will be disabled.")
-            self._mixer_available = False
 
         self._position = 0
         self._duration = 0
@@ -114,7 +114,7 @@ class PygameMediaPlayer:
                 else:
                     # Altrimenti, avviala dall'inizio.
                     pygame.mixer.music.play()
-                
+
                 self._playing = True
 
                 # Start position tracking
@@ -128,7 +128,7 @@ class PygameMediaPlayer:
                 # Notify state change
                 for callback in self._callbacks["state_changed"]:
                     callback(1)  # 1 = playing (similar to QMediaPlayer.PlayingState)
-                
+
                 return True
             except Exception as e:
                 print(f"Error playing audio: {e}")
@@ -219,7 +219,7 @@ class PygameMediaPlayer:
             if elapsed_ms >= 0:
                 # La posizione assoluta è l'offset + il tempo trascorso
                 self._position = self._seek_offset + elapsed_ms
-                
+
                 # Notifica la nuova posizione CORRETTA
                 for callback in self._callbacks["position_changed"]:
                     callback(self._position)
@@ -288,7 +288,9 @@ class MusicPlayerScreen(QWidget):
         self.download_queue = collections.deque()
         self.download_history = []
         self.current_download = None  # Holds info on the active download
-        self.download_process = None # Will hold the running subprocess
+        self.download_process = None  # Will hold the running subprocess
+        self._cancel_requested = False  # Tracks if user requested cancellation
+        self._download_percent = 0  # Last known download percent for UI
         self.history_file = os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "download_history.json"
         )
@@ -298,7 +300,7 @@ class MusicPlayerScreen(QWidget):
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "music/library"
         )
         data_dir = os.path.dirname(self.history_file)
-        
+
         if not os.path.exists(self.music_dir):
             os.makedirs(self.music_dir, exist_ok=True)
         if not os.path.exists(data_dir):
@@ -545,6 +547,13 @@ class MusicPlayerScreen(QWidget):
         self.download_progress_bar.setFormat("Downloading... %p%") # Explicitly set format
         self.download_progress_bar.setVisible(False)  # Hide initially
         self.download_progress_layout.addWidget(self.download_progress_bar)
+        # Cancel Download Button
+        self.cancel_download_button = QPushButton("Cancel")
+        self.cancel_download_button.setObjectName("cancelDownloadButton")
+        self.cancel_download_button.clicked.connect(self.cancel_current_download)
+        self.cancel_download_button.setVisible(False)
+        self.download_progress_layout.addWidget(self.cancel_download_button)
+
 
         # Add progress bar to main button layout
         self.button_layout.addLayout(self.download_progress_layout)
@@ -578,12 +587,12 @@ class MusicPlayerScreen(QWidget):
         self.library_header.addWidget(self.select_folder_button)
         self.library_header.addWidget(self.back_button)
         self.library_layout.addLayout(self.library_header)
-        
+
         # --- Create Tab Widget ---
         self.library_tab_widget = QTabWidget()
         # Apply system theme to the tab widget itself if possible, though often automatic.
         # You can add custom stylesheet here if needed:
-        # self.library_tab_widget.setStyleSheet("QTabWidget::pane { border: 1px solid grey; }") 
+        # self.library_tab_widget.setStyleSheet("QTabWidget::pane { border: 1px solid grey; }")
         self.library_layout.addWidget(self.library_tab_widget)
 
         # --- Library Tab ---
@@ -647,7 +656,7 @@ class MusicPlayerScreen(QWidget):
         # Connetti il segnale dell'AudioManager a uno slot in questa classe.
         if self.main_window and hasattr(self.main_window, "audio_manager"):
             self.main_window.audio_manager.metadata_ready.connect(self.on_metadata_received)
-            
+
         # Load download history
         self._load_download_history()
         # Initial update of queue UI
@@ -742,7 +751,7 @@ class MusicPlayerScreen(QWidget):
         Riproduce la traccia successiva nella libreria, tornando alla prima se è l'ultima.
         """
         print("[MusicPlayerScreen] Canzone finita, avvio la successiva.")
-        
+
         # Funziona solo se stiamo riproducendo dalla libreria locale
         if not self.is_local_playback:
             return
@@ -757,7 +766,7 @@ class MusicPlayerScreen(QWidget):
         # Es: Se ci sono 5 canzoni (indici 0-4) e siamo alla 4,
         # (4 + 1) % 5 = 5 % 5 = 0. Torna alla prima.
         next_index = (self.current_playlist_index + 1) % num_tracks
-        
+
         # Prendi l'elemento della lista corrispondente al nuovo indice
         next_item = self.library_list.item(next_index)
 
@@ -831,7 +840,7 @@ class MusicPlayerScreen(QWidget):
         self.track_title_label.setText(title)
         self.track_artist_label.setText(artist)
         self.album_name_label.setText("Local File")
-        
+
         # Pulisci immediatamente le informazioni precedenti per evitare di mostrarle
         self.album_art_label.setPixmap(self.default_album_art)
         self.lyrics_content.setText("Loading lyrics...")
@@ -852,7 +861,7 @@ class MusicPlayerScreen(QWidget):
         emette il segnale 'metadata_ready'. Aggiorna la UI in sicurezza.
         """
         print(f"[UI Thread] Ricevuti metadati. Aggiorno l'interfaccia.")
-        
+
         self.current_lyrics = lyrics if lyrics else "No lyrics available"
         self.parse_lyrics(self.current_lyrics)
         self.update_lyrics_display()
@@ -918,7 +927,7 @@ class MusicPlayerScreen(QWidget):
         """Seeks to the new position when the slider is released."""
         new_position = self.time_slider.value()
         self.current_position_ms = new_position
-        
+
         print(f"Slider released. Seeking to position: {new_position} ms")
         if self.is_local_playback:
             self.media_player.setPosition(new_position)
@@ -1233,7 +1242,7 @@ class MusicPlayerScreen(QWidget):
             return
 
         song_info = {"title": self.current_title, "artist": self.current_artist, "status": "Queued"}
-        
+
         is_in_queue = any(d['title'] == song_info['title'] and d['artist'] == song_info['artist'] for d in self.download_queue)
         is_in_history = any(h['title'] == song_info['title'] and h['artist'] == song_info['artist'] for h in self.download_history)
 
@@ -1249,12 +1258,15 @@ class MusicPlayerScreen(QWidget):
     def _process_download_queue(self):
         """Processes the next song in the queue if no download is active."""
         if self.current_download is None and self.download_queue:
+            # Reset progress bar format
+            self.download_progress_bar.setFormat("Downloading... %p%")
+
             if not self._is_ytdlp_available() or not self._is_ffmpeg_available() or not self._is_internet_available():
                 reason = "yt-dlp/ffmpeg is not installed or no internet."
                 if not self._is_ytdlp_available(): reason = "yt-dlp is not installed. Please install it with: pip install yt-dlp"
                 elif not self._is_ffmpeg_available(): reason = "FFmpeg is not installed. Please install it on your system."
                 elif not self._is_internet_available(): reason = "No internet connection."
-                
+
                 # If requirements not met, mark the first item as failed and process it.
                 song_to_fail = self.download_queue.popleft()
                 song_to_fail['status'] = 'Failed'
@@ -1262,7 +1274,7 @@ class MusicPlayerScreen(QWidget):
                 self._save_download_history()
                 self._update_history_list_ui()
                 self._update_queue_list_ui() # Update queue to remove failed item
-                
+
                 QMessageBox.warning(self, "Download Requirement", reason)
                 self._process_download_queue() # Try to process the next item
                 return
@@ -1271,8 +1283,11 @@ class MusicPlayerScreen(QWidget):
             self.current_download['status'] = 'Downloading'
             self._update_queue_list_ui()
 
+            self._download_percent = 0
             self.download_progress_bar.setValue(0)
             self.download_progress_bar.setVisible(True)
+            self.cancel_download_button.setVisible(True)
+            self._cancel_requested = False
 
             download_thread = threading.Thread(target=self._download_song_thread, args=(self.current_download,))
             download_thread.daemon = True
@@ -1282,11 +1297,18 @@ class MusicPlayerScreen(QWidget):
         """Refreshes the download queue list widget."""
         self.download_queue_list.clear()
         if self.current_download:
-            # Display currently downloading item first
-            self.download_queue_list.addItem(f"{self.current_download.get('artist', 'Unknown Artist')} - {self.current_download.get('title', 'Unknown Title')} [Downloading...]")
+            # Show downloading item with live percent or cancelling
+            status = (
+                f"Cancelling..." if self._cancel_requested else f"Downloading... {int(self._download_percent)}%"
+            )
+            self.download_queue_list.addItem(
+                f"{self.current_download.get('artist', 'Unknown Artist')} - {self.current_download.get('title', 'Unknown Title')} [{status}]"
+            )
         # Display remaining queued items
         for song in self.download_queue:
-            self.download_queue_list.addItem(f"{song.get('artist', 'Unknown Artist')} - {song.get('title', 'Unknown Title')} [{song.get('status', 'Queued')}]")
+            self.download_queue_list.addItem(
+                f"{song.get('artist', 'Unknown Artist')} - {song.get('title', 'Unknown Title')} [{song.get('status', 'Queued')}]"
+            )
 
     def _update_history_list_ui(self):
         """Refreshes the download history list widget."""
@@ -1317,7 +1339,7 @@ class MusicPlayerScreen(QWidget):
             print(f"Error loading download history: {e}. Resetting history.")
             self.download_history = [] # Reset on error
             # Optionally, delete corrupted file or log it
-            try: os.remove(self.history_file) 
+            try: os.remove(self.history_file)
             except OSError: pass
 
 
@@ -1342,27 +1364,15 @@ class MusicPlayerScreen(QWidget):
         """Cancels the currently active download."""
         if self.current_download and self.download_process:
             print(f"Cancelling download for: {self.current_download['title']}")
-            # Terminate the yt-dlp process
-            self.download_process.terminate()
+            self._cancel_requested = True
+            try:
+                self.download_process.terminate()
+            except Exception:
+                pass
 
-            # Immediately update the UI to show cancellation
-            song_info = self.current_download
-            song_info['status'] = 'Cancelled'
-            song_info['timestamp'] = datetime.datetime.now().isoformat()
-            
-            self.download_history.insert(0, song_info)
-            self._save_download_history()
-            self._update_history_list_ui()
-            
-            # Reset state and hide UI
-            self.current_download = None
-            self.download_process = None
-            self.download_progress_bar.setVisible(False)
+            # UI updates; actual history entry will be added by completion handler
             self.cancel_download_button.setVisible(False)
-
-            # Update queue UI and process the next item
-            self._update_queue_list_ui()
-            self._process_download_queue()
+            self.download_progress_bar.setFormat("Cancelling...")
 
     def _is_internet_available(self):
         """Check if internet connection is available."""
@@ -1411,11 +1421,16 @@ class MusicPlayerScreen(QWidget):
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 universal_newlines=True,
-                bufsize=1, # Line buffered
+                bufsize=1,  # Line buffered
             )
-            
+
+            # Save process handle so we can cancel (set directly to avoid race)
+            self.download_process = process
+
             # Read output line by line to parse progress
             for line in iter(process.stdout.readline, ""):
+                if self._cancel_requested:
+                    break
                 if "[download]" in line and "%" in line:
                     try:
                         # Extract percentage string and convert to float
@@ -1425,14 +1440,20 @@ class MusicPlayerScreen(QWidget):
                         QTimer.singleShot(0, lambda p=percent: self.update_progress(p))
                     except (ValueError, IndexError):
                         # Ignore lines that don't parse correctly
-                        pass 
+                        pass
 
             # Wait for process to finish and get return code
             return_code = process.wait()
 
             file_exists = os.path.exists(expected_filepath)
 
-            if return_code == 0 or file_exists:
+            # Clear saved process handle in UI thread
+            QTimer.singleShot(0, lambda: setattr(self, 'download_process', None))
+
+            if self._cancel_requested:
+                # Treat as cancelled
+                self.download_complete(False, song_info, "Cancelled by user")
+            elif return_code == 0 or file_exists:
                 # Download succeeded
                 self.download_complete(True, song_info)
             else:
@@ -1444,15 +1465,29 @@ class MusicPlayerScreen(QWidget):
                 elif return_code == 4: error_msg = "Download was interrupted."
                 elif return_code == 101: error_msg = "Configuration error."
                 elif return_code == 102: error_msg = "Internal error."
-                
+
                 self.download_complete(False, song_info, error_msg)
         except Exception as e:
             # Catch any exceptions during thread execution
             self.download_complete(False, song_info, f"An unexpected error occurred: {e}")
+        # Update queue UI to reflect percent if an item is downloading
+        if self.current_download and self.download_queue_list.count() > 0:
+            first_item = self.download_queue_list.item(0)
+            if first_item:
+                base = f"{self.current_download.get('artist', 'Unknown Artist')} - {self.current_download.get('title', 'Unknown Title')}"
+                first_item.setText(f"{base} [Downloading... {int(percent)}%]")
+
 
     def update_progress(self, percent):
         """Update the progress bar value (called from main thread)."""
-        self.download_progress_bar.setValue(int(percent))
+        self._download_percent = int(percent)
+        self.download_progress_bar.setValue(self._download_percent)
+        if not self.download_progress_bar.isVisible():
+            self.download_progress_bar.setVisible(True)
+        if not self.cancel_download_button.isVisible():
+            self.cancel_download_button.setVisible(True)
+        # Refresh queue list first item text
+        self._update_queue_list_ui()
 
     def download_complete(self, success, song_info, error_message=None):
         """
@@ -1466,41 +1501,55 @@ class MusicPlayerScreen(QWidget):
         Updates UI elements after download completion (must run on main thread).
         Handles state changes, history logging, and queue processing.
         """
+        # Reset cancel flag and hide cancel button
+        self._cancel_requested = False
+        self.cancel_download_button.setVisible(False)
+        self.download_process = None
+
         if success:
             self.download_progress_bar.setValue(100)
+            self.download_progress_bar.setFormat("Downloading... %p%")
             # Hide progress bar after a short delay
-            QTimer.singleShot(2000, lambda: self.download_progress_bar.setVisible(False))
-            
+            QTimer.singleShot(1500, lambda: self.download_progress_bar.setVisible(False))
+
             # Update status and log to history
             completed_song_info['status'] = 'Completed'
             completed_song_info['timestamp'] = datetime.datetime.now().isoformat()
-            self.download_history.insert(0, completed_song_info) # Add to beginning of history
+            self.download_history.insert(0, completed_song_info)  # Add to beginning of history
             self._save_download_history()
             self._update_history_list_ui()
 
             QMessageBox.information(self, "Download Complete", f"Successfully downloaded '{completed_song_info.get('title', 'Unknown Title')}'.")
-            
+
             # Refresh library list if it's visible, so new file can be seen immediately
             if self.stacked_widget.currentWidget() == self.library_widget:
                 # Select the correct tab first if needed (Downloads tab might be active)
                 current_tab_index = self.library_tab_widget.currentIndex()
-                if current_tab_index != 0: # 0 is the index for "My Library"
-                    self.library_tab_widget.setCurrentIndex(0) # Switch to Library tab
-                self.load_library_files() # Refresh the library
+                if current_tab_index != 0:  # 0 is the index for "My Library"
+                    self.library_tab_widget.setCurrentIndex(0)  # Switch to Library tab
+                self.load_library_files()  # Refresh the library
 
         else:
-            # Download failed
-            self.download_progress_bar.setVisible(False) # Hide progress bar immediately
-            
-            QMessageBox.warning(self, "Download Failed", f"Failed to download '{completed_song_info.get('title', 'Unknown Title')}'.\n\nReason: {error_message}")
-            
-            # Update status to Failed in history
-            completed_song_info['status'] = 'Failed'
-            completed_song_info['timestamp'] = datetime.datetime.now().isoformat()
-            completed_song_info['error'] = error_message # Store error reason
-            self.download_history.insert(0, completed_song_info)
-            self._save_download_history()
-            self._update_history_list_ui()
+            # Download failed or cancelled
+            self.download_progress_bar.setVisible(False)  # Hide progress bar immediately
+
+            # Choose message based on error
+            if error_message and "Cancelled" in error_message:
+                # Add as cancelled to history
+                completed_song_info['status'] = 'Cancelled'
+                completed_song_info['timestamp'] = datetime.datetime.now().isoformat()
+                self.download_history.insert(0, completed_song_info)
+                self._save_download_history()
+                self._update_history_list_ui()
+            else:
+                QMessageBox.warning(self, "Download Failed", f"Failed to download '{completed_song_info.get('title', 'Unknown Title')}'.\n\nReason: {error_message}")
+                # Update status to Failed in history
+                completed_song_info['status'] = 'Failed'
+                completed_song_info['timestamp'] = datetime.datetime.now().isoformat()
+                completed_song_info['error'] = error_message  # Store error reason
+                self.download_history.insert(0, completed_song_info)
+                self._save_download_history()
+                self._update_history_list_ui()
 
         # CRITICAL: Reset current_download to None to allow the next download to start
         self.current_download = None
