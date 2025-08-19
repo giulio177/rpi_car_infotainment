@@ -71,7 +71,7 @@ sudo apt install -y \
 cd /home/pi
 
 # Clone the specific branch 'stable-liteOS'
-git clone --branch stable-liteOS https://github.com/giulio177/rpi_car_infotainment.git
+git clone --branch stable-liteOS-pi5 https://github.com/giulio177/rpi_car_infotainment.git
 ```
 
 ### 4. Set Up VENV
