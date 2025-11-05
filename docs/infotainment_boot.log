@@ -1,0 +1,27 @@
+
+--- NUOVO AVVIO: Fri 18 Jul 03:21:08 CEST 2025 ---
+Script 'start_and_log.sh' in esecuzione.
+Variabili d'ambiente impostate:
+SHELL=/bin/bash
+QT_ACCESSIBILITY=1
+PWD=/home/pi/rpi_car_infotainment
+LOGNAME=pi
+SYSTEMD_EXEC_PID=2737
+XAUTHORITY=/home/pi/.Xauthority
+HOME=/home/pi
+LANG=en_GB.UTF-8
+INVOCATION_ID=f6455f73d29345eba3d12419073bb752
+MANAGERPID=663
+QT_QPA_PLATFORM=linuxfb:evdev-touch-screen=/dev/input/touchscreen
+QT_QPA_FB_FORCE_FULLSCREEN=1
+USER=pi
+DISPLAY=:0
+SHLVL=1
+XDG_RUNTIME_DIR=/run/user/1000
+JOURNAL_STREAM=9:12740
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+_=/usr/bin/env
+---
+Avvio dell'applicazione Python: /home/pi/rpi_car_infotainment/venv/bin/python3 /home/pi/rpi_car_infotainment/main.py
+==========================================================

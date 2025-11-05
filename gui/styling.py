@@ -16,7 +16,9 @@ def scale_value(base_value, scale_factor):
         return 1
 
 
-BASE_SLIDER_THICKNESS = 15  # <<< --- ADJUSTED FOR 1024x600 RESOLUTION --- >>>
+BASE_SLIDER_THICKNESS = 25  # <<< --- ADJUSTED FOR 1024x600 RESOLUTION --- >>>
+
+SCROLL_BAR_WIDTH = 25 # spessore barra di scorrimento impostazioni e logs
 
 # --- Theme Functions accepting scale_factor ---
 
@@ -44,7 +46,7 @@ def get_light_theme(scale_factor=1.0):
     # Handle size based on groove thickness (e.g., 1.8x thickness, ensure minimum size)
     scaled_slider_handle_s = max(
         scaled_slider_thickness + scale_value(10, scale_factor),
-        scale_value(BASE_SLIDER_THICKNESS * 1.8, scale_factor),
+        scale_value(BASE_SLIDER_THICKNESS * 1.2, scale_factor),
     )  # Slightly smaller ratio?
     scaled_slider_handle_s = (
         int(math.ceil(scaled_slider_handle_s / 2.0)) * 2
@@ -54,7 +56,7 @@ def get_light_theme(scale_factor=1.0):
         -(scaled_slider_handle_s - scaled_slider_thickness) // 2
     )  # Vertical margin
     scaled_slider_handle_margin_h = (
-        scaled_slider_handle_s // 4
+        scaled_slider_handle_s // 20
     )  # Horizontal margin based on handle size (prevents clipping groove too much)
 
     # Generate QSS String
@@ -127,8 +129,7 @@ def get_light_theme(scale_factor=1.0):
         background: #e8e8e8;
         height: {scaled_slider_thickness}px; /* Use derived scaled thickness */
         border-radius: {scaled_slider_thickness // 2}px;
-        /* Adjust horizontal margin based on derived handle size to avoid clipping */
-        margin: 0px {scaled_slider_handle_margin_h}px;
+        margin: 0px {scaled_slider_handle_margin_h}px; /* Adjust horizontal margin based on derived handle size to avoid clipping */
     }}
     QSlider#volumeSlider::handle:horizontal, QSlider#timeSlider::handle:horizontal {{
         background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #7070ff, stop:1 #4040fa);
@@ -176,7 +177,7 @@ def get_light_theme(scale_factor=1.0):
     QScrollArea#settingsScrollArea {{ border: none; background-color: transparent; }}
     QScrollBar:vertical {{
         border: {scaled_border}px solid #c0c0c0; background: #e0e0e0;
-        width: {scale_value(14, scale_factor)}px; margin: 0px;
+        width: {scale_value(SCROLL_BAR_WIDTH, scale_factor)}px; margin: 0px;
     }}
     QScrollBar::handle:vertical {{
         background: #a0a0a0; min-height: {scale_value(30, scale_factor)}px;
@@ -343,6 +344,21 @@ def get_light_theme(scale_factor=1.0):
         background-color: #f8f8f8;
     }}
 
+    /* --- Logs Screen --- */
+
+    QPlainTextEdit#logsText {{
+        font-size: {scale_value(base_font_size_pt, scale_factor)}pt;
+        padding: {scaled_padding}px;
+        line-height: 150%;
+        background-color: #f8f8f8;
+        color: #333333;
+    }}
+
+    QPlainTextEdit#logsText QScrollBar:vertical {{
+        width: {scale_value(SCROLL_BAR_WIDTH, scale_factor)}px;
+    }}
+
+
     /* --- AirPlay Screen (scroll area removed) --- */
 
     QLabel#lyricsContent {{
@@ -371,10 +387,37 @@ def get_light_theme(scale_factor=1.0):
         margin-bottom: {scaled_padding}px;
     }}
 
-    /* --- Special Buttons --- */
-    QPushButton#powerNavButton {{ background-color: #ff8080; border-color: #cc6666; outline: none; }}
-    QPushButton#powerNavButton:pressed {{ background-color: #e67373; }}
-    QPushButton#powerNavButton:focus {{ outline: none; border-color: #cc6666; }}
+    
+    /* --- Special Action Buttons --- */
+    /* Azioni a livello di APP (Grigio scuro, meno prominente) */
+    QPushButton#appActionButton {{
+        background-color: #a9a9a9; /* Dark Gray */
+        border-color: #808080; /* Gray */
+        outline: none;
+    }}
+    QPushButton#appActionButton:pressed {{
+        background-color: #696969; /* Dim Gray */
+    }}
+    QPushButton#appActionButton:focus {{
+        outline: none;
+        border-color: #808080;
+    }}
+
+    /* Azioni a livello di SISTEMA (Rosso, "pericoloso") */
+    QPushButton#systemActionButton {{
+        background-color: #ff8080; /* Rosso Chiaro */
+        border-color: #cc6666;
+        outline: none;
+    }}
+    QPushButton#systemActionButton:pressed {{
+        background-color: #e67373; /* Rosso più scuro quando premuto */
+    }}
+    QPushButton#systemActionButton:focus {{
+        outline: none;
+        border-color: #cc6666;
+    }}
+
+
 
     /* ==================== Dialog and Popup Styles ==================== */
     QMessageBox {{
@@ -410,6 +453,88 @@ def get_light_theme(scale_factor=1.0):
         color: #333333;
         border: {scaled_border}px solid #b0b0b0;
         border-radius: {scaled_border_radius}px;
+    }}
+
+    /* ==================== Network Dialog Styles ==================== */
+    QDialog#networkDialog {{
+        background-color: #f0f0f0;
+        color: #333333;
+        border: {scaled_border}px solid #b0b0b0;
+        border-radius: {scaled_border_radius}px;
+    }}
+    QLabel#dialogTitle {{
+        font-size: {scale_value(base_font_size_pt + 4, scale_factor)}pt;
+        font-weight: bold;
+        color: #333333;
+        margin-bottom: {scaled_padding}px;
+    }}
+    QListWidget {{
+        background-color: #ffffff;
+        border: {scaled_border}px solid #b0b0b0;
+        border-radius: {scaled_border_radius}px;
+        selection-background-color: #dcdcdc;
+        selection-color: #333333;
+        padding: {scaled_padding // 2}px;
+    }}
+    QListWidget::item {{
+        padding: {scaled_padding // 2}px;
+        border-bottom: 1px solid #e0e0e0;
+    }}
+    QListWidget::item:selected {{
+        background-color: #007bff;
+        color: #ffffff;
+    }}
+
+    /* ==================== Virtual Keyboard Styles ==================== */
+    QDialog#virtualKeyboard {{
+        background-color: #f0f0f0;
+        color: #333333;
+        border: {scaled_border}px solid #b0b0b0;
+        border-radius: {scaled_border_radius}px;
+    }}
+    QLineEdit#keyboardTextInput {{
+        font-size: {scale_value(base_font_size_pt + 2, scale_factor)}pt;
+        padding: {scale_value(base_padding_px, scale_factor)}px;
+        min-height: {scale_value(40, scale_factor)}px;
+        border: {scaled_border}px solid #b0b0b0;
+        border-radius: {scaled_border_radius}px;
+        background-color: #ffffff;
+    }}
+    QPushButton#keyboardKey {{
+        background-color: #e8e8e8;
+        border: {scaled_border}px solid #c0c0c0;
+        border-radius: {scaled_border_radius}px;
+        min-width: {scale_value(40, scale_factor)}px;
+        min-height: {scale_value(40, scale_factor)}px;
+        font-size: {scale_value(base_font_size_pt, scale_factor)}pt;
+        outline: none;
+    }}
+    QPushButton#keyboardKey:pressed {{
+        background-color: #d0d0d0;
+    }}
+    QPushButton#keyboardSpecialKey {{
+        background-color: #d0d0d0;
+        border: {scaled_border}px solid #a0a0a0;
+        border-radius: {scaled_border_radius}px;
+        min-width: {scale_value(50, scale_factor)}px;
+        min-height: {scale_value(40, scale_factor)}px;
+        font-size: {scale_value(base_font_size_pt, scale_factor)}pt;
+        outline: none;
+    }}
+    QPushButton#keyboardSpecialKey:pressed {{
+        background-color: #b0b0b0;
+    }}
+    QPushButton#keyboardSpaceKey {{
+        background-color: #e8e8e8;
+        border: {scaled_border}px solid #c0c0c0;
+        border-radius: {scaled_border_radius}px;
+        min-width: {scale_value(200, scale_factor)}px;
+        min-height: {scale_value(40, scale_factor)}px;
+        font-size: {scale_value(base_font_size_pt, scale_factor)}pt;
+        outline: none;
+    }}
+    QPushButton#keyboardSpaceKey:pressed {{
+        background-color: #d0d0d0;
     }}
 
     QFileDialog {{
@@ -472,13 +597,13 @@ def get_dark_theme(scale_factor=1.0):
     scaled_slider_thickness = scale_value(BASE_SLIDER_THICKNESS, scale_factor)
     scaled_slider_handle_s = max(
         scaled_slider_thickness + scale_value(10, scale_factor),
-        scale_value(BASE_SLIDER_THICKNESS * 1.8, scale_factor),
+        scale_value(BASE_SLIDER_THICKNESS * 1.2, scale_factor),
     )
     scaled_slider_handle_s = int(math.ceil(scaled_slider_handle_s / 2.0)) * 2
     scaled_slider_handle_margin_v = (
         -(scaled_slider_handle_s - scaled_slider_thickness) // 2
     )
-    scaled_slider_handle_margin_h = scaled_slider_handle_s // 4
+    scaled_slider_handle_margin_h = scaled_slider_handle_s // 20
 
     # Generate QSS String
     return f"""
@@ -546,7 +671,8 @@ def get_dark_theme(scale_factor=1.0):
     }}
 
     QSlider#volumeSlider::groove:horizontal, QSlider#timeSlider::groove:horizontal {{
-        border: {scaled_border}px solid #555555; background: #444444;
+        border: {scaled_border}px solid #555555; 
+        background: #444444;
         height: {scaled_slider_thickness}px;
         border-radius: {scaled_slider_thickness // 2}px;
         margin: 0px {scaled_slider_handle_margin_h}px; /* Use derived horizontal margin */
@@ -595,7 +721,7 @@ def get_dark_theme(scale_factor=1.0):
     QScrollArea#settingsScrollArea {{ border: none; background-color: transparent; }}
     QScrollBar:vertical {{
         border: {scaled_border}px solid #505050; background: #3a3a3a;
-        width: {scale_value(14, scale_factor)}px; margin: 0px;
+        width: {scale_value(SCROLL_BAR_WIDTH, scale_factor)}px; margin: 0px;
     }}
     QScrollBar::handle:vertical {{
         background: #686868; min-height: {scale_value(30, scale_factor)}px;
@@ -761,6 +887,20 @@ def get_dark_theme(scale_factor=1.0):
         background-color: #383838;
     }}
 
+    /* --- Logs Screen --- */
+
+    QPlainTextEdit#logsText {{
+        font-size: {scale_value(base_font_size_pt, scale_factor)}pt;
+        padding: {scaled_padding}px;
+        line-height: 150%;
+        background-color: #383838;
+        color: #e0e0e0;
+    }}
+
+    QPlainTextEdit#logsText QScrollBar:vertical {{
+        width: {scale_value(SCROLL_BAR_WIDTH, scale_factor)}px;
+    }}
+
     /* --- AirPlay Screen (scroll area removed) --- */
 
     QLabel#lyricsContent {{
@@ -789,11 +929,34 @@ def get_dark_theme(scale_factor=1.0):
         margin-bottom: {scaled_padding}px;
     }}
 
-    /* --- Special Buttons --- */
-    QPushButton#powerNavButton {{ background-color: #a04040; border-color: #803333; outline: none; }}
-    QPushButton#powerNavButton:pressed {{ background-color: #b35959; }}
-    QPushButton#powerNavButton:focus {{ outline: none; border-color: #803333; }}
+    /* --- Special Action Buttons --- */
+    /* Azioni a livello di APP (Grigio, si integra) */
+    QPushButton#appActionButton {{
+        background-color: #606060;
+        border-color: #787878;
+        outline: none;
+    }}
+    QPushButton#appActionButton:pressed {{
+        background-color: #707070;
+    }}
+    QPushButton#appActionButton:focus {{
+        outline: none;
+        border-color: #787878;
+    }}
 
+    /* Azioni a livello di SISTEMA (Rosso, "pericoloso") */
+    QPushButton#systemActionButton {{
+        background-color: #a04040; /* Rosso Scuro */
+        border-color: #803333;
+        outline: none;
+    }}
+    QPushButton#systemActionButton:pressed {{
+        background-color: #b35959; /* Rosso più chiaro quando premuto */
+    }}
+    QPushButton#systemActionButton:focus {{
+        outline: none;
+        border-color: #803333;
+    }}
     /* ==================== Dialog and Popup Styles ==================== */
     QMessageBox {{
         background-color: #2e2e2e;
@@ -829,6 +992,93 @@ def get_dark_theme(scale_factor=1.0):
         color: #e0e0e0;
         border: {scaled_border}px solid #707070;
         border-radius: {scaled_border_radius}px;
+    }}
+
+    /* ==================== Network Dialog Styles ==================== */
+    QDialog#networkDialog {{
+        background-color: #2e2e2e;
+        color: #e0e0e0;
+        border: {scaled_border}px solid #707070;
+        border-radius: {scaled_border_radius}px;
+    }}
+    QLabel#dialogTitle {{
+        font-size: {scale_value(base_font_size_pt + 4, scale_factor)}pt;
+        font-weight: bold;
+        color: #e0e0e0;
+        margin-bottom: {scaled_padding}px;
+    }}
+    QListWidget {{
+        background-color: #404040;
+        border: {scaled_border}px solid #707070;
+        border-radius: {scaled_border_radius}px;
+        selection-background-color: #34a4ff;
+        selection-color: #ffffff;
+        color: #e0e0e0;
+        padding: {scaled_padding // 2}px;
+    }}
+    QListWidget::item {{
+        padding: {scaled_padding // 2}px;
+        border-bottom: 1px solid #505050;
+    }}
+    QListWidget::item:selected {{
+        background-color: #34a4ff;
+        color: #ffffff;
+    }}
+
+    /* ==================== Virtual Keyboard Styles ==================== */
+    QDialog#virtualKeyboard {{
+        background-color: #2e2e2e;
+        color: #e0e0e0;
+        border: {scaled_border}px solid #707070;
+        border-radius: {scaled_border_radius}px;
+    }}
+    QLineEdit#keyboardTextInput {{
+        font-size: {scale_value(base_font_size_pt + 2, scale_factor)}pt;
+        padding: {scale_value(base_padding_px, scale_factor)}px;
+        min-height: {scale_value(40, scale_factor)}px;
+        border: {scaled_border}px solid #707070;
+        border-radius: {scaled_border_radius}px;
+        background-color: #404040;
+        color: #e0e0e0;
+    }}
+    QPushButton#keyboardKey {{
+        background-color: #505050;
+        border: {scaled_border}px solid #707070;
+        border-radius: {scaled_border_radius}px;
+        min-width: {scale_value(40, scale_factor)}px;
+        min-height: {scale_value(40, scale_factor)}px;
+        font-size: {scale_value(base_font_size_pt, scale_factor)}pt;
+        color: #e0e0e0;
+        outline: none;
+    }}
+    QPushButton#keyboardKey:pressed {{
+        background-color: #606060;
+    }}
+    QPushButton#keyboardSpecialKey {{
+        background-color: #404040;
+        border: {scaled_border}px solid #606060;
+        border-radius: {scaled_border_radius}px;
+        min-width: {scale_value(50, scale_factor)}px;
+        min-height: {scale_value(40, scale_factor)}px;
+        font-size: {scale_value(base_font_size_pt, scale_factor)}pt;
+        color: #e0e0e0;
+        outline: none;
+    }}
+    QPushButton#keyboardSpecialKey:pressed {{
+        background-color: #505050;
+    }}
+    QPushButton#keyboardSpaceKey {{
+        background-color: #505050;
+        border: {scaled_border}px solid #707070;
+        border-radius: {scaled_border_radius}px;
+        min-width: {scale_value(200, scale_factor)}px;
+        min-height: {scale_value(40, scale_factor)}px;
+        font-size: {scale_value(base_font_size_pt, scale_factor)}pt;
+        color: #e0e0e0;
+        outline: none;
+    }}
+    QPushButton#keyboardSpaceKey:pressed {{
+        background-color: #606060;
     }}
 
     QFileDialog {{

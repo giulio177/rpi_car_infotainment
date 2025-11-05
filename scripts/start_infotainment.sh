@@ -1,76 +1,78 @@
 #!/bin/bash
 
-# Script to start the RPi Car Infotainment system with a minimal X server
-# This script should be run from the project directory
+# ===================================================================
+# Script per avviare un'applicazione Qt/PySide su Raspberry Pi
+# direttamente sul framebuffer (senza desktop/X server) con
+# supporto per il touchscreen.
+# ===================================================================
 
-# Set error handling
+# Interrompe lo script in caso di errori
 set -e
 
-# Configuration
-DISPLAY=:0
-XSERVER_ARGS="-nocursor"  # Hide cursor by default
-RESOLUTION="1024x600"     # Default resolution for RPi touchscreens
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-APP_DIR="$(dirname "$SCRIPT_DIR")"  # Project root directory
-VENV_DIR="$APP_DIR/venv"  # Virtual environment directory
+# --- CONFIGURAZIONE ---
+# --- PERCORSI ASSOLUTI PER LA MASSIMA AFFIDABILITÀ CON SYSTEMD ---
+APP_DIR="/home/pi/rpi_car_infotainment"
+VENV_DIR="/home/pi/rpi_car_infotainment/venv"
+# TOUCHSCREEN_DEVICE="/dev/input/touchscreen"  # È consigliato usare il link udev
+TOUCHSCREEN_DEVICE="/dev/input/event0"   # Usa questo se non hai la regola udev
 
-# Function to check if X server is already running
-check_x_running() {
-    if ps aux | grep -v grep | grep -q "Xorg.*$DISPLAY"; then
-        return 0  # X is running
-    else
-        return 1  # X is not running
-    fi
-}
+# In alternativa, puoi usare il percorso diretto (ma potrebbe cambiare al riavvio):
+# TOUCHSCREEN_DEVICE="/dev/input/event1"
 
-# Function to start X server if not already running
-start_x_server() {
-    if ! check_x_running; then
-        echo "Starting X server on $DISPLAY..."
-        # Start X server in the background
-        /usr/bin/Xorg $DISPLAY $XSERVER_ARGS &
-        sleep 2  # Give X server time to start
-    else
-        echo "X server already running on $DISPLAY"
-    fi
-}
+LOG_FILE="/tmp/app_output.log"
 
-# Function to activate virtual environment
+
+# --- FUNZIONI ---
+
+# Funzione per attivare l'ambiente virtuale Python
 activate_venv() {
     if [ -d "$VENV_DIR" ] && [ -f "$VENV_DIR/bin/activate" ]; then
-        echo "Activating virtual environment..."
+        echo "Attivazione ambiente virtuale: $VENV_DIR"
         source "$VENV_DIR/bin/activate"
     else
-        echo "Error: Virtual environment not found at $VENV_DIR"
+        echo "ERRORE: Ambiente virtuale non trovato in $VENV_DIR"
         exit 1
     fi
 }
 
-# Function to start the application
+# Funzione per avviare l'applicazione principale
 start_application() {
-    echo "Starting RPi Car Infotainment application..."
-    # Change to the project root directory
+    echo "Avvio dell'applicazione principale..."
     cd "$APP_DIR"
-    # Start the application with eglfs platform
-    python3 main.py
+
+    # --- CONFIGURAZIONE FONDAMENTALE DI QT ---
+    # Imposta la piattaforma Qt per usare:
+    # - linuxfb: per disegnare direttamente sul display (framebuffer)
+    # - evdev: per gestire l'input dal dispositivo touchscreen specificato
+    export QT_QPA_PLATFORM="linuxfb:fb=/dev/fb0;evdev-touch-screen=${TOUCHSCREEN_DEVICE}"
+
+    # Forza l'applicazione ad avviarsi in modalità fullscreen
+    export QT_QPA_FB_FORCE_FULLSCREEN=1
+
+    # svuota log precedente (opzionale)
+    > "$LOG_FILE"
+
+    # Esegui l'applicazione Python
+    echo "Esecuzione di: $VENV_DIR/bin/python3 main.py"
+    # --- MODIFICA CHIAVE: USA IL PERCORSO COMPLETO AL PYTHON DEL VENV ---
+    "$VENV_DIR/bin/python3" main.py 2>&1 | tee "$LOG_FILE"
 }
 
-# Clear screen and hide cursor
-clear
-echo -e "\033[?25l"  # Hide cursor
 
-# Main execution
-echo "=== RPi Car Infotainment Launcher ==="
-echo "Current directory: $APP_DIR"
+# --- ESECUZIONE DELLO SCRIPT ---
 
-# Note: Using Qt platform for embedded systems, no X server needed
-echo "Using Qt platform for direct framebuffer access"
+# Pulisci lo schermo e nascondi il cursore del terminale
+#clear
+#echo -e "\033[?25l"
 
-# Activate virtual environment
+echo "=== Avvio RPi Car Infotainment Launcher ==="
+
+# Attiva l'ambiente virtuale
 activate_venv
 
-# Start application
+# Avvia l'applicazione
 start_application
 
-# Exit gracefully
-echo "Application exited."
+# Ripristina il cursore all'uscita (opzionale, utile per il debug)
+echo -e "\033[?25h"
+echo "Applicazione terminata."

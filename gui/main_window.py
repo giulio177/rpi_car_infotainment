@@ -1,6 +1,8 @@
 # gui/main_window.py
 
+import base64
 import os
+import re
 import sys
 import subprocess
 
@@ -18,7 +20,7 @@ from PyQt6.QtWidgets import (
     QSpacerItem,
     QSizePolicy,
 )  # Added QSpacerItem, QSizePolicy
-from PyQt6.QtCore import pyqtSlot, Qt, QTimer, QDateTime, QSize
+from PyQt6.QtCore import pyqtSlot, Qt, QTimer, QDateTime, QSize, QBuffer, QIODevice
 from PyQt6.QtGui import QIcon, QShortcut, QKeySequence
 
 from .styling import apply_theme, scale_value
@@ -28,15 +30,25 @@ from backend.audio_manager import AudioManager
 from backend.bluetooth_manager import BluetoothManager
 from backend.obd_manager import OBDManager
 from backend.radio_manager import RadioManager
-from backend.airplay_stream_manager import AirPlayStreamManager
+from backend.airplay_manager import AirPlayManager
+from backend.wifi_manager import WiFiManager
 
 # Import screens
 from .home_screen import HomeScreen
 from .radio_screen import RadioScreen
-from .obd_screen import OBDScreen
+from ..obd_screen import OBDScreen
 from .setting_screen import SettingsScreen
 from .music_player_screen import MusicPlayerScreen
 from .airplay_screen import AirPlayScreen
+from .logs_screen import LogsScreen
+
+# Import network dialogs
+from .network_dialogs import BluetoothDialog, WiFiDialog
+
+try:
+    from .html_renderer import HtmlView
+except ImportError:  # pragma: no cover - fallback when WebEngine is missing
+    HtmlView = None
 
 # --- Icon definitions ---
 ICON_PATH = "assets/icons/"
@@ -46,7 +58,8 @@ ICON_VOLUME = os.path.join(ICON_PATH, "volume.png")
 ICON_VOLUME_MUTED = os.path.join(ICON_PATH, "volume_muted.png")
 ICON_RESTART = os.path.join(ICON_PATH, "restart.png")
 ICON_POWER = os.path.join(ICON_PATH, "power.png")
-# ICON_BT_CONNECTED removed - not using icon for now
+ICON_BLUETOOTH = os.path.join(ICON_PATH, "bluetooth.png")
+ICON_WIFI = os.path.join(ICON_PATH, "wifi.png")
 # ---
 
 
@@ -58,7 +71,9 @@ class MainWindow(QMainWindow):
         self.settings_manager = settings_manager
         self.audio_manager = AudioManager()
         self.bluetooth_manager = BluetoothManager()
-        self.airplay_manager = AirPlayStreamManager(main_window=self)
+        self.wifi_manager = WiFiManager()
+        self.airplay_manager = AirPlayManager()
+        
 
         # Flag for initial scaling
         self._has_scaled_correctly = False
@@ -75,13 +90,15 @@ class MainWindow(QMainWindow):
         self.base_layout_margin = 6  # Smaller bottom bar internal margin for 1024x600
         self.base_main_margin = 10  # Smaller child screen margin for 1024x600
 
-        # --- Load Icons (No BT icon needed now) ---
+        # --- Load Icons ---
         self.home_icon = QIcon(ICON_HOME)
         self.settings_icon = QIcon(ICON_SETTINGS)
         self.volume_normal_icon = QIcon(ICON_VOLUME)
         self.volume_muted_icon = QIcon(ICON_VOLUME_MUTED)
         self.restart_icon = QIcon(ICON_RESTART)
         self.power_icon = QIcon(ICON_POWER)
+        self.bluetooth_icon = QIcon(ICON_BLUETOOTH)
+        self.wifi_icon = QIcon(ICON_WIFI)
         # ---
 
         # --- Volume/Mute variables ---
@@ -95,6 +112,44 @@ class MainWindow(QMainWindow):
         # --- Theme (Set variable, apply in _apply_scaling) ---
         self.current_theme = self.settings_manager.get("theme")
 
+        requested_mode = (
+            os.environ.get("INFOTAINMENT_UI_MODE")
+            or self.settings_manager.get("ui_render_mode")
+            or "native"
+        )
+        if isinstance(requested_mode, str):
+            requested_mode = requested_mode.lower()
+        else:
+            requested_mode = "native"
+        self.use_html_ui = requested_mode == "html" and HtmlView is not None
+        self.html_view = None
+        self._html_ready = False
+        self.screen_registry = {}
+        self.active_screen_id = "home"
+        self.html_state = {
+            "volume": {"level": 0, "muted": False},
+            "bluetooth": {"connected": False, "device": None, "battery": None},
+            "radio": {"status": "Disabled"},
+            "obd": {"status": "Disabled"},
+            "media": {
+                "source": None,
+                "title": None,
+                "artist": None,
+                "album": None,
+                "position": 0,
+                "duration": 0,
+                "status": "stopped",
+                "art": None,
+            },
+            "settings": {},
+        }
+        self.html_state["settings"] = self._collect_settings_summary()
+        if requested_mode == "html" and HtmlView is None:
+            print(
+                "HTML UI requested but PyQt6-WebEngine is missing. Falling back to native widgets."
+            )
+            self.use_html_ui = False
+
         # --- Central Widget & Main Layout ---
         self.central_widget = QWidget()
         self.central_widget.setObjectName("central_widget")
@@ -107,7 +162,10 @@ class MainWindow(QMainWindow):
         # ---
 
         # --- PERSISTENT HEADER BAR ---
-        self.header_layout = QHBoxLayout()
+        self.header_widget = QWidget()
+        self.header_widget.setObjectName("persistentHeaderBar")
+        self.header_layout = QHBoxLayout(self.header_widget)
+        self.header_layout.setContentsMargins(0, 0, 0, 0)
         # Spacing set by scaling
         self.header_title_label = QLabel("Home")
         self.header_title_label.setObjectName("headerTitle")
@@ -122,7 +180,7 @@ class MainWindow(QMainWindow):
         # Add quit button in the middle
         self.header_quit_button = QPushButton()
         self.header_quit_button.setIcon(self.power_icon)
-        self.header_quit_button.setObjectName("headerQuitButton")
+        self.header_quit_button.setObjectName("appActionButton")
         self.header_quit_button.setToolTip("Exit Application")
         self.header_quit_button.clicked.connect(self.close)
         self.header_layout.addWidget(self.header_quit_button)
@@ -146,15 +204,26 @@ class MainWindow(QMainWindow):
         self.header_clock_timer.start(10000)
         self._update_header_clock()
         # Add header layout to the main layout (AFTER potential top spacer)
-        self.main_layout.addLayout(self.header_layout, 0)
+        self.main_layout.addWidget(self.header_widget, 0)
 
         # --- Stacked Widget for Screens ---
         self.stacked_widget = QStackedWidget()
         # Connect signal to update title when screen changes
         self.stacked_widget.currentChanged.connect(self.update_header_title)
-        self.main_layout.addWidget(
-            self.stacked_widget, 1
-        )  # Takes remaining vertical space (Stretch = 1)
+        if self.use_html_ui:
+            html_path = os.path.join(
+                os.path.dirname(__file__),
+                "html",
+                "index.html",
+            )
+            self.html_view = HtmlView(html_path)
+            self.html_view.event_received.connect(self.handle_html_event)
+            self.html_view.view.loadFinished.connect(self._on_html_loaded)
+            self.main_layout.addWidget(self.html_view, 1)
+        else:
+            self.main_layout.addWidget(
+                self.stacked_widget, 1
+            )  # Takes remaining vertical space (Stretch = 1)
 
         # --- Status Labels Setup (Bottom Bar) - REMOVED ---
         # Status labels removed to clean up bottom bar
@@ -190,15 +259,28 @@ class MainWindow(QMainWindow):
 
         self.restart_button_bar = QPushButton()
         self.restart_button_bar.setIcon(self.restart_icon)
-        self.restart_button_bar.setObjectName("restartNavButton")
+        self.restart_button_bar.setObjectName("appActionButton")
         self.restart_button_bar.setToolTip("Restart Application")
         self.restart_button_bar.clicked.connect(self.restart_application)
 
         self.power_button = QPushButton()
-        self.power_button.setIcon(self.power_icon)
-        self.power_button.setObjectName("powerNavButton")
-        self.power_button.setToolTip("Shutdown Raspberry Pi")
-        self.power_button.clicked.connect(self.shutdown_system)
+        self.power_button.setIcon(self.restart_icon)
+        self.power_button.setObjectName("systemActionButton")
+        self.power_button.setToolTip("Reboot Raspberry Pi")
+        self.power_button.clicked.connect(self.reboot_system)
+
+        # --- Network Control Buttons ---
+        self.bluetooth_button = QPushButton()
+        self.bluetooth_button.setIcon(self.bluetooth_icon)
+        self.bluetooth_button.setObjectName("bluetoothNavButton")
+        self.bluetooth_button.setToolTip("Bluetooth Settings")
+        self.bluetooth_button.clicked.connect(self.open_bluetooth_dialog)
+
+        self.wifi_button = QPushButton()
+        self.wifi_button.setIcon(self.wifi_icon)
+        self.wifi_button.setObjectName("wifiNavButton")
+        self.wifi_button.setToolTip("WiFi Settings")
+        self.wifi_button.clicked.connect(self.open_wifi_dialog)
 
         # --- Add widgets to bottom bar layout ---
         self.bottom_bar_layout.addWidget(self.home_button_bar)
@@ -207,12 +289,18 @@ class MainWindow(QMainWindow):
         # Status labels removed for cleaner bottom bar
         self.bottom_bar_layout.addWidget(self.volume_icon_button)
         self.bottom_bar_layout.addWidget(self.volume_slider)
+        self.bottom_bar_layout.addWidget(self.bluetooth_button)
+        self.bottom_bar_layout.addWidget(self.wifi_button)
         self.bottom_bar_layout.addStretch(1)
         self.bottom_bar_layout.addWidget(self.restart_button_bar)
         self.bottom_bar_layout.addWidget(self.power_button)
 
         # Add bottom bar widget to main layout
         self.main_layout.addWidget(self.bottom_bar_widget)  # Stretch factor 0
+
+        if self.use_html_ui and self.header_widget is not None:
+            self.header_widget.setVisible(False)
+            self.bottom_bar_widget.setVisible(False)
 
         # --- Initialize Backend Managers ---
         self.obd_manager = OBDManager(
@@ -233,17 +321,20 @@ class MainWindow(QMainWindow):
         self.settings_screen = SettingsScreen(self.settings_manager, self)
         self.music_player_screen = MusicPlayerScreen(parent=self)
         self.airplay_screen = AirPlayScreen(self.airplay_manager, parent=self)
+        self.logs_screen = LogsScreen(parent=self)
         self.all_screens = [
             self.home_screen,
             self.radio_screen,
             self.obd_screen,
             self.settings_screen,
             self.music_player_screen,
-            self.airplay_screen
+            self.airplay_screen,
+            self.logs_screen
         ]
 
         # --- Add Screens to Stack ---
         for screen in self.all_screens:
+            self._register_screen(screen)
             self.stacked_widget.addWidget(screen)
 
         # --- Connect Backend Signals ---
@@ -269,6 +360,12 @@ class MainWindow(QMainWindow):
         self.bluetooth_manager.playback_status_changed.connect(
             self.home_screen.update_playback_status
         )
+        self.bluetooth_manager.media_properties_changed.connect(
+            self._handle_media_properties_changed
+        )
+        self.bluetooth_manager.playback_status_changed.connect(
+            self._handle_playback_status_changed
+        )
         # Connect signals to music player screen
         self.bluetooth_manager.media_properties_changed.connect(
             self.music_player_screen.update_media_info
@@ -286,6 +383,22 @@ class MainWindow(QMainWindow):
         )
         self.music_player_screen.local_playback_position_changed.connect(
             self.home_screen.update_position
+        )
+
+        self.music_player_screen.album_art_updated.connect(
+            self.home_screen.update_album_art
+        )
+        self.music_player_screen.local_playback_started.connect(
+            self._handle_local_media_started
+        )
+        self.music_player_screen.local_playback_status_changed.connect(
+            self._handle_local_playback_status
+        )
+        self.music_player_screen.local_playback_position_changed.connect(
+            self._handle_local_playback_position
+        )
+        self.music_player_screen.album_art_updated.connect(
+            self._handle_local_album_art
         )
 
         # Connect AirPlay stream signals
@@ -313,6 +426,8 @@ class MainWindow(QMainWindow):
             self.audio_manager.set_volume(initial_slider_value)
         else:
             self.audio_manager.set_mute(True)
+        self.html_state["volume"]["level"] = initial_slider_value
+        self.html_state["volume"]["muted"] = self.is_muted
 
         # --- Start Backend Threads ---
         if self.settings_manager.get("obd_enabled"):
@@ -350,6 +465,227 @@ class MainWindow(QMainWindow):
         print("Applying initial scaling based on fixed BASE_RESOLUTION.")
 
     # --- Event Handlers ---
+    def _register_screen(self, screen_widget):
+        title = getattr(screen_widget, "screen_title", screen_widget.__class__.__name__)
+        screen_id = getattr(screen_widget, "screen_id", None)
+        if not screen_id:
+            slug_source = title.lower()
+            screen_id = re.sub(r"[^a-z0-9]+", "_", slug_source).strip("_")
+        self.screen_registry[screen_id] = screen_widget
+        setattr(screen_widget, "html_id", screen_id)
+        return screen_id
+
+    def _set_active_screen(self, screen_reference):
+        if isinstance(screen_reference, QWidget):
+            screen_id = getattr(screen_reference, "html_id", None)
+            if screen_id is None:
+                screen_id = self._register_screen(screen_reference)
+        else:
+            screen_id = str(screen_reference)
+        if screen_id != self.active_screen_id:
+            self.active_screen_id = screen_id
+        self._html_send("navigation", {"screen": self.active_screen_id})
+
+    def _navigate_by_id(self, screen_id):
+        screen = self.screen_registry.get(screen_id)
+        if screen is not None:
+            self.navigate_to(screen)
+        else:
+            print(f"[HTML] Requested screen '{screen_id}' not found.")
+
+    def _html_send(self, event_name, payload=None):
+        if not (self.use_html_ui and self._html_ready and self.html_view):
+            return
+        self.html_view.send_event(event_name, payload or {})
+
+    def _collect_settings_summary(self):
+        cfg = dict(getattr(self.settings_manager, "settings", {}))
+        resolution = cfg.get("window_resolution") or [1024, 600]
+        resolution_label = (
+            f"{resolution[0]}x{resolution[1]}" if isinstance(resolution, (list, tuple)) and len(resolution) == 2 else "Unknown"
+        )
+        scale_mode_map = {
+            "auto": "Auto (Scale with Resolution)",
+            "fixed_small": "Small UI (Fixed Style)",
+            "fixed_medium": "Medium UI (Fixed Style)",
+            "fixed_large": "Large UI (Fixed Style)",
+        }
+        radio_i2c = cfg.get("radio_i2c_address")
+        if isinstance(radio_i2c, int):
+            radio_i2c_label = hex(radio_i2c)
+        elif radio_i2c:
+            radio_i2c_label = str(radio_i2c)
+        else:
+            radio_i2c_label = ""
+        volume_value = cfg.get("volume", 0)
+        if hasattr(self, "volume_slider") and self.volume_slider:
+            try:
+                volume_value = self.volume_slider.value()
+            except Exception:
+                pass
+        try:
+            volume_value = int(volume_value)
+        except (TypeError, ValueError):
+            volume_value = 0
+        theme_value = cfg.get("theme", self.current_theme) or "dark"
+        radio_type_value = cfg.get("radio_type", "none")
+        last_station = cfg.get("last_fm_station")
+        if isinstance(last_station, (int, float)):
+            last_station_value = f"{float(last_station):.1f}"
+        elif last_station is not None:
+            last_station_value = str(last_station)
+        else:
+            last_station_value = ""
+        summary = {
+            "theme": theme_value,
+            "ui_render_mode": cfg.get("ui_render_mode", "native"),
+            "ui_scale_mode": cfg.get("ui_scale_mode", "auto"),
+            "window_resolution": resolution_label,
+            "show_cursor": bool(cfg.get("show_cursor")),
+            "position_bottom_right": bool(cfg.get("position_bottom_right")),
+            "developer_mode": bool(cfg.get("developer_mode")),
+            "volume": volume_value,
+            "radio_enabled": bool(cfg.get("radio_enabled")),
+            "radio_type": radio_type_value,
+            "last_fm_station": last_station_value,
+            "radio_i2c_address": radio_i2c_label,
+            "obd_enabled": bool(cfg.get("obd_enabled")),
+            "obd_port": cfg.get("obd_port") or "",
+            "obd_baudrate": str(cfg.get("obd_baudrate")) if cfg.get("obd_baudrate") else "",
+        }
+        return summary
+
+    def _update_settings_field(self, key, value):
+        if "settings" not in self.html_state:
+            self.html_state["settings"] = {}
+        self.html_state["settings"][key] = value
+        self._html_send("settings", {key: value})
+
+    def refresh_html_settings(self):
+        summary = self._collect_settings_summary()
+        self.html_state["settings"] = summary
+        self._html_send("settings", summary)
+
+    def _on_html_loaded(self, ok):
+        if not ok:
+            print("[HTML] Failed to load infotainment index.html")
+            return
+        self._html_ready = True
+        self._push_html_init_state()
+
+    def _push_html_init_state(self):
+        if not self.use_html_ui or not self._html_ready:
+            return
+        screens = []
+        for screen_id, screen in self.screen_registry.items():
+            screens.append(
+                {
+                    "id": screen_id,
+                    "title": getattr(screen, "screen_title", screen_id.title()),
+                }
+            )
+        payload = {
+            "screens": screens,
+            "active": self.active_screen_id,
+            "theme": self.current_theme,
+            "volume": self.html_state["volume"],
+            "bluetooth": self.html_state["bluetooth"],
+            "radio": self.html_state["radio"],
+            "obd": self.html_state["obd"],
+            "media": self.html_state["media"],
+            "settings": self.html_state["settings"],
+        }
+        self._html_send("init", payload)
+        self._update_html_clock()
+
+    def _update_html_clock(self):
+        if not self.use_html_ui or not self._html_ready:
+            return
+        self._html_send("clock", {"value": self.header_clock_label.text()})
+
+    def _pixmap_to_data_url(self, pixmap):
+        if pixmap is None or pixmap.isNull():
+            return None
+        buffer = QBuffer()
+        buffer.open(QIODevice.OpenModeFlag.WriteOnly)
+        success = pixmap.save(buffer, "PNG")
+        buffer.close()
+        if not success:
+            return None
+        encoded = base64.b64encode(bytes(buffer.data()))
+        return f"data:image/png;base64,{encoded.decode('ascii')}"
+
+    def _update_media_state(self, payload):
+        if not isinstance(payload, dict):
+            return
+        self.html_state["media"].update(payload)
+        self._html_send("media", self.html_state["media"])
+
+    def _handle_media_properties_changed(self, properties):
+        if not isinstance(properties, dict):
+            properties = {}
+        track = properties.get("Track", {}) if isinstance(properties.get("Track"), dict) else {}
+        title = track.get("Title") or track.get("title")
+        artist = track.get("Artist") or track.get("artist")
+        album = track.get("Album") or track.get("album")
+        duration = track.get("Duration") or track.get("duration") or 0
+        art = (
+            track.get("artUrl")
+            or track.get("ArtUrl")
+            or track.get("Artwork")
+            or track.get("artwork")
+        )
+        position = properties.get("Position") or 0
+        payload = {
+            "source": "bluetooth",
+            "title": title,
+            "artist": artist,
+            "album": album,
+            "duration": duration,
+            "position": position,
+        }
+        if art:
+            payload["art"] = art
+        elif properties == {}:
+            payload["art"] = None
+            payload["title"] = None
+            payload["artist"] = None
+            payload["album"] = None
+            payload["duration"] = 0
+            payload["position"] = 0
+        self._update_media_state(payload)
+
+    def _handle_playback_status_changed(self, status):
+        self._update_media_state({"status": status, "source": "bluetooth"})
+
+    def _handle_local_media_started(self, track_info):
+        if not isinstance(track_info, dict):
+            return
+        track = track_info.get("Track", {})
+        payload = {
+            "source": "local",
+            "title": track.get("Title"),
+            "artist": track.get("Artist"),
+            "album": track.get("Album"),
+            "duration": track.get("Duration") or track_info.get("Duration") or 0,
+            "position": track_info.get("Position") or 0,
+        }
+        if track_info.get("IsLocal"):
+            payload["source"] = "local"
+        self._update_media_state(payload)
+
+    def _handle_local_playback_status(self, status):
+        self._update_media_state({"status": status, "source": "local"})
+
+    def _handle_local_playback_position(self, position, duration):
+        self._update_media_state(
+            {"position": position, "duration": duration, "source": "local"}
+        )
+
+    def _handle_local_album_art(self, pixmap):
+        data_url = self._pixmap_to_data_url(pixmap)
+        self._update_media_state({"art": data_url, "source": "local"})
+
     def resizeEvent(self, event):
         """Override resizeEvent to apply scaling ONLY after fullscreen is settled."""
         super().resizeEvent(event)
@@ -367,16 +703,65 @@ class MainWindow(QMainWindow):
             self.update_header_title(
                 self.stacked_widget.currentIndex()
             )  # Set title now
-            self._has_scaled_correctly = True
-        elif self._has_scaled_correctly:
-            # Optional: Re-apply scaling if size changes later?
-            # print(f"Subsequent resize event: {current_size}")
-            # self._apply_scaling()
-            pass  # Usually ignore in forced fullscreen
+
+    def handle_html_event(self, name, payload):
+        """Route events emitted by the HTML UI layer."""
+        handler_name = f"_handle_html_{name}"
+        handler = getattr(self, handler_name, None)
+        if callable(handler):
+            handler(payload or {})
         else:
-            print(
-                f"Ignoring resize event (Size: {current_size}, Scaled Flag: {self._has_scaled_correctly})"
-            )
+            print(f"[HTML] Unhandled event: {name} -> {payload}")
+
+    def _handle_html_ready(self, payload):
+        self._html_ready = True
+        self._push_html_init_state()
+
+    def _handle_html_navigate(self, payload):
+        target = payload.get("screen", "home")
+        self._navigate_by_id(target)
+
+    def _handle_html_toggle_mute(self, payload):
+        self.toggle_mute()
+
+    def _handle_html_set_volume(self, payload):
+        try:
+            value = int(payload.get("value", 0))
+        except (TypeError, ValueError):
+            return
+        value = max(0, min(100, value))
+        self.volume_slider.setValue(value)
+
+    def _handle_html_open_dialog(self, payload):
+        target = (payload or {}).get("target")
+        if target == "bluetooth":
+            self.open_bluetooth_dialog()
+        elif target == "wifi":
+            self.open_wifi_dialog()
+
+    def _handle_html_system_action(self, payload):
+        action = (payload or {}).get("action")
+        if action == "restart_app":
+            self.restart_application()
+        elif action == "reboot":
+            self.reboot_system()
+        elif action == "quit":
+            self.close()
+        elif action == "refresh_state":
+            self.refresh_html_settings()
+            self._push_html_init_state()
+
+    def _handle_html_media_control(self, payload):
+        action = (payload or {}).get("action")
+        if not action:
+            return
+        action = action.lower()
+        if action == "play_pause":
+            self.music_player_screen.on_play_pause_clicked()
+        elif action == "next":
+            self.music_player_screen.on_next_clicked()
+        elif action == "previous":
+            self.music_player_screen.on_previous_clicked()
 
     # --- Scaling ---
     def _apply_scaling(self):
@@ -516,6 +901,10 @@ class MainWindow(QMainWindow):
         self.home_button_bar.setFixedSize(scaled_button_size)
         self.settings_button.setIconSize(scaled_icon_size)
         self.settings_button.setFixedSize(scaled_button_size)
+        self.bluetooth_button.setIconSize(scaled_icon_size)
+        self.bluetooth_button.setFixedSize(scaled_button_size)
+        self.wifi_button.setIconSize(scaled_icon_size)
+        self.wifi_button.setFixedSize(scaled_button_size)
         self.volume_icon_button.setIconSize(scaled_icon_size)
         self.volume_icon_button.setFixedSize(scaled_button_size)
         self.restart_button_bar.setIconSize(scaled_icon_size)
@@ -553,6 +942,10 @@ class MainWindow(QMainWindow):
         self.home_button_bar.style().polish(self.home_button_bar)
         self.settings_button.style().unpolish(self.settings_button)
         self.settings_button.style().polish(self.settings_button)
+        self.bluetooth_button.style().unpolish(self.bluetooth_button)
+        self.bluetooth_button.style().polish(self.bluetooth_button)
+        self.wifi_button.style().unpolish(self.wifi_button)
+        self.wifi_button.style().polish(self.wifi_button)
         self.volume_icon_button.style().unpolish(self.volume_icon_button)
         self.volume_icon_button.style().polish(self.volume_icon_button)
         self.restart_button_bar.style().unpolish(self.restart_button_bar)
@@ -574,6 +967,7 @@ class MainWindow(QMainWindow):
         current_time = QDateTime.currentDateTime()
         time_str = current_time.toString("HH:mm")
         self.header_clock_label.setText(time_str)
+        self._update_html_clock()
 
     @pyqtSlot(int)
     def update_header_title(self, index):
@@ -586,6 +980,7 @@ class MainWindow(QMainWindow):
             )
             self.header_title_label.setText(title)
             print(f"DEBUG: Header title set to: {title}")
+            self._set_active_screen(current_widget)
         else:
             self.header_title_label.setText("Infotainment")  # Fallback
 
@@ -595,13 +990,20 @@ class MainWindow(QMainWindow):
     @pyqtSlot(object)
     def update_bluetooth_header_status(self, *args):
         """Updates the combined Bluetooth status text (Name + Battery) in the header."""
-        if not self._has_scaled_correctly:
-            return
-
         connected = self.bluetooth_manager.connected_device_path is not None
         device_name = self.bluetooth_manager.connected_device_name if connected else ""
         # Get the latest battery level from the manager's state
         battery_level = self.bluetooth_manager.current_battery
+        html_payload = {
+            "connected": bool(connected),
+            "device": device_name or None,
+            "battery": battery_level if isinstance(battery_level, int) else None,
+        }
+        self.html_state["bluetooth"] = html_payload
+        self._html_send("bluetooth_status", html_payload)
+
+        if not self._has_scaled_correctly:
+            return
 
         status_text = ""
         show_label = False
@@ -637,53 +1039,47 @@ class MainWindow(QMainWindow):
     # --- Status Update Slots ---
     @pyqtSlot(bool, str)
     def update_bluetooth_statusbar(self, connected, device_name):
-        """Updates the Bluetooth status name and separator in the BOTTOM status bar."""
+        """Updates the Bluetooth status - now only updates header and home screen."""
         print(
-            f"DEBUG: Updating status bar BT name, Connected={connected}, Name='{device_name}'"
+            f"DEBUG: Updating BT status, Connected={connected}, Name='{device_name}'"
         )
+        # Bottom bar status labels were removed, so we only update header and home screen
         if connected:
-            max_len = 20  # Max length for status bar display
-            display_name = (
-                (device_name[:max_len] + "...")
-                if len(device_name) > max_len
-                else device_name
-            )
-            self.bt_name_label.setText(f"BT: {display_name}")
-            self.bt_name_label.setToolTip(device_name)
-            self.bt_name_label.show()
-            self.bt_separator_label.show()
+            print(f"Bluetooth device connected: {device_name}")
+            # Header status is updated by update_bluetooth_header_status
+            # Home screen media info is updated by the media player signals, not here
         else:
-            self.bt_name_label.hide()
-            # self.bt_battery_label.hide() # No longer exists
-            self.bt_separator_label.hide()
+            print("Bluetooth device disconnected")
+            # Clear home screen media info when device disconnects
             if hasattr(self.home_screen, "clear_media_info"):
                 self.home_screen.clear_media_info()
 
     # --- OBD Status Update (Bottom bar labels removed, but OBD screen still needs updates) ---
     @pyqtSlot(bool, str)
     def update_obd_status(self, connected, message):
+        if not self.settings_manager.get("obd_enabled"):
+            status_text = "Disabled"
+        else:
+            status_text = message
+        html_payload = {"connected": bool(connected), "status": status_text}
+        self.html_state["obd"] = html_payload
+        self._html_send("obd_status", html_payload)
         # Bottom bar status label removed, but still update OBD screen
         if hasattr(self.obd_screen, "update_connection_status"):
-            if not self.settings_manager.get("obd_enabled"):
-                status_text = "Disabled"
-            else:
-                status_text = message
             self.obd_screen.update_connection_status(status_text)
 
     @pyqtSlot(str)
     def update_radio_status(self, status):
+        if not self.settings_manager.get("radio_enabled"):
+            status_text = "Disabled"
+        else:
+            radio_type = self.settings_manager.get("radio_type")
+            status_text = "No HW" if radio_type == "none" else status
         # Bottom bar status label removed, but still update radio screen if needed
         if hasattr(self.radio_screen, "update_status_display"):
-            if not self.settings_manager.get("radio_enabled"):
-                status_text = "Disabled"
-            else:
-                # Add "No HW" check if type is none but enabled
-                radio_type = self.settings_manager.get("radio_type")
-                if radio_type == "none":
-                    status_text = "No HW"
-                else:
-                    status_text = status
             self.radio_screen.update_status_display(status_text)
+        self.html_state["radio"] = {"status": status_text}
+        self._html_send("radio_status", self.html_state["radio"])
 
     def switch_theme(self, theme_name):
         """Switches theme and re-applies scaling/styling."""
@@ -693,6 +1089,7 @@ class MainWindow(QMainWindow):
             # Re-apply scaling which now includes re-applying the theme with the correct factor
             self._apply_scaling()
             self.settings_manager.set("theme", theme_name)
+            self.refresh_html_settings()
 
     def update_obd_config(self):
         """Restarts OBD Manager with new connection settings."""
@@ -865,6 +1262,77 @@ class MainWindow(QMainWindow):
         else:
             print("Restart cancelled by user.")
 
+    def reboot_system(self):
+        """Gracefully stops threads and reboots the Raspberry Pi."""
+        print("Attempting to reboot system...")
+        
+        # Aggiorna il messaggio di conferma per riflettere l'azione di riavvio
+        confirm = QMessageBox.warning(
+            self,
+            "Reboot Confirmation",  # Titolo aggiornato
+            "Are you sure you want to reboot the Raspberry Pi?", # Messaggio aggiornato
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+
+        if confirm == QMessageBox.StandardButton.Yes:
+            try:
+                # La logica per fermare i thread e salvare le impostazioni rimane la stessa,
+                # ed è una buona pratica anche prima di un riavvio.
+                
+                print("Stopping background threads before reboot...")
+                if hasattr(self, "radio_manager") and self.radio_manager.isRunning():
+                    self.radio_manager.stop()
+                    self.radio_manager.wait(1500)
+                if hasattr(self, "obd_manager") and self.obd_manager.isRunning():
+                    self.obd_manager.stop()
+                    self.obd_manager.wait(1500)
+                if hasattr(self, "bluetooth_manager") and self.bluetooth_manager.isRunning():
+                    self.bluetooth_manager.stop()
+                    self.bluetooth_manager.wait(1500)
+                if hasattr(self, "airplay_manager"):
+                    self.airplay_manager.cleanup()
+                print("Threads stopped.")
+
+                # Salva le impostazioni (identico a prima)
+                if hasattr(self, "radio_manager") and self.radio_manager.radio_type != "none":
+                    self.settings_manager.set(
+                        "last_fm_station", self.radio_manager.current_frequency
+                    )
+                if self.last_volume_level > 0:
+                    self.settings_manager.set("volume", self.last_volume_level)
+                elif self.volume_slider.value() == 0 and not self.is_muted:
+                    self.settings_manager.set("volume", 0)
+
+                print("Settings saved. Initiating system reboot...")
+
+                # Assicura che l'output sia scritto prima del riavvio
+                sys.stdout.flush()
+                sys.stderr.flush()
+
+                # ## MODIFICA CHIAVE: Comando di sistema per il riavvio ##
+                # Usa 'reboot' invece di 'shutdown -h now'
+                try:
+                    result = subprocess.run(["sudo", "reboot"], check=False)
+                    if result.returncode != 0:
+                        raise RuntimeError("Failed to execute reboot command. Please check sudo privileges.")
+                except Exception as e:
+                    print(f"Error executing reboot command: {e}")
+                    QMessageBox.critical(
+                        self, "Reboot Error", f"Could not reboot system:\n{e}\n\nClosing application instead."
+                    )
+                    self.close() # Fallback per chiudere l'app se il reboot fallisce
+
+            except Exception as e:
+                # Aggiorna i messaggi di errore
+                print(f"Error attempting to reboot system: {e}")
+                QMessageBox.critical(
+                    self, "Reboot Error", f"Could not reboot system:\n{e}\n\nClosing application instead."
+                )
+                self.close() # Fallback per chiudere l'app se il reboot fallisce
+        else:
+            print("Reboot cancelled by user.")
+
     def shutdown_system(self):
         """Gracefully stops threads and shuts down the Raspberry Pi."""
         print("Attempting to shutdown system...")
@@ -939,6 +1407,18 @@ class MainWindow(QMainWindow):
             self.settings_manager.set("volume", 0)
 
         print("Close event triggered. Stopping background threads...")
+
+        # Chiama il nuovo metodo di pulizia per l'AudioManager
+        if hasattr(self, "audio_manager"):
+            self.audio_manager.cleanup()
+
+
+        if hasattr(self, "airplay_manager"):
+            print("Stopping AirPlay Manager...")
+            self.airplay_manager.cleanup()
+            print("AirPlay Manager stopped.")
+
+            
         # Stop threads gracefully
         if hasattr(self, "radio_manager") and self.radio_manager.isRunning():
             self.radio_manager.stop()
@@ -998,6 +1478,11 @@ class MainWindow(QMainWindow):
             )
             self.audio_manager.set_mute(True)
             # No need to call set_volume(0) as set_mute(True) handles it
+        slider_value = self.volume_slider.value()
+        self.html_state["volume"]["level"] = slider_value
+        self.html_state["volume"]["muted"] = self.is_muted
+        self._html_send("volume", self.html_state["volume"])
+        self._update_settings_field("volume", slider_value)
 
     # --- volume_slider_changed to use AudioManager ---
     @pyqtSlot(int)
@@ -1033,6 +1518,10 @@ class MainWindow(QMainWindow):
             self.volume_icon_button.setIcon(self.volume_normal_icon)
             # Store this new level as the potential restore level
             self.last_volume_level = value
+        self.html_state["volume"]["level"] = value
+        self.html_state["volume"]["muted"] = self.is_muted or value == 0
+        self._html_send("volume", self.html_state["volume"])
+        self._update_settings_field("volume", value)
 
     def go_to_home(self):
         """Navigates to the home screen."""
@@ -1052,10 +1541,12 @@ class MainWindow(QMainWindow):
     # --- Add a helper method for navigation if desired ---
     def navigate_to(self, screen_widget):
         """Sets the current screen in the stacked widget."""
-        if screen_widget in self.stacked_widget.findChildren(QWidget):
+        index = self.stacked_widget.indexOf(screen_widget)
+        if index != -1:
             self.stacked_widget.setCurrentWidget(screen_widget)
         else:
             print(f"Error: Cannot navigate to {screen_widget}. Not found in stack.")
+        self._set_active_screen(screen_widget)
 
     # --- AirPlay Stream Management ---
     @pyqtSlot(bool)
@@ -1095,8 +1586,21 @@ class MainWindow(QMainWindow):
 
         print("AirPlay streaming stopped by user")
 
+    # --- Network Dialog Methods ---
+    @pyqtSlot()
+    def open_bluetooth_dialog(self):
+        """Open the Bluetooth settings dialog."""
+        try:
+            dialog = BluetoothDialog(self.bluetooth_manager, self)
+            dialog.exec()
+        except Exception as e:
+            print(f"Error opening Bluetooth dialog: {e}")
 
-
-
-
-
+    @pyqtSlot()
+    def open_wifi_dialog(self):
+        """Open the WiFi settings dialog."""
+        try:
+            dialog = WiFiDialog(self.wifi_manager, self)
+            dialog.exec()
+        except Exception as e:
+            print(f"Error opening WiFi dialog: {e}")

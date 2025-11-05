@@ -13,7 +13,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import QTimer, QDateTime, pyqtSlot, Qt
 
 # --- Import scale_value helper ---
-from .styling import scale_value
+from .gui.styling import scale_value
 
 
 class OBDScreen(QWidget):

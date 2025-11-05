@@ -1,14 +1,17 @@
 # backend/bluetooth_manager.py
 
+import time
 import traceback
+import dbus
 from PyQt6.QtCore import QThread, pyqtSignal, QVariant, QObject, pyqtSlot
-from PyQt6.QtDBus import QDBusConnection, QDBusInterface, QDBusMessage
+from PyQt6.QtDBus import QDBusConnection, QDBusInterface, QDBusMessage, QDBusVariant
 
 # Constants for BlueZ D-Bus
 BLUEZ_SERVICE = "org.bluez"
 DBUS_OM_IFACE = "org.freedesktop.DBus.ObjectManager"
 DBUS_PROP_IFACE = "org.freedesktop.DBus.Properties"
 
+ADAPTER_IFACE = "org.bluez.Adapter1"
 DEVICE_IFACE = "org.bluez.Device1"
 MEDIA_PLAYER_IFACE = "org.bluez.MediaPlayer1"
 MEDIA_CONTROL_IFACE = "org.bluez.MediaControl1"
@@ -447,7 +450,7 @@ class BluetoothManager(QThread):
         print(f"DEBUG: Signal connection status: InterfacesRemoved={sig2_ok}")
 
         print("BT Manager: Entering polling loop.")
-        poll_interval_ms = 1500  # Poll every 1.5 seconds
+        poll_interval_ms = 500  # Poll every 0.5 seconds for responsive media controls
         loop_count = 0
         om_iface = QDBusInterface(BLUEZ_SERVICE, "/", DBUS_OM_IFACE, self.bus)
 
@@ -500,7 +503,7 @@ class BluetoothManager(QThread):
                     # else: print(f"DEBUG: Failed to poll media player {current_media_path}")
 
                 # 3. Poll for NEW devices/players (less frequent?)
-                if loop_count % 5 == 0:  # Check every ~7.5 seconds
+                if loop_count % 6 == 0:  # Check every ~3 seconds (6 * 0.5s)
                     om_reply = om_iface.call("GetManagedObjects")
                     if (
                         om_reply.type() != QDBusMessage.MessageType.ErrorMessage
@@ -547,6 +550,28 @@ class BluetoothManager(QThread):
         print("BluetoothManager: Stop requested.")
         self._is_running = False
 
+    def poll_media_player_immediately(self):
+        """Poll media player immediately for instant feedback after commands."""
+        if not self.media_player_path:
+            return
+
+        try:
+            media_props_iface = QDBusInterface(
+                BLUEZ_SERVICE, self.media_player_path, DBUS_PROP_IFACE, self.bus
+            )
+            media_reply = media_props_iface.call("GetAll", MEDIA_PLAYER_IFACE)
+            if (
+                media_reply.type() != QDBusMessage.MessageType.ErrorMessage
+                and media_reply.arguments()
+            ):
+                media_props_all = qvariant_dict_to_python(
+                    media_reply.arguments()[0]
+                )
+                self.update_media_state(media_props_all)
+                print("BT Manager: Immediate media poll completed")
+        except Exception as e:
+            print(f"Error in immediate media poll: {e}")
+
     # --- Media Control Methods ---
     def _send_media_command(self, command):
         """Sends a simple command (Play, Pause, Next, Previous) to the media player."""
@@ -569,9 +594,8 @@ class BluetoothManager(QThread):
                 return False
             else:
                 print(f"BT Manager: Command '{command}' sent successfully.")
-                # Force a faster poll after sending command? Optional.
-                # For immediate feedback, could try updating internal state optimistically,
-                # but polling confirmation is safer.
+                # Force immediate poll for faster feedback
+                self.poll_media_player_immediately()
                 return True
         except Exception as e:
             print(f"ERROR sending command '{command}': {e}")
@@ -589,6 +613,89 @@ class BluetoothManager(QThread):
 
     def send_previous(self):
         return self._send_media_command("Previous")
+
+    # --- Discoverability Methods ---
+    # --- NUOVO BLOCCO PER LA GESTIONE DELLA VISIBILITÀ (SOSTITUISCI IL VECCHIO) ---
+
+    # All'interno della classe BluetoothManager
+
+    def set_discoverability(self, state: bool):
+        """
+        Attiva o disattiva la visibilità e l'associabilità dell'adattatore
+        con un ciclo di riprova per la massima affidabilità.
+        """
+        if not self.adapter_path or not self.bus.isConnected():
+            print("BT Manager: Adapter not found or bus not connected.")
+            return False
+
+        print(f"--- Impostazione visibilità a: {state} ---")
+        try:
+            adapter_iface = QDBusInterface(
+                BLUEZ_SERVICE, self.adapter_path, ADAPTER_IFACE, self.bus
+            )
+            props_iface = QDBusInterface(
+                BLUEZ_SERVICE, self.adapter_path, DBUS_PROP_IFACE, self.bus
+            )
+
+            # 1. Imposta le proprietà di base
+            props_iface.call("Set", ADAPTER_IFACE, "Pairable", QDBusVariant(state))
+            props_iface.call("Set", ADAPTER_IFACE, "Discoverable", QDBusVariant(state))
+
+            if state:
+                # 2. Avvia la discovery attiva con un CICLO DI RIPROVA
+                max_retries = 5
+                discovery_started = False
+                for i in range(max_retries):
+                    print(f"Tentativo {i + 1}/{max_retries} di avviare la discovery attiva...")
+                    discovery_reply = adapter_iface.call("StartDiscovery")
+                    
+                    if discovery_reply.type() != QDBusMessage.MessageType.ErrorMessage:
+                        print("Discovery attiva avviata con successo.")
+                        discovery_started = True
+                        break  # Esci dal ciclo se ha successo
+                    
+                    error_message = discovery_reply.errorMessage()
+                    if "Resource Not Ready" in error_message:
+                        print(f"Avviso: risorsa non pronta, nuovo tentativo tra 0.5s...")
+                        time.sleep(0.5)  # Attendi mezzo secondo prima di riprovare
+                    else:
+                        # Se è un errore diverso, è inutile riprovare
+                        print(f"Errore critico nell'avviare la discovery: {error_message}")
+                        break # Esci dal ciclo
+                
+                if not discovery_started:
+                    print("ERRORE: Impossibile avviare la discovery attiva dopo vari tentativi.")
+                    # Non restituiamo False, perché la visibilità di base potrebbe funzionare
+
+            else:
+                # 3. Ferma la discovery quando si nasconde
+                print("Interruzione della sessione di discovery...")
+                adapter_iface.call("StopDiscovery")
+
+            print(f"Procedura di impostazione visibilità a {state} completata.")
+            return True
+
+        except Exception as e:
+            print(f"Eccezione durante l'impostazione della visibilità: {e}")
+            return False
+
+    def is_discoverable(self):
+        """
+        Controlla se l'adattatore è visibile.
+        Questo ora legge direttamente la proprietà.
+        """
+        if not self.adapter_path or not self.bus.isConnected():
+            return False
+        try:
+            props_iface = QDBusInterface(
+                BLUEZ_SERVICE, self.adapter_path, DBUS_PROP_IFACE, self.bus
+            )
+            reply = props_iface.call("Get", ADAPTER_IFACE, "Discoverable")
+            if reply.type() == QDBusMessage.MessageType.ErrorMessage:
+                return False
+            return qvariant_dict_to_python(reply.arguments()[0])
+        except:
+            return False
 
     def send_stop(self):
         return self._send_media_command("Stop")

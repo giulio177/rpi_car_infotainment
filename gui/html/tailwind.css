@@ -1,0 +1,14 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+This file is the source for the GUI Tailwind build.
+Use @layer blocks below to extend Tailwind with project-specific styles if needed.
+*/
+
+@layer base {
+  .font-display {
+    font-family: 'Inter', sans-serif;
+  }
+}

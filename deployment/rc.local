@@ -12,8 +12,15 @@
 # By default this script does nothing.
 
 # Start the RPi Car Infotainment System
-if [ -f /etc/systemd/system/rpi-infotainment.service ]; then
-  systemctl start rpi-infotainment.service
-fi
+# Wait for system to be ready
+sleep 15
+
+# Set up runtime directory
+mkdir -p /tmp/runtime-pi
+chown pi:pi /tmp/runtime-pi
+chmod 700 /tmp/runtime-pi
+
+# Start infotainment as background process
+su - pi -c "cd /home/pi/rpi_car_infotainment && nohup ./scripts/start_infotainment.sh > /tmp/infotainment.log 2>&1 &"
 
 exit 0

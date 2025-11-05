@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RPi Car Infotainment</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
+    <link rel="stylesheet" href="dist/tailwind.css" />
+    <link rel="stylesheet" href="styles.css" />
+    <!-- Font offline -->
+    <link rel="stylesheet" href="assets/fonts/fonts.css">
+    <!-- (Consigliato) Preload per le performance -->
+    <link rel="preload" href="assets/fonts/MaterialSymbolsOutlined.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="assets/fonts/Inter-VariableFont_slnt,wght.woff2" as="font" type="font/woff2" crossorigin>
+
+</head>
+<body class="font-display bg-background-dark text-text-light">
+    <div id="app" data-theme="dark" class="font-display">
+        <header class="toolbar">
+            <div class="toolbar-left">
+                <span id="header-title">RPi Car Infotainment</span>
+            </div>
+            <div class="toolbar-right">
+                <span id="bluetooth-pill" class="pill pill--offline">Bluetooth offline</span>
+                <span id="clock">00:00</span>
+            </div>
+        </header>
+
+        <nav id="nav" class="nav"></nav>
+
+        <main id="main">
+            <section id="screen-home" class="screen active" data-partial="home">
+                <div class="partial-loading">Loading home interface…</div>
+            </section>
+
+            <section id="screen-music_player" class="screen" data-partial="music_player">
+                <div class="partial-loading">Loading music player…</div>
+            </section>
+
+            <section id="screen-fm_radio" class="screen" data-partial="fm_radio">
+                <div class="partial-loading">Loading radio interface…</div>
+            </section>
+
+            <section id="screen-obd_ii_data" class="screen" data-partial="obd_ii_data">
+                <div class="partial-loading">Loading OBD dashboard…</div>
+            </section>
+
+            <section id="screen-airplay_mirroring" class="screen" data-partial="airplay_mirroring">
+                <div class="partial-loading">Loading AirPlay controls…</div>
+            </section>
+
+            <section id="screen-logs" class="screen" data-partial="logs">
+                <div class="partial-loading">Loading log view…</div>
+            </section>
+
+            <section id="screen-settings" class="screen" data-partial="settings">
+                <div class="partial-loading">Loading settings overview…</div>
+            </section>
+        </main>
+
+        <footer class="footer">
+            <div class="footer-left">
+                <button id="volume-mute" class="circle-button" title="Mute / Unmute">🔇</button>
+                <input id="volume-slider" type="range" min="0" max="100" value="0">
+            </div>
+            <div class="footer-right">
+                <button id="open-bluetooth">Bluetooth</button>
+                <button id="open-wifi">Wi-Fi</button>
+                <button id="restart-app">Restart App</button>
+                <button id="reboot-system">Restart Pi</button>
+                <button id="quit-app">Quit</button>
+            </div>
+        </footer>
+    </div>
+
+    <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

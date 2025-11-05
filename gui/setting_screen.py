@@ -1,5 +1,8 @@
 # gui/setting_screen.py
 
+import subprocess
+import threading # Importato per le operazioni in background
+import psutil
 from PyQt6.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -15,13 +18,15 @@ from PyQt6.QtWidgets import (
     QScrollArea,
     QCheckBox,
 )
-from PyQt6.QtCore import QTimer, QDateTime, pyqtSlot, Qt
+from PyQt6.QtCore import QTimer, QDateTime, pyqtSlot, Qt, pyqtSignal
 
 from .styling import scale_value
 
 
 class SettingsScreen(QWidget):
     screen_title = "Settings"
+
+    info_updated = pyqtSignal(dict)
 
     def __init__(self, settings_manager, main_window_ref, parent=None):
         super().__init__(parent)
@@ -56,6 +61,26 @@ class SettingsScreen(QWidget):
         self.scroll_layout = QVBoxLayout(self.scroll_content_widget)
         # Spacing set by update_scaling
 
+        # ## NUOVO: Raspberry Pi Info Group (stabile) ##
+        self.pi_info_group = QGroupBox("Raspberry Pi Info")
+        self.pi_info_group.setObjectName("settingsPiInfoGroup")
+        self.pi_info_layout = QFormLayout()
+        self.pi_info_group.setLayout(self.pi_info_layout)
+
+        # Etichette per le informazioni
+        self.cpu_temp_label = QLabel("Loading...")
+        self.cpu_usage_label = QLabel("Loading...")
+        self.ram_usage_label = QLabel("Loading...")
+        self.uptime_label = QLabel("Loading...")
+
+        self.pi_info_layout.addRow("CPU Temperature:", self.cpu_temp_label)
+        self.pi_info_layout.addRow("CPU Usage:", self.cpu_usage_label)
+        self.pi_info_layout.addRow("RAM Usage:", self.ram_usage_label)
+        self.pi_info_layout.addRow("System Uptime:", self.uptime_label)
+        
+        # Aggiunto il nuovo gruppo al layout dello scroll
+        self.scroll_layout.addWidget(self.pi_info_group)
+
         # --- General Settings Group ---
         self.general_group = QGroupBox("General")
         self.general_group.setObjectName("settingsGeneralGroup")
@@ -68,6 +93,44 @@ class SettingsScreen(QWidget):
         self.theme_combo.addItems(["light", "dark"])
         self.theme_combo.setCurrentText(self.settings_manager.get("theme"))
         self.general_layout.addRow("UI Theme:", self.theme_combo)
+
+        # --- UI Render Mode ---
+        self.render_mode_combo = QComboBox()
+        self.render_mode_combo.setObjectName("renderModeCombo")
+        self.render_mode_combo.addItem("Native Widgets (Qt)", "native")
+        try:
+            from .html_renderer import HtmlView  # noqa: F401
+            self.html_ui_available = True
+        except Exception:
+            self.html_ui_available = False
+        self.render_mode_combo.addItem("Embedded HTML (WebEngine)", "html")
+        html_index = self.render_mode_combo.findData("html")
+        if html_index != -1 and not self.html_ui_available:
+            item = self.render_mode_combo.model().item(html_index)
+            if item is not None:
+                item.setEnabled(False)
+            self.render_mode_combo.setItemData(
+                html_index,
+                "Install PyQt6-WebEngine to enable this mode.",
+                Qt.ItemDataRole.ToolTipRole,
+            )
+        current_render_mode = self.settings_manager.get("ui_render_mode") or "native"
+        current_mode_index = self.render_mode_combo.findData(current_render_mode)
+        if current_mode_index != -1:
+            self.render_mode_combo.setCurrentIndex(current_mode_index)
+        else:
+            self.render_mode_combo.setCurrentIndex(
+                self.render_mode_combo.findData("native")
+            )
+        self.general_layout.addRow("UI Render Mode:", self.render_mode_combo)
+        if not self.html_ui_available:
+            self.render_mode_hint = QLabel(
+                "HTML mode requires PyQt6-WebEngine. Install it to enable this option."
+            )
+            self.render_mode_hint.setObjectName("renderModeHint")
+            self.render_mode_hint.setWordWrap(True)
+            self.render_mode_hint.setStyleSheet("color: #ffb5b5;")
+            self.general_layout.addRow("", self.render_mode_hint)
 
         # --- Resolution Setting ---
         self.resolution_combo = QComboBox()
@@ -213,6 +276,66 @@ class SettingsScreen(QWidget):
         self.button_layout.addStretch(1)
         self.main_layout.addLayout(self.button_layout)
 
+        # ## MODIFICATO: Collegamento del segnale e avvio del timer stabile ##
+        self.info_updated.connect(self.update_info_labels)
+        self.info_update_timer = QTimer(self)
+        self.info_update_timer.timeout.connect(self.start_info_update_thread)
+        self.info_update_timer.start(10000) # Aggiorna ogni 10 secondi per ridurre il carico
+        self.start_info_update_thread() # Chiamata iniziale
+
+    # ## NUOVO: Funzione per avviare il thread ##
+    def start_info_update_thread(self):
+        """Starts a background thread to fetch system info non-blockingly."""
+        update_thread = threading.Thread(target=self._get_system_info_worker)
+        update_thread.daemon = True # Il thread si chiuderà con l'app
+        update_thread.start()
+
+    # ## NUOVO: Funzione "Worker" che viene eseguita nel thread ##
+    def _get_system_info_worker(self):
+        """Fetches system info in a background thread and emits a signal."""
+        info = {}
+        try:
+            # Temperatura
+            temp_cmd = "awk '{printf \"%.1f°C\", $1/1000}' /sys/class/thermal/thermal_zone0/temp"
+            info['temp'] = subprocess.check_output(temp_cmd, shell=True, text=True).strip()
+        except Exception:
+            info['temp'] = "N/A"
+        
+        try:
+            # Utilizzo CPU (più affidabile con psutil)
+            cpu_percent = psutil.cpu_percent(interval=1)
+            info['cpu'] = f"{cpu_percent}%"
+        except Exception:
+            info['cpu'] = "N/A"
+            
+        try:
+            # Utilizzo RAM
+            ram_cmd = "free -m | grep Mem | awk '{print $3\" MB / \"$2\" MB\"}'"
+            info['ram'] = subprocess.check_output(ram_cmd, shell=True, text=True).strip()
+        except Exception:
+            info['ram'] = "N/A"
+            
+        try:
+            # Uptime
+            uptime_cmd = ["uptime", "-p"]
+            result = subprocess.run(uptime_cmd, capture_output=True, text=True)
+            info['uptime'] = result.stdout.strip().replace("up ", "")
+        except Exception:
+            info['uptime'] = "N/A"
+        
+        # Emette il segnale con i dati raccolti
+        self.info_updated.emit(info)
+
+    # ## NUOVO: Slot per aggiornare la UI in modo sicuro ##
+    @pyqtSlot(dict)
+    def update_info_labels(self, info):
+        """Updates the UI labels with data from the background thread."""
+        self.cpu_temp_label.setText(info.get('temp', 'Error'))
+        self.cpu_usage_label.setText(info.get('cpu', 'Error'))
+        self.ram_usage_label.setText(info.get('ram', 'Error'))
+        self.uptime_label.setText(info.get('uptime', 'Error'))
+
+
     def update_scaling(self, scale_factor, scaled_main_margin):
         """Applies scaling to internal layouts."""
         scaled_spacing = scale_value(self.base_spacing, scale_factor)
@@ -312,6 +435,18 @@ class SettingsScreen(QWidget):
                 self.settings_manager.set("ui_scale_mode", new_scale_mode)
                 settings_changed = True
                 restart_required = True
+
+        # UI Render Mode Setting
+        selected_render_mode = self.render_mode_combo.currentData()
+        if selected_render_mode is None:
+            selected_render_mode = "native"
+        if selected_render_mode == "html" and not self.html_ui_available:
+            print("HTML render mode selected but WebEngine is unavailable; keeping native mode.")
+            selected_render_mode = "native"
+        if selected_render_mode != self.settings_manager.get("ui_render_mode"):
+            self.settings_manager.set("ui_render_mode", selected_render_mode)
+            settings_changed = True
+            restart_required = True
 
         # Developer Mode Setting
         new_developer_mode = self.developer_mode_checkbox.isChecked()
@@ -440,6 +575,8 @@ class SettingsScreen(QWidget):
                     ),
                 )
 
+        if self.main_window and hasattr(self.main_window, "refresh_html_settings"):
+            self.main_window.refresh_html_settings()
         return restart_required
 
     def apply_and_restart(self):

@@ -57,7 +57,7 @@ class HomeScreen(QWidget):
         if self.default_album_art.isNull():
             # Create a default album art if the file doesn't exist
             self.default_album_art = QPixmap(100, 100)
-            self.default_album_art.fill(Qt.GlobalColor.lightGray)
+            self.default_album_art.fill(Qt.GlobalColor.darkGray)
 
         # --- Main Layout (Vertical) ---
         self.main_layout = QVBoxLayout(self)
@@ -83,6 +83,7 @@ class HomeScreen(QWidget):
             ("Radio", "radio-icon.png"),
             ("Equalizer", "eq-icon.png"),
             ("Settings", "settings-icon.png"),
+            ("Logs", "logs-icon.png"),
         ]
 
         target_cols = 5
@@ -276,6 +277,8 @@ class HomeScreen(QWidget):
         self.album_name_label.setText(album if album else "(Album Unknown)")
 
         # Update time label
+        duration_ms = track_info.get("Duration", 0)
+        position_ms = properties.get("Position", 0)
         pos_sec = position_ms // 1000
         dur_sec = duration_ms // 1000
         pos_str = f"{pos_sec // 60:02d}:{pos_sec % 60:02d}"
@@ -286,24 +289,7 @@ class HomeScreen(QWidget):
         if title != self.current_title or artist != self.current_artist:
             self.current_title = title
             self.current_artist = artist
-
-            # Only fetch album art if we have valid title and artist
-            if title != "---" and artist != "---" and self.main_window:
-                # Check if we have an audio_manager
-                if hasattr(self.main_window, "audio_manager"):
-                    cover_url, _ = self.main_window.audio_manager.get_media_info(
-                        title, artist
-                    )
-                    if cover_url:
-                        # Download album art
-                        request = QNetworkRequest(QUrl(cover_url))
-                        self.network_manager.get(request)
-                    else:
-                        # Use default album art if no cover URL is available
-                        self.album_art_label.setPixmap(self.default_album_art)
-                else:
-                    # Use default album art if no audio_manager is available
-                    self.album_art_label.setPixmap(self.default_album_art)
+            self.album_art_label.setPixmap(self.default_album_art)
 
     @pyqtSlot(str)
     def update_playback_status(self, status):
@@ -318,6 +304,26 @@ class HomeScreen(QWidget):
             # Clear info ONLY if stopped and track info is already present
             if status == "stopped" and self.track_title_label.text() != "---":
                 self.clear_media_info()
+
+    
+    @pyqtSlot(QPixmap)
+    def update_album_art(self, pixmap):
+        """
+        Questo slot riceve la copertina dell'album direttamente da un'altra schermata (es. MusicPlayerScreen).
+        """
+        print("[HomeScreen] Ricevuto segnale per aggiornare la copertina.")
+        if not pixmap.isNull():
+            # Ridimensiona il pixmap per adattarlo alla label della HomeScreen
+            # Usiamo self.album_art_label.size() per ottenere le dimensioni attuali,
+            # che potrebbero essere state modificate dallo scaling.
+            scaled_pixmap = pixmap.scaled(
+                self.album_art_label.size(), 
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+            self.album_art_label.setPixmap(scaled_pixmap)
+        else:
+            self.album_art_label.setPixmap(self.default_album_art)
 
     @pyqtSlot(int, int)
     def update_position(self, _position, _duration):
@@ -345,7 +351,14 @@ class HomeScreen(QWidget):
             pixmap = QPixmap()
             pixmap.loadFromData(data)
             if not pixmap.isNull():
-                self.album_art_label.setPixmap(pixmap)
+                # Scale the pixmap to fit the label while maintaining aspect ratio
+                scaled_pixmap = pixmap.scaled(
+                    self.album_art_label.width(),
+                    self.album_art_label.height(),
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
+                )
+                self.album_art_label.setPixmap(scaled_pixmap)
             else:
                 self.album_art_label.setPixmap(self.default_album_art)
         else:
@@ -462,23 +475,25 @@ class HomeScreen(QWidget):
     def on_home_button_clicked(self, button_name):
         """Handle clicks on the main grid buttons and navigate."""
         print(f"Home button clicked: {button_name}")
+
         if self.main_window is not None and hasattr(self.main_window, "navigate_to"):
             if button_name == "OBD" and hasattr(self.main_window, "obd_screen"):
                 self.main_window.navigate_to(self.main_window.obd_screen)
+
             elif button_name == "Radio" and hasattr(self.main_window, "radio_screen"):
                 self.main_window.navigate_to(self.main_window.radio_screen)
-            elif button_name == "Settings" and hasattr(
-                self.main_window, "settings_screen"
-            ):
+
+            elif button_name == "Settings" and hasattr(self.main_window, "settings_screen"):
                 self.main_window.navigate_to(self.main_window.settings_screen)
-            elif button_name == "Music" and hasattr(
-                self.main_window, "music_player_screen"
-            ):
+
+            elif button_name == "Music" and hasattr(self.main_window, "music_player_screen"):
                 self.main_window.navigate_to(self.main_window.music_player_screen)
-            elif button_name == "Mirroring" and hasattr(
-                self.main_window, "airplay_screen"
-            ):
+                
+            elif button_name == "Mirroring" and hasattr(self.main_window, "airplay_screen"):
                 self.main_window.navigate_to(self.main_window.airplay_screen)
+            
+            elif button_name == "Logs" and hasattr(self.main_window, "logs_screen"):
+                self.main_window.navigate_to(self.main_window.logs_screen)
             # ... other navigation cases ...
             else:
                 print(f"No navigation action defined for: {button_name}")
