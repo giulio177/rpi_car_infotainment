@@ -4,18 +4,12 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>RPi Car Infotainment</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
     <link rel="stylesheet" href="dist/tailwind.css" />
     <link rel="stylesheet" href="styles.css" />
-    <!-- Font offline -->
-    <link rel="stylesheet" href="assets/fonts/fonts.css">
-    <!-- (Consigliato) Preload per le performance -->
-    <link rel="preload" href="assets/fonts/MaterialSymbolsOutlined.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="preload" href="assets/fonts/Inter-VariableFont_slnt,wght.woff2" as="font" type="font/woff2" crossorigin>
-
+    <link rel="stylesheet" href="assets/fonts/fonts.css" />
+    <link rel="preload" href="assets/fonts/MaterialSymbolsOutlined.woff2" as="font" type="font/woff2" crossorigin />
+    <!-- (opzionale) preload Inter, se lo usi offline -->
+    <!-- <link rel="preload" href="assets/fonts/Inter-Variable.woff2" as="font" type="font/woff2" crossorigin /> -->
 </head>
 <body class="font-display bg-background-dark text-text-light">
     <div id="app" data-theme="dark" class="font-display">
@@ -29,7 +23,7 @@
             </div>
         </header>
 
-        <nav id="nav" class="nav"></nav>
+        <!--nav id="nav" class="nav"></nav-->
 
         <main id="main">
             <section id="screen-home" class="screen active" data-partial="home">
@@ -63,15 +57,33 @@
 
         <footer class="footer">
             <div class="footer-left">
-                <button id="volume-mute" class="circle-button" title="Mute / Unmute">🔇</button>
+                <button type="button" class="circle-button" data-navigate="home">
+                    <span class="home-symbol">home</span>
+                </button>
+                <button type="button" class="circle-button" data-navigate="settings">
+                    <span class="home-symbol">settings</span>
+                </button>
+                <button id="volume-mute" class="circle-button" title="Mute / Unmute">
+                    <span class="home-symbol">volume_off</span>
+                </button>
                 <input id="volume-slider" type="range" min="0" max="100" value="0">
             </div>
             <div class="footer-right">
-                <button id="open-bluetooth">Bluetooth</button>
-                <button id="open-wifi">Wi-Fi</button>
-                <button id="restart-app">Restart App</button>
-                <button id="reboot-system">Restart Pi</button>
-                <button id="quit-app">Quit</button>
+                <button id="open-bluetooth">
+                    <span class="home-symbol">bluetooth</span>
+                </button>
+                <button id="open-wifi">
+                    <span class="home-symbol">wifi</span>
+                </button>
+                <button id="restart-app">
+                    <span class="home-symbol">restart_alt</span>
+                </button>
+                <button id="reboot-system">
+                    <span class="home-symbol" style="color: #DC3545;">restart_alt</span>
+                </button>
+                <button id="quit-app">
+                    <span class="home-symbol" style="color: #DC3545;">power_settings_new</span>
+                </button>
             </div>
         </footer>
     </div>

@@ -4,7 +4,7 @@
         screenMap: new Map(),
         navButtons: new Map(),
         active: null,
-        defaultArt: "../../assets/default_album_art.png",
+        defaultArt: "assets/media/album_placeholder.svg",
         snapshots: {
             volume: null,
             bluetooth: null,
@@ -65,6 +65,7 @@
         btnRestartApp: document.getElementById("restart-app"),
         btnReboot: document.getElementById("reboot-system"),
         btnQuit: document.getElementById("quit-app"),
+        applySettings: document.getElementById("settings-apply"),
         home: collectHomeRefs(),
         music: {
             art: document.getElementById("music-art"),
@@ -105,6 +106,7 @@
         elements.btnRestartApp = document.getElementById("restart-app");
         elements.btnReboot = document.getElementById("reboot-system");
         elements.btnQuit = document.getElementById("quit-app");
+        elements.applySettings = document.getElementById("settings-apply");
         elements.settings = collectSettingsRefs();
     }
 
@@ -217,7 +219,7 @@
             button.className = "nav-button";
             button.textContent = screen.title;
             button.dataset.screen = screen.id;
-            button.addEventListener("click", () => emit("navigate", { screen: screen.id }));
+            button.addEventListener("click", () => triggerNavigation(screen.id));
             elements.nav.appendChild(button);
             state.navButtons.set(screen.id, button);
         });
@@ -271,6 +273,56 @@
         }
     }
 
+    function getSwitchValue(element) {
+        return element ? element.getAttribute("aria-checked") === "true" : false;
+    }
+
+    function readTextInput(element) {
+        if (!element) {
+            return "";
+        }
+        const value = typeof element.value === "string" ? element.value.trim() : "";
+        return value;
+    }
+
+    function buildSettingsPayload() {
+        const refs = elements.settings || collectSettingsRefs();
+        const payload = {};
+        if (!refs) {
+            return payload;
+        }
+
+        if (refs.theme) {
+            payload.theme = refs.theme.value;
+        }
+        if (refs.ui_render_mode) {
+            payload.ui_render_mode = refs.ui_render_mode.value;
+        }
+        if (refs.ui_scale_mode) {
+            payload.ui_scale_mode = refs.ui_scale_mode.value;
+        }
+        if (refs.window_resolution) {
+            payload.window_resolution = refs.window_resolution.value;
+        }
+
+        payload.show_cursor = getSwitchValue(refs.show_cursor);
+        payload.position_bottom_right = getSwitchValue(refs.position_bottom_right);
+        payload.developer_mode = getSwitchValue(refs.developer_mode);
+        payload.radio_enabled = getSwitchValue(refs.radio_enabled);
+        payload.obd_enabled = getSwitchValue(refs.obd_enabled);
+
+        if (refs.radio_type) {
+            payload.radio_type = refs.radio_type.value;
+        }
+
+        payload.last_fm_station = readTextInput(refs.last_fm_station);
+        payload.radio_i2c_address = readTextInput(refs.radio_i2c_address);
+        payload.obd_port = readTextInput(refs.obd_port);
+        payload.obd_baudrate = readTextInput(refs.obd_baudrate);
+
+        return payload;
+    }
+
     function updateVolume(data) {
         if (!data) {
             return;
@@ -281,7 +333,9 @@
         }
         if (elements.volumeMute) {
             const muted = !!data.muted;
-            elements.volumeMute.textContent = muted ? "🔇" : "🔊";
+            elements.volumeMute.innerHTML = muted
+                ? '<span class="material-symbols-outlined">volume_off</span>'
+                : '<span class="material-symbols-outlined">volume_up</span>';
             elements.volumeMute.dataset.muted = muted ? "true" : "false";
         }
     }
@@ -308,6 +362,17 @@
         if (element) {
             element.textContent = `Status: ${value || "--"}`;
         }
+    }
+
+    function triggerNavigation(screenId) {
+        if (!screenId) {
+            return;
+        }
+        if (!state.screenMap.has(screenId)) {
+            console.warn('[HTML] Unknown screen id', screenId);
+        }
+        setActiveScreen(screenId);
+        emit("navigate", { screen: screenId });
     }
 
     function setArt(target, url) {
@@ -519,12 +584,39 @@
             );
         }
 
+        if (elements.applySettings) {
+            bindEventOnce(
+                elements.applySettings,
+                "click",
+                (event) => {
+                    event.preventDefault();
+                    emit("apply_settings", buildSettingsPayload());
+                },
+                "boundApplySettings"
+            );
+        }
+
         document.querySelectorAll("[data-system-action]").forEach((button) => {
             bindEventOnce(
                 button,
                 "click",
-                () => emit("system_action", { action: button.dataset.systemAction }),
-                `boundSystemAction-${button.dataset.systemAction || ""}`
+                (event) => {
+                    event.preventDefault();
+                    if (button.dataset.applySettings === "true") {
+                        emit("apply_settings", buildSettingsPayload());
+                    }
+                    emit("system_action", { action: button.dataset.systemAction });
+                },
+                `boundSystemAction${button.dataset.systemAction || ""}`
+            );
+        });
+
+        document.querySelectorAll("[data-open-dialog]").forEach((button) => {
+            bindEventOnce(
+                button,
+                "click",
+                (event) => { event.preventDefault(); emit("open_dialog", { target: button.dataset.openDialog }); },
+                `boundOpenDialog${button.dataset.openDialog || ""}`
             );
         });
 
@@ -532,8 +624,8 @@
             bindEventOnce(
                 button,
                 "click",
-                () => emit("navigate", { screen: button.dataset.navigate }),
-                `boundNavigate-${button.dataset.navigate || ""}`
+                (event) => { event.preventDefault(); triggerNavigation(button.dataset.navigate); },
+                `boundNavigate${button.dataset.navigate || ""}`
             );
         });
     }

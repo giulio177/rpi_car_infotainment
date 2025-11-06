@@ -10,9 +10,11 @@ from PyQt6.QtWidgets import (
     QSpacerItem,
     QSizePolicy,
 )
-from PyQt6.QtCore import Qt, pyqtSlot, QUrl
+from PyQt6.QtCore import Qt, pyqtSlot
 from PyQt6.QtGui import QPixmap
-from PyQt6.QtNetwork import QNetworkAccessManager, QNetworkRequest, QNetworkReply
+from PyQt6.QtNetwork import QNetworkAccessManager, QNetworkReply
+import base64
+import binascii
 
 # --- Import scale_value helper ---
 try:
@@ -29,6 +31,8 @@ try:
 except ImportError:
     print("WARNING: ScrollingLabel not found. Falling back to standard QLabel.")
     ScrollingLabel = QLabel  # Fallback
+
+from backend.media_info import load_local_placeholder_data_url
 
 
 class HomeScreen(QWidget):
@@ -53,9 +57,12 @@ class HomeScreen(QWidget):
         # --- Current track info ---
         self.current_title = ""
         self.current_artist = ""
-        self.default_album_art = QPixmap("assets/default_album_art.png")
-        if self.default_album_art.isNull():
-            # Create a default album art if the file doesn't exist
+        self.default_art_data_url = load_local_placeholder_data_url(
+            "gui/html/assets/media/album_placeholder.svg"
+        )
+        self.default_album_art = self._pixmap_from_data_url(self.default_art_data_url)
+        if not self.default_album_art or self.default_album_art.isNull():
+            # Create a default album art if the asset cannot be loaded
             self.default_album_art = QPixmap(100, 100)
             self.default_album_art.fill(Qt.GlobalColor.darkGray)
 
@@ -228,6 +235,38 @@ class HomeScreen(QWidget):
         # --- Initial state ---
         self.clear_media_info()
 
+    def _pixmap_from_data_url(self, data_url):
+        """Decode a data URL into a QPixmap, returning None on failure."""
+        if not data_url or not isinstance(data_url, str):
+            return None
+        if not data_url.startswith("data:"):
+            return None
+        try:
+            _, encoded = data_url.split(",", 1)
+        except ValueError:
+            return None
+        try:
+            binary = base64.b64decode(encoded)
+        except (binascii.Error, ValueError):
+            return None
+        pixmap = QPixmap()
+        if pixmap.loadFromData(binary):
+            return pixmap
+        return None
+
+    def _scale_album_art(self, pixmap):
+        """Scale incoming pixmaps to match the home screen artwork label."""
+        if not pixmap or pixmap.isNull():
+            return self.default_album_art
+        target_width = self.album_art_label.width() or self.album_art_label.minimumWidth()
+        target_height = self.album_art_label.height() or self.album_art_label.minimumHeight()
+        return pixmap.scaled(
+            target_width,
+            target_height,
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        )
+
     def update_scaling(self, scale_factor, scaled_main_margin):
         """Applies scaling to internal layouts."""
         scaled_top_section_spacing = scale_value(
@@ -316,11 +355,7 @@ class HomeScreen(QWidget):
             # Ridimensiona il pixmap per adattarlo alla label della HomeScreen
             # Usiamo self.album_art_label.size() per ottenere le dimensioni attuali,
             # che potrebbero essere state modificate dallo scaling.
-            scaled_pixmap = pixmap.scaled(
-                self.album_art_label.size(), 
-                Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.SmoothTransformation,
-            )
+            scaled_pixmap = self._scale_album_art(pixmap)
             self.album_art_label.setPixmap(scaled_pixmap)
         else:
             self.album_art_label.setPixmap(self.default_album_art)
@@ -351,13 +386,7 @@ class HomeScreen(QWidget):
             pixmap = QPixmap()
             pixmap.loadFromData(data)
             if not pixmap.isNull():
-                # Scale the pixmap to fit the label while maintaining aspect ratio
-                scaled_pixmap = pixmap.scaled(
-                    self.album_art_label.width(),
-                    self.album_art_label.height(),
-                    Qt.AspectRatioMode.KeepAspectRatio,
-                    Qt.TransformationMode.SmoothTransformation,
-                )
+                scaled_pixmap = self._scale_album_art(pixmap)
                 self.album_art_label.setPixmap(scaled_pixmap)
             else:
                 self.album_art_label.setPixmap(self.default_album_art)

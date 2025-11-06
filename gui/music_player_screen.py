@@ -19,12 +19,15 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QTimer, pyqtSlot, pyqtSignal, QUrl
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtNetwork import QNetworkAccessManager, QNetworkRequest, QNetworkReply
+import base64
+import binascii
 import os
 import subprocess
 import threading
 import socket
 import pygame  # Using pygame for audio playback instead of QtMultimedia
 
+from backend.media_info import load_local_placeholder_data_url
 from .widgets.scrolling_label import ScrollingLabel
 
 
@@ -313,9 +316,12 @@ class MusicPlayerScreen(QWidget):
         self.is_local_playback = False
 
         # --- Create default album art ---
-        self.default_album_art = QPixmap("assets/default_album_art.png")
-        if self.default_album_art.isNull():
-            # Create a default album art if the file doesn't exist
+        self.default_art_data_url = load_local_placeholder_data_url(
+            "gui/html/assets/media/album_placeholder.svg"
+        )
+        self.default_album_art = self._pixmap_from_data_url(self.default_art_data_url)
+        if not self.default_album_art or self.default_album_art.isNull():
+            # Create a default album art if the asset cannot be loaded
             self.default_album_art = QPixmap(100, 100)
             self.default_album_art.fill(Qt.GlobalColor.lightGray)
 
@@ -747,23 +753,67 @@ class MusicPlayerScreen(QWidget):
             self.main_window.audio_manager.request_media_info(title, artist)
 
     @pyqtSlot(str, str)
-    def on_metadata_received(self, cover_url, lyrics):
+    def on_metadata_received(self, art_data, lyrics):
         """
         Questo slot viene eseguito nel thread principale quando AudioManager
         emette il segnale 'metadata_ready'. Aggiorna la UI in sicurezza.
         """
         print(f"[UI Thread] Ricevuti metadati. Aggiorno l'interfaccia.")
-        
+        self._apply_metadata_payload(art_data, lyrics)
+
+    def _apply_metadata_payload(self, art_data, lyrics):
+        """Shared handler to update lyrics and artwork from metadata payloads."""
         self.current_lyrics = lyrics if lyrics else "No lyrics available"
         self.parse_lyrics(self.current_lyrics)
         self.update_lyrics_display()
 
-        if cover_url:
-            request = QNetworkRequest(QUrl(cover_url))
+        if art_data and isinstance(art_data, str) and art_data.startswith("data:"):
+            pixmap = self._pixmap_from_data_url(art_data)
+            if pixmap and not pixmap.isNull():
+                scaled = self._scale_album_art(pixmap)
+                self.album_art_label.setPixmap(scaled)
+                self.album_art_updated.emit(scaled)
+                return
+        elif art_data:
+            # Fallback for legacy HTTP URLs: download via network manager.
+            request = QNetworkRequest(QUrl(art_data))
             self.network_manager.get(request)
-        else:
-            self.album_art_label.setPixmap(self.default_album_art)
-            self.album_art_updated.emit(self.default_album_art)
+            return
+
+        self.album_art_label.setPixmap(self.default_album_art)
+        self.album_art_updated.emit(self.default_album_art)
+
+    def _pixmap_from_data_url(self, data_url):
+        """Decode a data URL into a QPixmap, returning None on failure."""
+        if not data_url or not isinstance(data_url, str):
+            return None
+        if not data_url.startswith("data:"):
+            return None
+        try:
+            header, encoded = data_url.split(",", 1)
+        except ValueError:
+            return None
+        try:
+            binary = base64.b64decode(encoded)
+        except (binascii.Error, ValueError):
+            return None
+        pixmap = QPixmap()
+        if pixmap.loadFromData(binary):
+            return pixmap
+        return None
+
+    def _scale_album_art(self, pixmap):
+        """Return a pixmap scaled to the album art label while preserving aspect."""
+        if not pixmap or pixmap.isNull():
+            return self.default_album_art
+        target_width = self.album_art_label.width() or self.base_album_art_size
+        target_height = self.album_art_label.height() or self.base_album_art_size
+        return pixmap.scaled(
+            target_width,
+            target_height,
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        )
 
     def update_position(self, position):
         """Update the current position from the media player."""
@@ -872,13 +922,7 @@ class MusicPlayerScreen(QWidget):
             pixmap = QPixmap()
             pixmap.loadFromData(data)
             if not pixmap.isNull():
-                # Scale the pixmap to fit the label while maintaining aspect ratio
-                scaled_pixmap = pixmap.scaled(
-                    self.album_art_label.width(),
-                    self.album_art_label.height(),
-                    Qt.AspectRatioMode.KeepAspectRatio,
-                    Qt.TransformationMode.SmoothTransformation,
-                )
+                scaled_pixmap = self._scale_album_art(pixmap)
                 self.album_art_label.setPixmap(scaled_pixmap)
                 pixmap_to_emit = scaled_pixmap
             else:
@@ -922,28 +966,20 @@ class MusicPlayerScreen(QWidget):
 
             # Only fetch if we have valid title and artist
             if title != "---" and artist != "---" and self.main_window:
-                # Check if we have an audio_manager
-                if hasattr(self.main_window, "audio_manager"):
-                    cover_url, lyrics = self.main_window.audio_manager.get_media_info(
-                        title, artist
-                    )
-
-                    # Update lyrics
-                    self.current_lyrics = lyrics if lyrics else "No lyrics available"
-                    self.parse_lyrics(self.current_lyrics)
-                    self.update_lyrics_display()
-
-                    # Download album art
-                    if cover_url:
-                        request = QNetworkRequest(QUrl(cover_url))
-                        self.network_manager.get(request)
-                    else:
-                        # Use default album art if no cover URL is available
-                        self.album_art_label.setPixmap(self.default_album_art)
+                self.album_art_label.setPixmap(self.default_album_art)
+                self.album_art_updated.emit(self.default_album_art)
+                audio_manager = getattr(self.main_window, "audio_manager", None)
+                if audio_manager and hasattr(audio_manager, "request_media_info"):
+                    self.lyrics_content.setText("Loading lyrics...")
+                    audio_manager.request_media_info(title, artist)
+                elif audio_manager and hasattr(audio_manager, "get_media_info"):
+                    art_data, lyrics = audio_manager.get_media_info(title, artist)
+                    self._apply_metadata_payload(art_data, lyrics)
                 else:
-                    # Use default album art if no audio_manager is available
-                    self.album_art_label.setPixmap(self.default_album_art)
                     self.lyrics_content.setText("No lyrics available")
+            else:
+                self.album_art_label.setPixmap(self.default_album_art)
+                self.album_art_updated.emit(self.default_album_art)
 
     @pyqtSlot(str)
     def update_playback_status(self, status):

@@ -83,6 +83,9 @@ body {
     background: var(--pill-offline);
 }
 
+
+
+/*----------NAV--------*/
 .nav {
     position: sticky;
     /*!top: var(--toolbar-height);*/
@@ -115,6 +118,9 @@ body {
     background: var(--accent);
     color: #071724;
 }
+
+
+
 
 main {
     flex: 1;
@@ -162,9 +168,8 @@ main {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 12px 14px;
+    padding: 10px 14px;
     background: var(--bg-secondary);
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .footer-left {
@@ -259,8 +264,8 @@ code {
 
 .home-layout {
     display: flex;           /* flex container */
-    flex: 1 1 0%;            /* cresce per occupare lo spazio disponibile */
-    padding: 1rem;           /* 1rem = 16px, come p-4 */
+    /*flex: 1 1 50%;            /* cresce per occupare lo spazio disponibile */
+    padding: 2px;           /* 1rem = 16px, come p-4 */
     gap: 1rem;               /* spazio di 1rem tra i figli */
     overflow: hidden;        /* nasconde eventuali overflow */
 }
@@ -335,7 +340,7 @@ body, .home-text {
     height:100%;
     border-radius:12px;
     background-color:var(--bg-dark);
-    padding:16px;
+    padding:12px;
     transition:background-color .2s ease;
 }
 
@@ -363,7 +368,7 @@ body, .home-text {
 }
 .card-cover__meta{
   position:absolute; left:0; bottom:0;
-  padding:12px;
+  padding:10px;
   pointer-events:none;
 }
 .card-title{
@@ -389,12 +394,19 @@ body, .home-text {
 /* BODY (equiv. mt-auto pt-4 flex flex-col justify-end flex-1) */
 .card-body{
   margin-top:auto;
-  padding-top:16px;
+  padding-top:12px;
   display:flex;
   flex-direction:column;
   justify-content:end;
   flex:1 1 auto;
   gap:16px;
+}
+
+.card-meta{
+  margin:0;
+  font-size:.75rem;
+  line-height:1rem;
+  color:var(--text-400);
 }
 
 /* PROGRESS (equiv. rounded-full bg-gray-700 h-1.5 + inner bg-primary) */
@@ -406,7 +418,7 @@ body, .home-text {
   overflow:hidden;
 }
 .progress__bar{
-  height:100%;
+  height:90%;
   background:var(--primary);
   border-radius:inherit;
 }
@@ -421,7 +433,7 @@ body, .home-text {
 
 /* BUTTONS (equiv. p-3 rounded-full hover:bg-gray-700/50) */
 .icon-btn{
-  padding:12px;             /* p-3 */
+  padding:10px;             /* p-3 */
   border-radius:9999px;
   background:transparent;
   border:none;
@@ -456,6 +468,17 @@ body, .home-text {
 
 /* MEDIA  */
 
+/* Usa Inter locale se lo aggiungi in fonts.css, altrimenti system-ui */
+.font-display, body {
+  font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial, 'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif;
+}
+
+/* Scrollbar scura (opzionale) */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: #2A2A2A; }
+::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #666; }
+
 
 .media-art {
     width: 180px;
@@ -489,34 +512,103 @@ body, .home-text {
 
 /* SETTINGS  */
 
-.settings-grid {
-    display: grid;
-    gap: 20px;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+.settings-container {
+  margin-left: auto;
+  margin-right: auto;
+  max-width: 64rem;       /* 1024px (max-w-4xl) */
+  padding-top: 1.5rem;    /* pt-6 */
+  padding-bottom: 11rem;  /* pb-44 ≈ 176px */
+}
+
+.settings-container > * + * {
+  margin-top: 1.5rem;     /* space-y-6: spaziatura verticale tra sezioni */
 }
 
 .settings-section {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
+  background-color: var(--surface-dark, #2A2A2A);
+  border-radius: 0.75rem;  /* rounded-xl */
 }
 
-.setting-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: 16px;
+.settings-title {
+  font-size: 1.125rem;   /* text-lg */
+  font-weight: 700;      /* font-bold */
+  padding-left: 1.5rem;  /* px-6 → 24px */
+  padding-right: 1.5rem;
+  padding-top: 1rem;     /* pt-4 → 16px */
+  padding-bottom: 0.5rem;/* pb-2 → 8px */
 }
 
-.setting-label {
-    font-size: 0.9rem;
-    color: var(--text-secondary);
+.settings-divide {
+  border-top: 1px solid var(--background-dark, #1E1E1E);
+}
+.settings-divide + .settings-divide {
+  border-top: 1px solid var(--background-dark, #1E1E1E);
 }
 
-.setting-value {
-    font-weight: 600;
-    color: var(--text-primary);
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;            /* gap-4 */
+  padding: 1rem;        /* p-4 */
+  min-height: 72px;     /* min-h-[72px] */
 }
+
+.settings-select {
+  width: 12rem;                  /* w-48 (192px) */
+  appearance: none;
+  cursor: pointer;
+  border-radius: 0.5rem;         /* rounded-lg */
+  border: 2px solid var(--background-dark, #1E1E1E);
+  background-color: var(--background-dark, #1E1E1E);
+  color: var(--text-light, #EAEAEA);
+  padding: 0.75rem 2.5rem 0.75rem 1rem; /* py-3 pl-4 pr-10 */
+  font-size: 1rem;               /* text-base */
+  outline: none;
+  transition: border-color 0.2s;
+}
+.settings-select:focus {
+  border-color: var(--primary, #007BFF);
+  box-shadow: none;              /* focus:ring-0 */
+}
+
+.settings-icon {
+  font-family: 'Material Symbols Outlined';
+  pointer-events: none;
+  position: absolute;
+  right: 0.75rem;        /* right-3 → 12px */
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 1.5rem;     /* text-2xl circa */
+}
+
+.toggle-switch {
+  position: relative;            /* relative */
+  display: inline-flex;          /* inline-flex */
+  align-items: center;           /* items-center */
+  height: 2rem;                  /* h-8 → 32px */
+  width: 3.5rem;                 /* w-14 → 56px */
+  border-radius: 9999px;         /* rounded-full */
+  background-color: var(--primary, #007BFF); /* bg-primary */
+  cursor: pointer;               /* utile per il click */
+  transition: background-color 0.2s ease;    /* animazione fluida */
+}
+
+.toggle-knob {
+  display: inline-block;           /* inline-block */
+  height: 1.5rem;                  /* h-6 → 24px */
+  width: 1.5rem;                   /* w-6 → 24px */
+  border-radius: 9999px;           /* rounded-full → cerchio perfetto */
+  background-color: #ffffff;       /* bg-white */
+  transform: translateX(1.75rem);  /* translate-x-7 → spostamento di 28px */
+  transition: all 0.2s ease;       /* transition → effetto fluido */
+}
+
+
+
+
+
+
 
 .material-symbols-outlined {
   font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;

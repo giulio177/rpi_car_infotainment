@@ -1,15 +1,32 @@
-<div class="media">
-    <img id="music-art" class="media-art" src="../../assets/default_album_art.png" alt="Album art">
-    <div class="media-details">
-        <h3 id="music-title">No track</h3>
-        <p id="music-artist">--</p>
-        <p id="music-album">--</p>
-        <p id="music-progress">00:00 / 00:00</p>
-        <p id="music-status">Status: stopped</p>
+<div class="home-media">
+    <div class="card-cover">
+        <img id="home-art" class="card-cover__image"
+            src="assets/media/album_placeholder.svg"
+            alt="Album art for the current track" />
+        <div class="card-cover__gradient"></div>
+        <div class="card-cover__meta">
+            <h3 id="home-title" class="card-title">No track</h3>
+            <p id="home-artist" class="card-subtitle">--</p>
+            <p id="home-album" class="card-note">--</p>
+        </div>
     </div>
-</div>
-<div class="media-controls">
-    <button id="media-previous" class="control-button" title="Previous">⏮</button>
-    <button id="media-play" class="control-button" title="Play / Pause">⏯</button>
-    <button id="media-next" class="control-button" title="Next">⏭</button>
+
+    <div class="card-body">
+        <div class="progress">
+            <div class="progress__bar" style="width:0%"></div>
+        </div>
+        <p id="home-progress" class="card-meta">00:00 / 00:00</p>
+
+        <div class="controls">
+            <button class="icon-btn" onclick="event.preventDefault()">
+                <span class="material-symbols-outlined icon icon--lg">skip_previous</span>
+            </button>
+            <button class="icon-btn icon-btn--primary" onclick="event.preventDefault()">
+                <span class="material-symbols-outlined icon icon--xl">pause</span>
+            </button>
+            <button class="icon-btn" onclick="event.preventDefault()">
+                <span class="material-symbols-outlined icon icon--lg">skip_next</span>
+            </button>
+        </div>
+    </div>
 </div>

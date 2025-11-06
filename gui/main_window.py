@@ -25,6 +25,8 @@ from PyQt6.QtGui import QIcon, QShortcut, QKeySequence
 
 from .styling import apply_theme, scale_value
 
+_SkipSetting = object()
+
 # Import backend managers
 from backend.audio_manager import AudioManager
 from backend.bluetooth_manager import BluetoothManager
@@ -36,7 +38,7 @@ from backend.wifi_manager import WiFiManager
 # Import screens
 from .home_screen import HomeScreen
 from .radio_screen import RadioScreen
-from ..obd_screen import OBDScreen
+from .obd_screen import OBDScreen
 from .setting_screen import SettingsScreen
 from .music_player_screen import MusicPlayerScreen
 from .airplay_screen import AirPlayScreen
@@ -738,6 +740,124 @@ class MainWindow(QMainWindow):
             self.open_bluetooth_dialog()
         elif target == "wifi":
             self.open_wifi_dialog()
+
+    def _handle_html_apply_settings(self, payload):
+        if not isinstance(payload, dict):
+            print("[HTML] apply_settings payload invalid:", payload)
+            return
+
+        updates = {}
+        for key, raw_value in payload.items():
+            normalized = self._coerce_html_setting(key, raw_value)
+            # The helper returns a special marker when we should skip the key entirely
+            if normalized is _SkipSetting:
+                continue
+            updates[key] = normalized
+
+        if not updates:
+            print("[HTML] apply_settings received no valid updates.")
+            return
+
+        # Track changes that warrant immediate UI updates
+        theme_changed = (
+            "theme" in updates
+            and updates["theme"]
+            and updates["theme"] != self.settings_manager.get("theme")
+        )
+        scale_mode_changed = "ui_scale_mode" in updates
+        resolution_changed = "window_resolution" in updates
+
+        # Persist to configuration (single save to avoid repeated disk writes)
+        self.settings_manager.settings.update(updates)
+        self.settings_manager.save_settings()
+
+        # Apply runtime adjustments where appropriate
+        if resolution_changed:
+            resolution = updates.get("window_resolution")
+            if (
+                isinstance(resolution, (list, tuple))
+                and len(resolution) == 2
+                and all(isinstance(dim, int) and dim > 0 for dim in resolution)
+            ):
+                self.resize(resolution[0], resolution[1])
+
+        if theme_changed and updates.get("theme"):
+            self.current_theme = updates["theme"]
+
+        if theme_changed or scale_mode_changed or resolution_changed:
+            # Recompute scaling/theme to reflect the new settings immediately
+            self._apply_scaling()
+
+        # Refresh HTML snapshot so controls reflect sanitized values
+        self.refresh_html_settings()
+
+    def _coerce_html_setting(self, key, value):
+        """Normalize incoming setting values from the HTML UI."""
+        if key == "window_resolution":
+            if isinstance(value, str):
+                cleaned = value.lower().replace("×", "x")
+                try:
+                    width_str, height_str = [part.strip() for part in cleaned.split("x", 1)]
+                    width = int(width_str)
+                    height = int(height_str)
+                except (ValueError, AttributeError):
+                    return _SkipSetting
+                return [width, height]
+            if isinstance(value, (list, tuple)) and len(value) == 2:
+                try:
+                    width = int(value[0])
+                    height = int(value[1])
+                except (TypeError, ValueError):
+                    return _SkipSetting
+                return [width, height]
+            return _SkipSetting
+
+        if key in {"show_cursor", "position_bottom_right", "developer_mode", "radio_enabled", "obd_enabled"}:
+            return bool(value)
+
+        if key == "last_fm_station":
+            text = str(value).strip()
+            if not text:
+                return None
+            try:
+                return float(text)
+            except ValueError:
+                print(f"[HTML] Invalid last_fm_station value '{value}', skipping.")
+                return _SkipSetting
+
+        if key == "radio_i2c_address":
+            text = str(value).strip()
+            if not text:
+                return None
+            try:
+                if text.lower().startswith("0x"):
+                    return int(text, 16)
+                return int(text, 10)
+            except ValueError:
+                try:
+                    return int(text, 16)
+                except ValueError:
+                    return text
+
+        if key == "obd_port":
+            text = str(value).strip()
+            return text or None
+
+        if key == "obd_baudrate":
+            text = str(value).strip()
+            if not text:
+                return None
+            try:
+                return int(text)
+            except ValueError:
+                print(f"[HTML] Invalid obd_baudrate value '{value}', skipping.")
+                return _SkipSetting
+
+        if key in {"theme", "ui_render_mode", "ui_scale_mode", "radio_type"}:
+            text = str(value).strip()
+            return text or self.settings_manager.defaults.get(key)
+
+        return value
 
     def _handle_html_system_action(self, payload):
         action = (payload or {}).get("action")

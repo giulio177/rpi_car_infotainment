@@ -1,91 +1,83 @@
-<div class="mx-auto max-w-4xl space-y-6 pt-6 pb-44">
-    <section class="rounded-xl bg-surface-dark shadow-md">
-        <h2 class="px-6 pt-4 pb-2 text-lg font-bold">General</h2>
-        <div class="divide-y divide-background-dark/50">
-            <div class="flex min-h-[72px] items-center justify-between gap-4 p-4">
+<div class="settings-container">
+    <section class="settings-section">
+        <h2 class="settings-title">General</h2>
+        <div class="settings-divide">
+            <div class="settings-row">
                 <label class="text-base font-medium" for="settings-theme">UI Theme</label>
                 <div class="relative w-48">
-                    <select id="settings-theme" class="w-full appearance-none rounded-lg border-2 border-surface-dark bg-background-dark py-3 pl-4 pr-10 text-base text-text-light focus:border-primary focus:outline-none focus:ring-0">
+                    <select id="settings-theme" class="settings-select">
                         <option value="dark">Dark</option>
                         <option value="light">Light</option>
                     </select>
-                    <span class="material-symbols-outlined pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-lg text-text-light/70">expand_more</span>
+                    <span class="settings-icon">expand_more</span>
                 </div>
             </div>
-            <div class="flex min-h-[72px] items-center justify-between gap-4 p-4">
+            <div class="settings-row">
                 <label class="text-base font-medium" for="settings-ui_render_mode">Render Mode</label>
                 <div class="relative w-48">
-                    <select id="settings-ui_render_mode" class="w-full appearance-none rounded-lg border-2 border-surface-dark bg-background-dark py-3 pl-4 pr-10 text-base text-text-light focus:border-primary focus:outline-none focus:ring-0">
+                    <select id="settings-ui_render_mode" class="settings-select">
                         <option value="html">Embedded HTML</option>
                         <option value="native">Native Widgets</option>
                     </select>
-                    <span class="material-symbols-outlined pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-lg text-text-light/70">expand_more</span>
+                    <span class="settings-icon">expand_more</span>
                 </div>
             </div>
-            <div class="flex min-h-[72px] items-center justify-between gap-4 p-4">
+            <div class="settings-row">
                 <label class="text-base font-medium" for="settings-ui_scale_mode">Scale Mode</label>
                 <div class="relative w-48">
-                    <select id="settings-ui_scale_mode" class="w-full appearance-none rounded-lg border-2 border-surface-dark bg-background-dark py-3 pl-4 pr-10 text-base text-text-light focus:border-primary focus:outline-none focus:ring-0">
+                    <select id="settings-ui_scale_mode" class="settings-select">
                         <option value="auto">Auto (Scale)</option>
                         <option value="fixed_small">Small (Fixed)</option>
                         <option value="fixed_medium">Medium (Fixed)</option>
                         <option value="fixed_large">Large (Fixed)</option>
                     </select>
-                    <span class="material-symbols-outlined pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-lg text-text-light/70">expand_more</span>
+                    <span class="settings-icon">expand_more</span>
                 </div>
             </div>
-            <div class="flex min-h-[72px] items-center justify-between gap-4 p-4">
+            <div class="settings-row">
                 <label class="text-base font-medium" for="settings-window_resolution">Resolution</label>
                 <div class="relative w-48">
-                    <select id="settings-window_resolution" class="w-full appearance-none rounded-lg border-2 border-surface-dark bg-background-dark py-3 pl-4 pr-10 text-base text-text-light focus:border-primary focus:outline-none focus:ring-0">
+                    <select id="settings-window_resolution" class="settings-select">
                         <option value="1024x600">1024 × 600</option>
                         <option value="1280x720">1280 × 720</option>
                         <option value="1920x1080">1920 × 1080</option>
                     </select>
-                    <span class="material-symbols-outlined pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-lg text-text-light/70">expand_more</span>
+                    <span class="settings-icon">expand_more</span>
                 </div>
             </div>
-            <div class="flex min-h-[72px] items-center justify-between gap-4 p-4">
-                <span class="text-base font-medium">Show Cursor</span>
-                <div class="flex items-center gap-3">
-                    <button
+            <div class="settings-row">
+                <label class="text-base font-medium" for="settings-show_cursor">Show Cursor</label>
+                    <button 
                         id="settings-show_cursor"
-                        type="button"
-                        role="switch"
-                        aria-checked="false"
-                        data-setting-type="toggle"
-                        class="relative inline-flex h-8 w-14 items-center rounded-full bg-surface-dark transition-colors">
-                        <span data-toggle-knob class="inline-block h-6 w-6 translate-x-1 transform rounded-full bg-white shadow-md transition-transform"></span>
+                        aria-checked="false" 
+                        class="toggle-switch" 
+                        role="switch">
+                        <span class="toggle-knob"></span>
                     </button>
                     <span class="text-sm text-text-light/80" data-toggle-label="show_cursor">Hidden</span>
-                </div>
             </div>
-            <div class="flex min-h-[72px] items-center justify-between gap-4 p-4">
+            <div class="settings-row">
                 <span class="text-base font-medium">Anchor Window</span>
                 <div class="flex items-center gap-3">
                     <button
                         id="settings-position_bottom_right"
-                        type="button"
-                        role="switch"
-                        aria-checked="false"
-                        data-setting-type="toggle"
-                        class="relative inline-flex h-8 w-14 items-center rounded-full bg-surface-dark transition-colors">
-                        <span data-toggle-knob class="inline-block h-6 w-6 translate-x-1 transform rounded-full bg-white shadow-md transition-transform"></span>
+                        aria-checked="false" 
+                        class="toggle-switch" 
+                        role="switch">>
+                        <span  class="toggle-knob"></span>
                     </button>
                     <span class="text-sm text-text-light/80" data-toggle-label="position_bottom_right">Top-left</span>
                 </div>
             </div>
-            <div class="flex min-h-[72px] items-center justify-between gap-4 p-4">
+            <div class="settings-row">
                 <span class="text-base font-medium">Developer Mode</span>
                 <div class="flex items-center gap-3">
                     <button
                         id="settings-developer_mode"
-                        type="button"
-                        role="switch"
-                        aria-checked="false"
-                        data-setting-type="toggle"
-                        class="relative inline-flex h-8 w-14 items-center rounded-full bg-surface-dark transition-colors">
-                        <span data-toggle-knob class="inline-block h-6 w-6 translate-x-1 transform rounded-full bg-white shadow-md transition-transform"></span>
+                        aria-checked="false" 
+                        class="toggle-switch" 
+                        role="switch">>
+                        <span  class="toggle-knob"></span>
                     </button>
                     <span class="text-sm text-text-light/80" data-toggle-label="developer_mode">Disabled</span>
                 </div>
@@ -93,70 +85,66 @@
         </div>
     </section>
 
-    <section class="rounded-xl bg-surface-dark shadow-md">
-        <h2 class="px-6 pt-4 pb-2 text-lg font-bold">OBD-II</h2>
-        <div class="divide-y divide-background-dark/50">
-            <div class="flex min-h-[72px] items-center justify-between gap-4 p-4">
+    <section class="settings-section">
+        <h2 class="settings-title">OBD-II</h2>
+        <div class="settings-divide">
+            <div class="settings-row">
                 <span class="text-base font-medium">Enable OBD-II Reader</span>
                 <div class="flex items-center gap-3">
                     <button
                         id="settings-obd_enabled"
-                        type="button"
-                        role="switch"
-                        aria-checked="false"
-                        data-setting-type="toggle"
-                        class="relative inline-flex h-8 w-14 items-center rounded-full bg-surface-dark transition-colors">
-                        <span data-toggle-knob class="inline-block h-6 w-6 translate-x-1 transform rounded-full bg-white shadow-md transition-transform"></span>
+                        aria-checked="false" 
+                        class="toggle-switch" 
+                        role="switch">>
+                        <span  class="toggle-knob"></span>
                     </button>
                     <span class="text-sm text-text-light/80" data-toggle-label="obd_enabled">Disabled</span>
                 </div>
             </div>
-            <div class="flex min-h-[72px] items-center justify-between gap-4 p-4">
+            <div class="settings-row">
                 <label class="text-base font-medium" for="settings-obd_port">Port</label>
                 <input id="settings-obd_port" type="text" placeholder="/dev/ttyUSB0" class="w-48 rounded-lg border-2 border-surface-dark bg-background-dark p-3 text-base text-text-light focus:border-primary focus:outline-none focus:ring-0" />
             </div>
-            <div class="flex min-h-[72px] items-center justify-between gap-4 p-4">
+            <div class="settings-row">
                 <label class="text-base font-medium" for="settings-obd_baudrate">Baudrate</label>
                 <input id="settings-obd_baudrate" type="text" placeholder="38400" class="w-48 rounded-lg border-2 border-surface-dark bg-background-dark p-3 text-base text-text-light focus:border-primary focus:outline-none focus:ring-0" />
             </div>
         </div>
     </section>
 
-    <section class="rounded-xl bg-surface-dark shadow-md">
-        <h2 class="px-6 pt-4 pb-2 text-lg font-bold">Radio</h2>
-        <div class="divide-y divide-background-dark/50">
-            <div class="flex min-h-[72px] items-center justify-between gap-4 p-4">
+    <section class="settings-section">
+        <h2 class="settings-title">Radio</h2>
+        <div class="settings-divide">
+            <div class="settings-row">
                 <span class="text-base font-medium">Enable Radio</span>
                 <div class="flex items-center gap-3">
                     <button
                         id="settings-radio_enabled"
-                        type="button"
-                        role="switch"
-                        aria-checked="false"
-                        data-setting-type="toggle"
-                        class="relative inline-flex h-8 w-14 items-center rounded-full bg-surface-dark transition-colors">
-                        <span data-toggle-knob class="inline-block h-6 w-6 translate-x-1 transform rounded-full bg-white shadow-md transition-transform"></span>
+                        aria-checked="false" 
+                        class="toggle-switch" 
+                        role="switch">>
+                        <span  class="toggle-knob"></span>
                     </button>
                     <span class="text-sm text-text-light/80" data-toggle-label="radio_enabled">Disabled</span>
                 </div>
             </div>
-            <div class="flex min-h-[72px] items-center justify-between gap-4 p-4">
+            <div class="settings-row">
                 <label class="text-base font-medium" for="settings-radio_type">Radio Type</label>
                 <div class="relative w-48">
-                    <select id="settings-radio_type" class="w-full appearance-none rounded-lg border-2 border-surface-dark bg-background-dark py-3 pl-4 pr-10 text-base text-text-light focus:border-primary focus:outline-none focus:ring-0">
+                    <select id="settings-radio_type" class="settings-select">
                         <option value="none">None</option>
                         <option value="sdr">SDR</option>
                         <option value="si4703">Si4703</option>
                         <option value="si4735">Si4735</option>
                     </select>
-                    <span class="material-symbols-outlined pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-lg text-text-light/70">expand_more</span>
+                    <span class="settings-icon">expand_more</span>
                 </div>
             </div>
-            <div class="flex min-h-[72px] items-center justify-between gap-4 p-4">
+            <div class="settings-row">
                 <label class="text-base font-medium" for="settings-last_fm_station">Last Station</label>
                 <input id="settings-last_fm_station" type="text" class="w-48 rounded-lg border-2 border-surface-dark bg-background-dark p-3 text-base text-text-light focus:border-primary focus:outline-none focus:ring-0" placeholder="98.5" />
             </div>
-            <div class="flex min-h-[72px] items-center justify-between gap-4 p-4">
+            <div class="settings-row">
                 <label class="text-base font-medium" for="settings-radio_i2c_address">I2C Address</label>
                 <input id="settings-radio_i2c_address" type="text" class="w-48 rounded-lg border-2 border-surface-dark bg-background-dark p-3 text-base text-text-light focus:border-primary focus:outline-none focus:ring-0" placeholder="0x10" />
             </div>
@@ -166,9 +154,7 @@
 
 <div class="pointer-events-none sticky bottom-[88px] z-20 bg-gradient-to-t from-background-dark via-background-dark/90 to-transparent px-6 pt-10 pb-4">
     <div class="pointer-events-auto mx-auto flex max-w-4xl justify-end gap-4">
-        <button class="flex h-14 min-w-[180px] items-center justify-center rounded-xl bg-surface-dark px-6 text-base font-semibold text-text-light shadow hover:bg-surface-dark/80 transition-colors">Apply Settings</button>
-        <button data-system-action="restart_app" class="flex h-14 min-w-[180px] items-center justify-center rounded-xl bg-primary px-6 text-base font-semibold text-white shadow hover:bg-primary/90 transition-colors">Apply &amp; Restart</button>
+        <button id="settings-apply" type="button" class="flex h-14 min-w-[180px] items-center justify-center rounded-xl bg-surface-dark px-6 text-base font-semibold text-text-light shadow hover:bg-surface-dark/80 transition-colors">Apply Settings</button>
+        <button data-system-action="restart_app" data-apply-settings="true" class="flex h-14 min-w-[180px] items-center justify-center rounded-xl bg-primary px-6 text-base font-semibold text-white shadow hover:bg-primary/90 transition-colors">Apply &amp; Restart</button>
     </div>
 </div>
-
-

@@ -2,19 +2,25 @@
 
 import subprocess
 import re
-from PyQt6.QtCore import QObject, QThread, pyqtSignal, Qt, pyqtSlot
+from PyQt6.QtCore import QObject, QThread, pyqtSignal, pyqtSlot
 
-# Importa le tue funzioni che fanno le chiamate di rete
-from .media_info import get_album_art, get_lyrics
+from .media_info import (
+    get_album_art_data_url,
+    get_lyrics,
+    load_local_placeholder_data_url,
+)
 
 
 # Questa classe farà il lavoro bloccante in un thread separato.
 class MetadataWorker(QObject):
-    # Segnale per comunicare i risultati: (url_copertina, testo_canzone)
+    # Segnale per comunicare i risultati: (data_url_copertina, testo_canzone)
     finished = pyqtSignal(str, str)
 
     def __init__(self):
         super().__init__()
+        self._placeholder_art = load_local_placeholder_data_url(
+            "gui/html/assets/media/album_placeholder.svg"
+        )
 
     @pyqtSlot(str, str)
     def do_work(self, title, artist):
@@ -23,12 +29,14 @@ class MetadataWorker(QObject):
         Contiene le chiamate di rete bloccanti.
         """
         print(f"[Worker Thread] Ricevuto lavoro: {artist} - {title}")
-        
-        cover_url = get_album_art(title, artist)
+
+        art_data_url = get_album_art_data_url(title, artist)
+        if not art_data_url:
+            art_data_url = self._placeholder_art or ""
         lyrics = get_lyrics(title, artist)
-        
+
         # Emette i risultati quando ha finito
-        self.finished.emit(cover_url, lyrics)
+        self.finished.emit(art_data_url, lyrics)
 
 
 class AudioManager(QObject):
@@ -70,21 +78,6 @@ class AudioManager(QObject):
         self.worker_thread.start()
         print("[AudioManager] Worker thread avviato e in attesa di lavoro.")
 
-
-    # Questo metodo ora è asincrono. Ritorna immediatamente.
-    def request_media_info(self, title, artist):
-        """
-        Avvia il recupero dei metadati in un thread separato.
-        Questa versione è stata resa più robusta per prevenire crash
-        quando le richieste avvengono in rapida successione.
-        """
-        # Se un thread precedente è ancora in esecuzione, fermalo.
-        # Questo è fondamentale per quando l'utente cambia canzone velocemente.
-        if hasattr(self, 'thread') and self.thread is not None and self.thread.isRunning():
-            print("[AudioManager] Un thread precedente è attivo. Lo fermo prima di avviare quello nuovo.")
-            self.worker.stop()
-            self.thread.quit()
-            self.thread.wait() # Attendi che termini completamente.
 
     def request_media_info(self, title, artist):
         """
