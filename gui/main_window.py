@@ -572,22 +572,19 @@ class MainWindow(QMainWindow):
         if not ok:
             print("[HTML] Failed to load infotainment index.html")
             return
-        self._html_ready = True
-        self._push_html_init_state()
+        # DO NOT push state here. Wait for the 'ready' signal from the JS,
+        # which fires after all partials have been loaded.
+        print("[HTML] index.html loaded. Waiting for JS 'ready' signal...")
 
     def _push_html_init_state(self):
         if not self.use_html_ui or not self._html_ready:
             return
-        screens = []
-        for screen_id, screen in self.screen_registry.items():
-            screens.append(
-                {
-                    "id": screen_id,
-                    "title": getattr(screen, "screen_title", screen_id.title()),
-                }
-            )
+
+        # REFRESH settings right before sending to ensure UI gets current values
+        self.html_state["settings"] = self._collect_settings_summary()
+        
+        # REFACTORED: The screen list is no longer sent. The frontend discovers it from the DOM.
         payload = {
-            "screens": screens,
             "active": self.active_screen_id,
             "theme": self.current_theme,
             "volume": self.html_state["volume"],

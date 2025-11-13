@@ -1,32 +1,52 @@
-<div class="home-media">
-    <div class="card-cover">
-        <img id="home-art" class="card-cover__image"
-            src="assets/media/album_placeholder.svg"
-            alt="Album art for the current track" />
-        <div class="card-cover__gradient"></div>
-        <div class="card-cover__meta">
-            <h3 id="home-title" class="card-title">No track</h3>
-            <p id="home-artist" class="card-subtitle">--</p>
-            <p id="home-album" class="card-note">--</p>
-        </div>
+<div class="player-layout">
+  <div class="player-top">
+    <div class="player-info">
+      <div class="media-details">
+        <h2 id="player-title">Starlight Echoes</h2>
+        <h3 id="player-artist">Cosmic Dreamer</h3>
+        <p id="player-album" class="card-note">Galactic Harmonies</p>
+      </div>
+
+      <div class="controls">
+        <button class="button-media" onclick="event.preventDefault()">
+            <span class="material-symbols-outlined icon icon--lg">skip_previous</span>
+        </button>
+        <button class="button-media icon-btn--primary" onclick="event.preventDefault()">
+            <span class="material-symbols-outlined icon icon--xl">pause</span>
+        </button>
+        <button class="button-media" onclick="event.preventDefault()">
+            <span class="material-symbols-outlined icon icon--lg">skip_next</span>
+        </button>
+      </div>
     </div>
 
-    <div class="card-body">
-        <div class="progress">
-            <div class="progress__bar" style="width:0%"></div>
-        </div>
-        <p id="home-progress" class="card-meta">00:00 / 00:00</p>
-
-        <div class="controls">
-            <button class="icon-btn" onclick="event.preventDefault()">
-                <span class="material-symbols-outlined icon icon--lg">skip_previous</span>
-            </button>
-            <button class="icon-btn icon-btn--primary" onclick="event.preventDefault()">
-                <span class="material-symbols-outlined icon icon--xl">pause</span>
-            </button>
-            <button class="icon-btn" onclick="event.preventDefault()">
-                <span class="material-symbols-outlined icon icon--lg">skip_next</span>
-            </button>
-        </div>
+    <div class="player-art">
+      <img id="player-art" class="media-art" alt="Album art" src="assets/media/album_placeholder.svg" />
     </div>
+  </div>
+
+  <div class="player-progress">
+    <div class="progress">
+      <div id="player-progress-bar" class="progress__bar" style="width:32%"></div>
+    </div>
+    <p id="player-time" class="card-meta">01:25 / 03:45</p>
+  </div>
+
+  <div class="player-actions">
+    <button class="btn-secondary" data-action="lyrics">
+      <span class="material-symbols-outlined">music_note</span>&nbsp;Show Lyrics
+    </button>
+    <button class="btn-secondary" data-navigate="library">
+      <span class="material-symbols-outlined">library_music</span>&nbsp;Library
+    </button>
+    <button class="btn-secondary" data-action="download">
+      <span class="material-symbols-outlined">download</span>&nbsp;Download
+    </button>
+  </div>
+
+  <div class="player-download">
+    <div class="progress">
+      <div id="player-download-bar" class="progress__bar" style="width:65%"></div>
+    </div>
+  </div>
 </div>

@@ -44,7 +44,7 @@
         </div>
     </div>
     <a class="home-oneth" href="#">
-        <div class="home-media">
+        <div class="home-media" data-navigate="music_player">
         <!--button type="button" class="home-media" data-navigate="music_player"-->
             <div class="card-cover">
             <img id="home-art" class="card-cover__image"
@@ -65,13 +65,13 @@
             <p id="home-progress" class="card-meta">00:00 / 00:00</p>
 
             <div class="controls">
-                <button class="icon-btn" onclick="event.preventDefault()">
+                <button class="button" onclick="event.preventDefault()">
                     <span class="material-symbols-outlined icon icon--lg">skip_previous</span>
                 </button>
-                <button class="icon-btn icon-btn--primary" onclick="event.preventDefault()">
+                <button class="button icon-btn--primary" onclick="event.preventDefault()">
                     <span class="material-symbols-outlined icon icon--xl">pause</span>
                 </button>
-                <button class="icon-btn" onclick="event.preventDefault()">
+                <button class="button" onclick="event.preventDefault()">
                     <span class="material-symbols-outlined icon icon--lg">skip_next</span>
                 </button>
             </div>

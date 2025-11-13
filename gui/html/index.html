@@ -8,22 +8,30 @@
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="assets/fonts/fonts.css" />
     <link rel="preload" href="assets/fonts/MaterialSymbolsOutlined.woff2" as="font" type="font/woff2" crossorigin />
-    <!-- (opzionale) preload Inter, se lo usi offline -->
-    <!-- <link rel="preload" href="assets/fonts/Inter-Variable.woff2" as="font" type="font/woff2" crossorigin /> -->
 </head>
 <body class="font-display bg-background-dark text-text-light">
     <div id="app" data-theme="dark" class="font-display">
+        <!-- Screen definitions: The new source of truth for the frontend -->
+        <div id="screen-definitions" style="display: none;">
+            <div data-id="home" data-title="Home"></div>
+            <div data-id="music_player" data-title="Music Player"></div>
+            <div data-id="library" data-title="Library"></div>
+            <div data-id="fm_radio" data-title="FM Radio"></div>
+            <div data-id="obd_ii_data" data-title="OBD-II Data"></div>
+            <div data-id="airplay_mirroring" data-title="AirPlay"></div>
+            <div data-id="logs" data-title="Logs"></div>
+            <div data-id="settings" data-title="Settings"></div>
+        </div>
+
         <header class="toolbar">
             <div class="toolbar-left">
                 <span id="header-title">RPi Car Infotainment</span>
             </div>
             <div class="toolbar-right">
-                <span id="bluetooth-pill" class="pill pill--offline">Bluetooth offline</span>
+                <span id="bluetooth-pill" class="pill pill--offline home-symbol">bluetooth</span>
                 <span id="clock">00:00</span>
             </div>
         </header>
-
-        <!--nav id="nav" class="nav"></nav-->
 
         <main id="main">
             <section id="screen-home" class="screen active" data-partial="home">
@@ -32,6 +40,11 @@
 
             <section id="screen-music_player" class="screen" data-partial="music_player">
                 <div class="partial-loading">Loading music player…</div>
+            </section>
+
+            <!-- Added Library Screen -->
+            <section id="screen-library" class="screen" data-partial="library">
+                <div class="partial-loading">Loading library…</div>
             </section>
 
             <section id="screen-fm_radio" class="screen" data-partial="fm_radio">
@@ -57,31 +70,31 @@
 
         <footer class="footer">
             <div class="footer-left">
-                <button type="button" class="circle-button" data-navigate="home">
+                <button type="button" class="button" data-navigate="home">
                     <span class="home-symbol">home</span>
                 </button>
-                <button type="button" class="circle-button" data-navigate="settings">
+                <button type="button" class="button" data-navigate="settings">
                     <span class="home-symbol">settings</span>
                 </button>
-                <button id="volume-mute" class="circle-button" title="Mute / Unmute">
+                <button id="volume-mute" class="button" title="Mute / Unmute">
                     <span class="home-symbol">volume_off</span>
                 </button>
                 <input id="volume-slider" type="range" min="0" max="100" value="0">
             </div>
             <div class="footer-right">
-                <button id="open-bluetooth">
+                <button id="open-bluetooth" class="button">
                     <span class="home-symbol">bluetooth</span>
                 </button>
-                <button id="open-wifi">
+                <button id="open-wifi" class="button">
                     <span class="home-symbol">wifi</span>
                 </button>
-                <button id="restart-app">
+                <button id="restart-app" class="button">
                     <span class="home-symbol">restart_alt</span>
                 </button>
-                <button id="reboot-system">
+                <button id="reboot-system" class="button">
                     <span class="home-symbol" style="color: #DC3545;">restart_alt</span>
                 </button>
-                <button id="quit-app">
+                <button id="quit-app" class="button">
                     <span class="home-symbol" style="color: #DC3545;">power_settings_new</span>
                 </button>
             </div>

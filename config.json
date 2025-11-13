@@ -6,7 +6,7 @@
     "radio_type": "none",
     "radio_i2c_address": null,
     "radio_enabled": false,
-    "last_fm_station": 98.5,
+    "last_fm_station": null,
     "window_resolution": [
         1024,
         600
