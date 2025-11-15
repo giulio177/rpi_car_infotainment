@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 import os
 from typing import Any, Dict
+from mutagen import File as MutagenFile
+import math
 
 from PyQt6.QtCore import QObject, QUrl, pyqtSignal, pyqtSlot
 from PyQt6.QtWidgets import QVBoxLayout, QWidget
@@ -16,6 +18,13 @@ except ImportError as exc:  # pragma: no cover - handled at runtime
     raise ImportError(
         "PyQt6-WebEngine is required to use the HTML rendering helpers."
     ) from exc
+
+import logging
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="[HTML Renderer] %(levelname)s: %(message)s"
+)
 
 
 class HtmlBridge(QObject):
@@ -70,8 +79,11 @@ class HtmlView(QWidget):
         """Gestisce gli eventi JS lato Python e li ritrasmette verso l'esterno."""
         # Gestione interna della libreria
         if name == "library_request":
+            logging.debug("Handling library_request...")
             tracks = self._scan_music_library()
+            logging.debug(f"Sending library_update with {len(tracks)} tracks")
             self.send_event("library_update", {"tracks": tracks})
+            return
 
         # Propaga comunque l'evento a chi si è collegato da fuori (se serve)
         self.event_received.emit(name, payload)
@@ -83,27 +95,55 @@ class HtmlView(QWidget):
         project_root = os.path.dirname(base_dir)      # .../ (root progetto)
         music_dir = os.path.join(project_root, "music", "library")
 
+        logging.debug(f"Music folder resolved to: {music_dir}")
+
         exts = {".mp3", ".wav", ".flac", ".ogg"}
         tracks: list[dict[str, Any]] = []
 
         if not os.path.isdir(music_dir):
+            logging.error(f"Music directory not found: {music_dir}")
             return tracks
 
+        from mutagen import File as MutagenFile
+
         for filename in sorted(os.listdir(music_dir)):
+            logging.debug(f"Found file: {filename}")
+
             name, ext = os.path.splitext(filename)
             if ext.lower() not in exts:
+                logging.debug(f"Skipping unsupported extension: {ext}")
                 continue
 
-            tracks.append(
-                {
-                    "id": name,          # es: "songs"
-                    "title": name,       # titolo mostrato
-                    "artist": "",        # per ora vuoto
-                    "duration": "",      # potresti riempirlo con mutagen ecc.
-                    "filename": filename,
-                }
-            )
+            full_path = os.path.join(music_dir, filename)
+            logging.debug(f"Processing audio file: {full_path}")
 
+            duration = ""
+            try:
+                audio = MutagenFile(full_path)
+                logging.debug(f"Mutagen loaded: {audio}")
+                if audio is not None and hasattr(audio, "info") and hasattr(audio.info, "length"):
+                    seconds = int(audio.info.length)
+                    minutes = seconds // 60
+                    sec = seconds % 60
+                    duration = f"{minutes}:{sec:02d}"
+                    logging.debug(f"Duration computed: {duration}")
+                else:
+                    logging.warning(f"No duration info for file: {filename}")
+            except Exception as e:
+                logging.error(f"Error reading {filename} with mutagen: {e}")
+
+            track = {
+                "id": name,          # es: "songs"
+                "title": name,       # titolo mostrato
+                "artist": "",        # per ora vuoto
+                "duration": duration,      # potresti riempirlo con mutagen ecc.
+                "filename": filename,
+            }
+
+            logging.debug(f"Track entry: {track}")
+            tracks.append(track)
+
+        logging.debug(f"Library scan complete: {len(tracks)} tracks found")
         return tracks
 
 

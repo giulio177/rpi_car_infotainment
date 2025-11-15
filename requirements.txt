@@ -9,6 +9,7 @@ psutil
 dbus-python
 pygame
 yt-dlp>=2023.3.4
+mutagen>=1.46.0
 # Optional dependencies
 # rpi-rf>=0.9.7
 # RPi.GPIO>=0.7.0
