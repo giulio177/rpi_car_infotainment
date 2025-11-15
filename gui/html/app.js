@@ -162,6 +162,56 @@
         }
     };
 
+    function renderLibrary(tracks) {
+        const container = document.getElementById("library-items");
+        if (!container) {
+            console.warn("[HTML] library-items container not found");
+            return;
+        }
+
+        container.innerHTML = "";
+
+        if (!tracks || !tracks.length) {
+            container.innerHTML = `<p class="empty-state">No tracks found in library.</p>`;
+            return;
+        }
+
+        tracks.forEach((track, index) => {
+            const isActive = index === 0; // se vuoi il primo evidenziato
+
+            const btn = document.createElement("button");
+            btn.className = "track-item" + (isActive ? " track-item--active" : "");
+            btn.dataset.trackId = track.id || track.filename || `track-${index}`;
+
+            btn.innerHTML = `
+            <div class="track-item__left">
+                <div class="track-item__icon ${isActive ? "track-item__icon--active" : ""}">
+                <span class="material-symbols-outlined">
+                    ${isActive ? "volume_up" : "music_note"}
+                </span>
+                </div>
+                <div class="track-item__meta">
+                <p class="track-item__title ${isActive ? "track-item__title--active" : ""}">
+                    ${track.title || track.filename || "Unknown"}
+                </p>
+                <p class="track-item__subtitle">
+                    ${track.artist || track.filename || ""}
+                </p>
+                </div>
+            </div>
+            <span class="track-item__duration ${isActive ? "track-item__duration--active" : ""}">
+                ${track.duration || "--:--"}
+            </span>
+            `;
+
+            // qui un domani puoi attaccare il play:
+            // btn.addEventListener("click", () => emit("play_track", { id: btn.dataset.trackId }));
+
+            container.appendChild(btn);
+        });
+    }
+
+
     const handlers = {
         init(payload) {
             setActiveScreen(payload.active || 'home');
@@ -189,6 +239,10 @@
         },
         media: updateMedia,
         settings: updateSettings,
+        library_update(payload) {
+            renderLibrary(payload.tracks || []);
+        },
+
     };
 
     // =================================================================================
@@ -237,6 +291,11 @@
 
         const screenEntry = state.screenMap.get(id);
         elements.headerTitle.textContent = screenEntry ? screenEntry.title : "RPi Car Infotainment";
+
+        // Se entri nella schermata Library, chiedi a Python la lista dei file
+        if (id === "library") {
+            emit("library_request", {});
+        }
     }
 
     function triggerNavigation(screenId) {

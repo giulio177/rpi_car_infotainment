@@ -563,8 +563,8 @@ body, .home-text {
 .library-layout {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-  padding: 1.5rem 2rem;
+  gap: 10px;
+  padding: 0px 0px;
   height: 100%;
   color: #E0E0E0;
 }
@@ -573,11 +573,11 @@ body, .home-text {
 .section-header {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 1px;
 }
 .section-header .btn-secondary {
   height: 40px;
-  padding: 0 16px;
+  padding: 20px 6px;
 }
 .section-title {
   font-size: 1.125rem;
@@ -594,7 +594,7 @@ body, .home-text {
 }
 .scroll {
   overflow-y: auto;
-  padding-right: 0.5rem;
+  padding-right: 10px;
 }
 
 /* Track item */

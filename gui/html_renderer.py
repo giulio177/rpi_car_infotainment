@@ -53,7 +53,7 @@ class HtmlView(QWidget):
         super().__init__(parent)
         self._view = QWebEngineView(self)
         self._bridge = HtmlBridge(self)
-        self._bridge.event_received.connect(self.event_received.emit)
+        self._bridge.event_received.connect(self._on_event)
 
         channel = QWebChannel(self._view.page())
         channel.registerObject("bridge", self._bridge)
@@ -65,6 +65,47 @@ class HtmlView(QWidget):
 
         if html_path:
             self.load_html(html_path)
+
+    def _on_event(self, name: str, payload: dict) -> None:
+        """Gestisce gli eventi JS lato Python e li ritrasmette verso l'esterno."""
+        # Gestione interna della libreria
+        if name == "library_request":
+            tracks = self._scan_music_library()
+            self.send_event("library_update", {"tracks": tracks})
+
+        # Propaga comunque l'evento a chi si è collegato da fuori (se serve)
+        self.event_received.emit(name, payload)
+
+    def _scan_music_library(self) -> list[dict[str, Any]]:
+        """Legge la cartella music/library e ritorna una lista di tracce."""
+        # html_renderer.py sta in: gui/
+        base_dir = os.path.dirname(__file__)          # .../gui
+        project_root = os.path.dirname(base_dir)      # .../ (root progetto)
+        music_dir = os.path.join(project_root, "music", "library")
+
+        exts = {".mp3", ".wav", ".flac", ".ogg"}
+        tracks: list[dict[str, Any]] = []
+
+        if not os.path.isdir(music_dir):
+            return tracks
+
+        for filename in sorted(os.listdir(music_dir)):
+            name, ext = os.path.splitext(filename)
+            if ext.lower() not in exts:
+                continue
+
+            tracks.append(
+                {
+                    "id": name,          # es: "songs"
+                    "title": name,       # titolo mostrato
+                    "artist": "",        # per ora vuoto
+                    "duration": "",      # potresti riempirlo con mutagen ecc.
+                    "filename": filename,
+                }
+            )
+
+        return tracks
+
 
     @property
     def view(self) -> QWebEngineView:
