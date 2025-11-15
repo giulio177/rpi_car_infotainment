@@ -186,17 +186,17 @@
             btn.innerHTML = `
             <div class="track-item__left">
                 <div class="track-item__icon ${isActive ? "track-item__icon--active" : ""}">
-                <span class="material-symbols-outlined">
-                    ${isActive ? "volume_up" : "music_note"}
-                </span>
+                    <span class="material-symbols-outlined">
+                        ${isActive ? "volume_up" : "music_note"}
+                    </span>
                 </div>
                 <div class="track-item__meta">
-                <p class="track-item__title ${isActive ? "track-item__title--active" : ""}">
-                    ${track.title || track.filename || "Unknown"}
-                </p>
-                <p class="track-item__subtitle">
-                    ${track.artist || track.filename || ""}
-                </p>
+                    <p class="track-item__title ${isActive ? "track-item__title--active" : ""}">
+                        ${track.title || track.filename || "Unknown"}
+                    </p>
+                    <p class="track-item__subtitle">
+                        ${track.artist || track.filename || ""}
+                    </p>
                 </div>
             </div>
             <span class="track-item__duration ${isActive ? "track-item__duration--active" : ""}">

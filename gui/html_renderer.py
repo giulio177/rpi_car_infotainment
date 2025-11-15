@@ -20,6 +20,8 @@ except ImportError as exc:  # pragma: no cover - handled at runtime
     ) from exc
 
 import logging
+from mutagen import File as MutagenFile
+from mutagen.easyid3 import EasyID3
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -90,6 +92,8 @@ class HtmlView(QWidget):
 
     def _scan_music_library(self) -> list[dict[str, Any]]:
         """Legge la cartella music/library e ritorna una lista di tracce."""
+        logging.debug("Scanning music library...")
+
         # html_renderer.py sta in: gui/
         base_dir = os.path.dirname(__file__)          # .../gui
         project_root = os.path.dirname(base_dir)      # .../ (root progetto)
@@ -104,8 +108,6 @@ class HtmlView(QWidget):
             logging.error(f"Music directory not found: {music_dir}")
             return tracks
 
-        from mutagen import File as MutagenFile
-
         for filename in sorted(os.listdir(music_dir)):
             logging.debug(f"Found file: {filename}")
 
@@ -117,10 +119,15 @@ class HtmlView(QWidget):
             full_path = os.path.join(music_dir, filename)
             logging.debug(f"Processing audio file: {full_path}")
 
+
+
+            
+            # ---------- DURATA ----------
             duration = ""
             try:
                 audio = MutagenFile(full_path)
                 logging.debug(f"Mutagen loaded: {audio}")
+
                 if audio is not None and hasattr(audio, "info") and hasattr(audio.info, "length"):
                     seconds = int(audio.info.length)
                     minutes = seconds // 60
@@ -132,10 +139,47 @@ class HtmlView(QWidget):
             except Exception as e:
                 logging.error(f"Error reading {filename} with mutagen: {e}")
 
+            
+            
+            # ---------- METADATA (title, artist, album) ----------
+            title = name
+            artist = ""
+            album = ""
+
+            try:
+                if ext.lower() == ".mp3":
+                    # per gli MP3 usiamo EasyID3 (sono quelli su cui hai scritto i tag)
+                    try:
+                        tags = EasyID3(full_path)
+                        logging.debug(f"EasyID3 tags for {filename}: {dict(tags)}")
+
+                        if "title" in tags and tags["title"]:
+                            title = tags["title"][0]
+                        if "artist" in tags and tags["artist"]:
+                            artist = tags["artist"][0]
+                        if "album" in tags and tags["album"]:
+                            album = tags["album"][0]
+                    except Exception as e:
+                        logging.warning(f"No EasyID3 tags for {filename}: {e}")
+                else:
+                    # per altri formati proviamo a leggere i tag generici
+                    if audio is not None and audio.tags:
+                        tags = audio.tags
+                        logging.debug(f"Generic tags for {filename}: {tags}")
+
+                        # questi campi dipendono dal formato; fallback semplice
+                        title = str(tags.get("title", [title])[0]) if "title" in tags else title
+                        artist = str(tags.get("artist", [""])[0]) if "artist" in tags else artist
+                        album = str(tags.get("album", [""])[0]) if "album" in tags else album
+
+            except Exception as e:
+                logging.error(f"Error reading metadata from {filename}: {e}")
+
             track = {
                 "id": name,          # es: "songs"
-                "title": name,       # titolo mostrato
-                "artist": "",        # per ora vuoto
+                "title": title,       # titolo mostrato
+                "artist": artist,        # per ora vuoto
+                "album": album,
                 "duration": duration,      # potresti riempirlo con mutagen ecc.
                 "filename": filename,
             }

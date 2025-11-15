@@ -26,6 +26,9 @@ import subprocess
 import threading
 import socket
 import pygame  # Using pygame for audio playback instead of QtMultimedia
+from mutagen.easyid3 import EasyID3
+from mutagen.id3 import ID3NoHeaderError
+import logging
 
 from backend.media_info import load_local_placeholder_data_url
 from .widgets.scrolling_label import ScrollingLabel
@@ -564,6 +567,30 @@ class MusicPlayerScreen(QWidget):
         # Questo è il cuore della comunicazione asincrona.
         if self.main_window and hasattr(self.main_window, "audio_manager"):
             self.main_window.audio_manager.metadata_ready.connect(self.on_metadata_received)
+
+        def _write_mp3_tags(self, file_path: str, title: str | None, artist: str | None, album: str | None = None) -> None:
+            """Scrive i metadata ID3 base (title, artist, album) in un file MP3."""
+            print(f"[Download] Writing metadata to {file_path}")
+            try:
+                try:
+                    tags = EasyID3(file_path)
+                except ID3NoHeaderError:
+                    # Se non ci sono ancora tag ID3, li creiamo da zero
+                    tags = EasyID3()
+
+                if title:
+                    tags["title"] = [title]
+                if artist:
+                    tags["artist"] = [artist]
+                if album:
+                    tags["album"] = [album]
+
+                # Salva sempre sul file indicato
+                tags.save(file_path)
+                print(f"[Download] Metadata written: title={title}, artist={artist}, album={album}")
+            except Exception as e:
+                print(f"[Download] Failed to write metadata to {file_path}: {e}")
+
 
     def update_scaling(self, scale_factor, margin):
         """Updates UI element sizes based on the current scale factor."""
@@ -1391,21 +1418,28 @@ class MusicPlayerScreen(QWidget):
 
             # Check if download was successful
             if return_code == 0:
-                # Update UI in the main thread
+                # Determina il percorso reale del file mp3 (yt-dlp usa .mp3 come estensione finale)
+                final_path = os.path.join(self.music_dir, f"{safe_filename}.mp3")
+                print(f"[Download] Expected downloaded file: {final_path}")
+
+                if os.path.exists(final_path):
+                    # Scrivi i metadata usando le info correnti
+                    album = self.current_album if getattr(self, "current_album", "") else "MITO Library"
+                    self._write_mp3_tags(
+                        final_path,
+                        title=self.current_title,
+                        artist=self.current_artist,
+                        album=album,
+                    )
+                else:
+                    print(f"[Download] WARNING: downloaded file not found: {final_path}")
+
+                # Notifica il completamento alla UI
                 self.download_complete(True)
             else:
-                error_message = "Download failed"
+                # Download fallito
+                self.download_complete(False, "Download failed. Please try again.")
 
-                # Try to provide more specific error messages based on return code
-                if return_code == 1:
-                    error_message = "No suitable format found or content unavailable"
-                elif return_code == 2:
-                    error_message = "Network error occurred during download"
-                elif return_code == 3:
-                    error_message = "Copyright or terms of service violation detected"
-
-                print(f"Download error: {error_message} (return code {return_code})")
-                self.download_complete(False, error_message)
 
         except FileNotFoundError:
             print("yt-dlp command not found")
