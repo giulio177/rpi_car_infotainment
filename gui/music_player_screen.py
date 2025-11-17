@@ -738,6 +738,32 @@ class MusicPlayerScreen(QWidget):
         except Exception as e:
             print(f"Error scanning directory: {e}")
 
+
+    def play_file_from_path(self, file_path: str) -> None:
+        """
+        Riproduce un file dato il percorso assoluto.
+        Usa la logica già esistente di play_selected_file, senza toccare direttamente le label.
+        """
+        if not file_path or not os.path.exists(file_path):
+            print(f"[MusicPlayerScreen] File non trovato: {file_path}")
+            return
+
+        # 1) Prova a trovare l'item corrispondente nella QListWidget della libreria
+        for i in range(self.library_list.count()):
+            item = self.library_list.item(i)
+            if item.data(Qt.ItemDataRole.UserRole) == file_path:
+                self.library_list.setCurrentItem(item)
+                self.play_selected_file(item)
+                return
+
+        # 2) Se non è in lista, crea un item "al volo" e usalo
+        temp_item = QListWidgetItem(os.path.basename(file_path))
+        temp_item.setData(Qt.ItemDataRole.UserRole, file_path)
+        self.library_list.addItem(temp_item)
+        self.library_list.setCurrentItem(temp_item)
+        self.play_selected_file(temp_item)
+
+
     def play_selected_file(self, item):
         """Play the selected music file from the library."""
 

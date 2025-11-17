@@ -24,7 +24,7 @@ from mutagen import File as MutagenFile
 from mutagen.easyid3 import EasyID3
 
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     format="[HTML Renderer] %(levelname)s: %(message)s"
 )
 
@@ -62,7 +62,15 @@ class HtmlView(QWidget):
 
     def __init__(self, html_path: str | None = None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        # niente margini sul widget contenitore
+        self.setContentsMargins(0, 0, 0, 0)
+        self.setStyleSheet("border: 0; margin: 0; padding: 0;")
+
         self._view = QWebEngineView(self)
+        # niente margini neanche sulla webview
+        self._view.setContentsMargins(0, 0, 0, 0)
+        self._view.setStyleSheet("border: 0; margin: 0; padding: 0;")
+
         self._bridge = HtmlBridge(self)
         self._bridge.event_received.connect(self._on_event)
 
@@ -72,6 +80,7 @@ class HtmlView(QWidget):
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)  # ⬅️ questo toglie gli “spazi” del layout
         layout.addWidget(self._view)
 
         if html_path:
@@ -92,14 +101,14 @@ class HtmlView(QWidget):
 
     def _scan_music_library(self) -> list[dict[str, Any]]:
         """Legge la cartella music/library e ritorna una lista di tracce."""
-        logging.debug("Scanning music library...")
+        logging.info("Scanning music library...")
 
         # html_renderer.py sta in: gui/
         base_dir = os.path.dirname(__file__)          # .../gui
         project_root = os.path.dirname(base_dir)      # .../ (root progetto)
         music_dir = os.path.join(project_root, "music", "library")
 
-        logging.debug(f"Music folder resolved to: {music_dir}")
+        logging.info(f"Music folder resolved to: {music_dir}")
 
         exts = {".mp3", ".wav", ".flac", ".ogg"}
         tracks: list[dict[str, Any]] = []
@@ -176,18 +185,18 @@ class HtmlView(QWidget):
                 logging.error(f"Error reading metadata from {filename}: {e}")
 
             track = {
-                "id": name,          # es: "songs"
-                "title": title,       # titolo mostrato
-                "artist": artist,        # per ora vuoto
+                "id": name,
+                "title": title,
+                "artist": artist,
                 "album": album,
-                "duration": duration,      # potresti riempirlo con mutagen ecc.
+                "duration": duration,
                 "filename": filename,
             }
 
             logging.debug(f"Track entry: {track}")
             tracks.append(track)
 
-        logging.debug(f"Library scan complete: {len(tracks)} tracks found")
+        logging.info(f"Library scan complete: {len(tracks)} tracks found")
         return tracks
 
 

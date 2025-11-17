@@ -2,20 +2,23 @@
   <div class="player-top">
     <div class="player-info">
       <div class="media-details">
-        <h2 id="player-title">Starlight Echoes</h2>
-        <h3 id="player-artist">Cosmic Dreamer</h3>
-        <p id="player-album" class="card-note">Galactic Harmonies</p>
+        <h2 id="player-title">No song playing...</h2>
+        <h3 id="player-artist">---</h3>
+        <p id="player-album" class="card-note">---</p>
       </div>
 
       <div class="controls">
-        <button class="button-media" onclick="event.preventDefault()">
-            <span class="material-symbols-outlined icon icon--lg">skip_previous</span>
+        <button id="btn-prev" class="button-media" data-action="prev">
+          <span class="material-symbols-outlined icon icon--lg">skip_previous</span>
         </button>
-        <button class="button-media icon-btn--primary" onclick="event.preventDefault()">
-            <span class="material-symbols-outlined icon icon--xl">pause</span>
+
+        <button id="btn-play-pause" class="button-media icon-btn--primary" data-action="toggle">
+          <!-- l’icona verrà aggiornata da JS -->
+          <span id="icon-play-pause" class="material-symbols-outlined icon icon--xl">pause</span>
         </button>
-        <button class="button-media" onclick="event.preventDefault()">
-            <span class="material-symbols-outlined icon icon--lg">skip_next</span>
+
+        <button id="btn-next" class="button-media" data-action="next">
+          <span class="material-symbols-outlined icon icon--lg">skip_next</span>
         </button>
       </div>
     </div>
@@ -29,7 +32,7 @@
     <div class="progress">
       <div id="player-progress-bar" class="progress__bar" style="width:32%"></div>
     </div>
-    <p id="player-time" class="card-meta">01:25 / 03:45</p>
+    <p id="player-time" class="card-meta">00:00 / 00:00</p>
   </div>
 
   <div class="player-actions">
@@ -39,7 +42,7 @@
     <button class="btn-secondary" data-navigate="library">
       <span class="material-symbols-outlined">library_music</span>&nbsp;Library
     </button>
-    <button class="btn-secondary" data-action="download">
+    <button id="btn-download" class="btn-secondary" data-action="download">
       <span class="material-symbols-outlined">download</span>&nbsp;Download
     </button>
   </div>

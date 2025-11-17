@@ -163,6 +163,14 @@ class MainWindow(QMainWindow):
         # For now, just structure the layout additions correctly
         # ---
 
+        # 🔽 Azzeriamo margini e spazi per avere UI edge-to-edge
+        self.central_widget.setContentsMargins(0, 0, 0, 0)
+        self.central_widget.setStyleSheet("margin:0; padding:0; border:0;")
+
+        self.main_layout.setContentsMargins(0, 0, 0, 0)
+        self.main_layout.setSpacing(0)
+
+
         # --- PERSISTENT HEADER BAR ---
         self.header_widget = QWidget()
         self.header_widget.setObjectName("persistentHeaderBar")
@@ -879,6 +887,46 @@ class MainWindow(QMainWindow):
             self.music_player_screen.on_next_clicked()
         elif action == "previous":
             self.music_player_screen.on_previous_clicked()
+
+    def _handle_html_download_current_song(self, payload):
+        """HTML: richiesta di scaricare la canzone corrente."""
+        if hasattr(self, "music_player_screen") and self.music_player_screen is not None:
+            print("[HTML] Download current song requested from HTML UI")
+            self.music_player_screen.download_current_song()
+        else:
+            print("[HTML] Download requested but music_player_screen is not available")
+
+    def _handle_html_play_track(self, payload):
+        """
+        HTML: richiesta di riprodurre una traccia dalla Library.
+        Si aspetta almeno 'filename' nel payload.
+        """
+        if not hasattr(self, "music_player_screen") or self.music_player_screen is None:
+            print("[HTML] play_track: music_player_screen not available")
+            return
+
+        filename = (payload or {}).get("filename")
+        if not filename:
+            print("[HTML] play_track: no filename provided in payload")
+            return
+
+        # Usa la stessa cartella della MusicPlayerScreen
+        music_dir = getattr(self.music_player_screen, "music_dir", None)
+        if not music_dir:
+            print("[HTML] play_track: music_dir is not set on MusicPlayerScreen")
+            return
+
+        file_path = os.path.join(music_dir, filename)
+        if not os.path.exists(file_path):
+            print(f"[HTML] play_track: file not found: {file_path}")
+            return
+
+        print(f"[HTML] play_track: playing {file_path}")
+        # Attiva la schermata Music Player (anche lato HTML)
+        self._set_active_screen(self.music_player_screen)
+        # Chiedi al MusicPlayerScreen di riprodurre il file
+        self.music_player_screen.play_file_from_path(file_path)
+
 
     # --- Scaling ---
     def _apply_scaling(self):

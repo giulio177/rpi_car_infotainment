@@ -23,6 +23,10 @@
             media: null,
             settings: null,
         },
+        /*screenInitialized: {
+            music_player: false,
+            library: false,
+        },*/
     };
 
     // =================================================================================
@@ -84,6 +88,14 @@
             obd_port: document.getElementById("settings-obd_port"),
             obd_baudrate: document.getElementById("settings-obd_baudrate"),
         };
+        elements.player = {
+            art: document.getElementById("player-art"),
+            title: document.getElementById("player-title"),
+            artist: document.getElementById("player-artist"),
+            album: document.getElementById("player-album"),
+            progress: document.getElementById("player-time"),
+            // se vuoi, puoi aggiungere anche bottoni ecc.
+        };
         elements.applySettings = document.getElementById("settings-apply");
         elements.radioStatus = document.getElementById("radio-status");
         elements.obdStatus = document.getElementById("obd-status");
@@ -98,6 +110,19 @@
         radio_enabled: { on: "Enabled", off: "Disabled" },
         obd_enabled: { on: "Enabled", off: "Disabled" },
     };
+
+    function sendToPython(name, payload = {}) {
+        if (window.bridge && typeof window.bridge.emit_event === "function") {
+            try {
+                bridge.emit_event(name, JSON.stringify(payload));
+            } catch (e) {
+                console.error("[JS] Error sending event to Python:", e);
+            }
+        } else {
+            console.warn("[JS] bridge.emit_event non disponibile");
+        }
+    }
+
 
     function setSwitchState(element, isOn, key) {
         if (!element) {
@@ -153,12 +178,77 @@
         }
     }
 
+    function updateHtmlMusicPlayer(state) {
+        const screen = document.getElementById("screen-music_player");
+        if (!screen) return;
+
+        const titleEl = screen.querySelector("#player-title");
+        const artistEl = screen.querySelector("#player-artist");
+        const albumEl = screen.querySelector("#player-album");
+        const artEl = screen.querySelector("#player-art");
+        const timeEl = screen.querySelector("#player-time");
+        const barEl = screen.querySelector("#player-progress-bar");
+        const iconPlayPause = screen.querySelector("#icon-play-pause");
+
+        const title = state.title || "---";
+        const artist = state.artist || "---";
+        const album = state.album || "";
+        const pos = state.position_ms || 0;
+        const dur = state.duration_ms || 0;
+        const isPlaying = !!state.is_playing;
+
+        if (titleEl) titleEl.textContent = title;
+        if (artistEl) artistEl.textContent = artist;
+        if (albumEl) albumEl.textContent = album || "(Album Unknown)";
+
+        if (artEl && state.art_data_url) {
+            artEl.src = state.art_data_url;
+        }
+
+        if (timeEl) {
+            timeEl.textContent = formatTime(pos) + " / " + formatTime(dur);
+        }
+
+        if (barEl && dur > 0) {
+            const perc = Math.max(0, Math.min(100, (pos / dur) * 100));
+            barEl.style.width = perc + "%";
+        }
+
+        if (iconPlayPause) {
+            iconPlayPause.textContent = isPlaying ? "pause" : "play_arrow";
+        }
+        }
+
+        function formatTime(ms) {
+        const totalSec = Math.floor(ms / 1000);
+        const min = Math.floor(totalSec / 60);
+        const sec = totalSec % 60;
+        return String(min).padStart(2, "0") + ":" + String(sec).padStart(2, "0");
+        }
+
+        function updateDownloadProgress(payload) {
+        const screen = document.getElementById("screen-music_player");
+        if (!screen) return;
+        const bar = screen.querySelector("#player-download-bar");
+        if (!bar) return;
+
+        const percent = payload.percent || 0;
+        bar.style.width = Math.max(0, Math.min(100, percent)) + "%";
+    }
+
     window.__pyBridgeDispatch = function dispatchFromPython(name, payload) {
         const handler = handlers[name];
         if (handler) {
             handler(payload || {});
         } else {
             console.debug("[HTML] Unhandled event from Python:", name, payload);
+        }
+        if (name === "media_state") {
+            updateHtmlMusicPlayer(payload);
+        }
+
+        if (name === "download_progress") {
+            updateDownloadProgress(payload);
         }
     };
 
@@ -178,25 +268,25 @@
 
         tracks.forEach((track, index) => {
             const isActive = index === 0; // se vuoi il primo evidenziato
-
+            
             const btn = document.createElement("button");
-            btn.className = "track-item" + (isActive ? " track-item--active" : "");
+            btn.className = "track-item";
             btn.dataset.trackId = track.id || track.filename || `track-${index}`;
 
             btn.innerHTML = `
             <div class="track-item__left">
-                <div class="track-item__icon ${isActive ? "track-item__icon--active" : ""}">
-                    <span class="material-symbols-outlined">
-                        ${isActive ? "volume_up" : "music_note"}
-                    </span>
+                <div class="track-item__icon">
+                <span class="material-symbols-outlined">
+                    ${isActive ? "volume_up" : "music_note"}
+                </span>
                 </div>
                 <div class="track-item__meta">
-                    <p class="track-item__title ${isActive ? "track-item__title--active" : ""}">
-                        ${track.title || track.filename || "Unknown"}
-                    </p>
-                    <p class="track-item__subtitle">
-                        ${track.artist || track.filename || ""}
-                    </p>
+                <p class="track-item__title">
+                    ${track.title || track.filename || "Unknown"}
+                </p>
+                <p class="track-item__subtitle">
+                    ${track.artist ? track.artist : (track.filename || "")}${track.album ? " · " + track.album : ""}
+                </p>
                 </div>
             </div>
             <span class="track-item__duration ${isActive ? "track-item__duration--active" : ""}">
@@ -204,8 +294,16 @@
             </span>
             `;
 
-            // qui un domani puoi attaccare il play:
-            // btn.addEventListener("click", () => emit("play_track", { id: btn.dataset.trackId }));
+            // 👇 QUI: click per far partire la canzone
+            btn.addEventListener("click", () => {
+                emit("play_track", { filename: track.filename });
+
+                // opzionale: passa subito alla schermata music player
+                // se hai già un evento di sistema per questo, meglio usarlo:
+                // emit("system_action", { action: "music" });
+                // oppure, se hai setActiveScreen:
+                // setActiveScreen("music_player");
+            });
 
             container.appendChild(btn);
         });
@@ -296,6 +394,10 @@
         if (id === "library") {
             emit("library_request", {});
         }
+
+        if (id === "music_player") {
+            initMusicPlayerScreen();
+        }
     }
 
     function triggerNavigation(screenId) {
@@ -359,7 +461,7 @@
         const statusLabel = data.status || "stopped";
         const progress = `${formatTime(data.position || 0)} / ${formatTime(data.duration || 0)}`;
 
-        const targets = [elements.home, elements.music];
+        const targets = [elements.home, elements.music, elements.player];
         targets.forEach(target => {
             if (target) {
                 if (target.title) target.title.textContent = data.title || "No track";
@@ -498,6 +600,51 @@
         return label.charAt(0).toUpperCase() + label.slice(1);
     }
 
+    function initMusicPlayerScreen() {
+        const root = document.getElementById("screen-music_player");
+        if (!root) {
+            console.warn("[PLAYER] screen-music_player not found");
+            return;
+        }
+
+        const btnPrev = root.querySelector("#btn-prev");
+        const btnPlayPause = root.querySelector("#btn-play-pause");
+        const btnNext = root.querySelector("#btn-next");
+        const btnDownload = root.querySelector("#btn-download");
+
+        if (btnPrev) {
+            btnPrev.onclick = (ev) => {
+            ev.preventDefault();
+            console.log("[PLAYER] prev click");
+            emit("media_control", { action: "previous" });
+            };
+        }
+
+        if (btnPlayPause) {
+            btnPlayPause.onclick = (ev) => {
+            ev.preventDefault();
+            console.log("[PLAYER] play_pause click");
+            emit("media_control", { action: "play_pause" });
+            };
+        }
+
+        if (btnNext) {
+            btnNext.onclick = (ev) => {
+            ev.preventDefault();
+            console.log("[PLAYER] next click");
+            emit("media_control", { action: "next" });
+            };
+        }
+
+        if (btnDownload) {
+            btnDownload.onclick = (ev) => {
+            ev.preventDefault();
+            console.log("[PLAYER] download click");
+            emit("download_current_song", {});
+            };
+        }
+    }
+
     function loadPartials() {
         const sections = Array.from(document.querySelectorAll("[data-partial]"));
         if (!sections.length) return Promise.resolve();
@@ -512,7 +659,10 @@
                     if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
                     return response.text();
                 })
-                .then((html) => { section.innerHTML = html; })
+                .then((html) => {
+                    section.innerHTML = html;
+                    initMusicPlayerScreen();
+                })
                 .catch((error) => {
                     console.error(`[HTML] Failed to load partial ${url}:`, error);
                     section.innerHTML = `<div class="partial-error">Unable to load ${name}.html</div>`;
