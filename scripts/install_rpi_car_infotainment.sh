@@ -112,13 +112,14 @@ else
 fi
 
 # Blocco HDMI per forzare 1024x600 @ 60Hz con CVT custom
-read -r -d '' HDMI_BLOCK << 'EOF'
+HDMI_BLOCK=$(cat << 'EOF'
 # RPi Car Infotainment - display 1024x600
 hdmi_force_hotplug=1
 hdmi_group=2
 hdmi_mode=87
 hdmi_cvt=1024 600 60 6 0 0 0
 EOF
+)
 
 # Aggiungi il blocco solo se non già presente
 if ! grep -q "hdmi_cvt=1024 600 60 6 0 0 0" "$CONFIG_FILE"; then
@@ -127,6 +128,7 @@ if ! grep -q "hdmi_cvt=1024 600 60 6 0 0 0" "$CONFIG_FILE"; then
 else
   echo "Blocco HDMI 1024x600 già presente in config.txt, salto."
 fi
+
 echo
 
 ###############################################################################
