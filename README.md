@@ -41,9 +41,15 @@ rpi_car_infotainment/
 # Installation
 
 ## 1. Install git
-After installing the **Raspberry Pi OS Lite** on the raspberry **with pi as a user**, install git:
+After installing the **Raspberry Pi OS Lite** on the raspberry **with pi as a user**, install git and remove ipv6:
 ```bash
 sudo apt update
+sudo tee -a /etc/sysctl.conf >/dev/null <<'EOF'
+net.ipv6.conf.all.disable_ipv6 = 1
+net.ipv6.conf.default.disable_ipv6 = 1
+net.ipv6.conf.lo.disable_ipv6 = 1
+EOF
+sudo sysctl -p
 sudo apt install -y git
 ```
 
