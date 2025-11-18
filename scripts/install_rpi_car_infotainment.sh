@@ -95,13 +95,26 @@ echo
 ###############################################################################
 # 3.5) Configurazione config.txt (risoluzione HDMI 1024x600)
 ###############################################################################
-echo ">>> Configurazione $CONFIG_FILE (display 1024x600)..."
+echo ">>> Configurazione $CONFIG_FILE (display 1024x600 + fkms)..."
+
+# 1) Sostituisci KMS con FKMS se esiste
+if grep -q "dtoverlay=vc4-kms-v3d" "$CONFIG_FILE"; then
+  sed -i 's/dtoverlay=vc4-kms-v3d/dtoverlay=vc4-fkms-v3d/' "$CONFIG_FILE"
+  echo "Sostituito vc4-kms-v3d con vc4-fkms-v3d."
+fi
+
+# 2) Aggiungi FKMS se non è già presente
+if ! grep -q "dtoverlay=vc4-fkms-v3d" "$CONFIG_FILE"; then
+  echo "dtoverlay=vc4-fkms-v3d" >> "$CONFIG_FILE"
+  echo "Aggiunto dtoverlay=vc4-fkms-v3d."
+else
+  echo "dtoverlay=vc4-fkms-v3d già presente, salto."
+fi
 
 # Blocco HDMI per forzare 1024x600 @ 60Hz con CVT custom
 read -r -d '' HDMI_BLOCK << 'EOF'
 # RPi Car Infotainment - display 1024x600
 hdmi_force_hotplug=1
-hdmi_ignore_edid=0xa5000080
 hdmi_group=2
 hdmi_mode=87
 hdmi_cvt=1024 600 60 6 0 0 0
