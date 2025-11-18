@@ -77,18 +77,42 @@ echo ">>> Pacchetti installati."
 echo
 
 ###############################################################################
-# 3) Configurazione cmdline.txt (risoluzione HDMI 1024x600, quiet, ecc.)
+# 3) Configurazione cmdline.txt (quiet, logo, loglevel, cursore)
 ###############################################################################
 echo ">>> Configurazione $CMDLINE_FILE..."
 
-EXTRA_CMDLINE="video=HDMI-A-1:1024x600@60D video=HDMI-A-2:1024x600@60D logo.nologo quiet loglevel=3 vt.global_cursor_default=0"
+EXTRA_CMDLINE="logo.nologo quiet loglevel=3 vt.global_cursor_default=0"
 
 if ! grep -q "1024x600@60D" "$CMDLINE_FILE"; then
   # cmdline.txt è una sola riga: aggiungiamo le opzioni in coda
   sed -i "1s|\$| ${EXTRA_CMDLINE}|" "$CMDLINE_FILE"
-  echo "Aggiunte opzioni video/logo/log a cmdline.txt."
+  echo "Aggiunte opzioni extra/logo/log a cmdline.txt."
 else
-  echo "Opzioni video già presenti in cmdline.txt, salto."
+  echo "Opzioni extra già presenti in cmdline.txt, salto."
+fi
+echo
+
+###############################################################################
+# 3.5) Configurazione config.txt (risoluzione HDMI 1024x600)
+###############################################################################
+echo ">>> Configurazione $CONFIG_FILE (display 1024x600)..."
+
+# Blocco HDMI per forzare 1024x600 @ 60Hz con CVT custom
+read -r -d '' HDMI_BLOCK << 'EOF'
+# RPi Car Infotainment - display 1024x600
+hdmi_force_hotplug=1
+hdmi_ignore_edid=0xa5000080
+hdmi_group=2
+hdmi_mode=87
+hdmi_cvt=1024 600 60 6 0 0 0
+EOF
+
+# Aggiungi il blocco solo se non già presente
+if ! grep -q "hdmi_cvt=1024 600 60 6 0 0 0" "$CONFIG_FILE"; then
+  printf "\n%s\n" "$HDMI_BLOCK" >> "$CONFIG_FILE"
+  echo "Blocco HDMI 1024x600 aggiunto a config.txt."
+else
+  echo "Blocco HDMI 1024x600 già presente in config.txt, salto."
 fi
 echo
 
