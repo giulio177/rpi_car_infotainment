@@ -422,6 +422,17 @@ echo "Servizio user bt-loopback attivato."
 echo
 
 ###############################################################################
+# 11.5) Rende eseguibile lo script di avvio infotainment
+###############################################################################
+if [[ -f "$PROJECT_DIR/scripts/start_infotainment.sh" ]]; then
+  chmod +x "$PROJECT_DIR/scripts/start_infotainment.sh"
+  echo "Reso eseguibile: $PROJECT_DIR/scripts/start_infotainment.sh"
+else
+  echo "ATTENZIONE: $PROJECT_DIR/scripts/start_infotainment.sh non trovato!"
+fi
+
+
+###############################################################################
 # 12) Servizio systemd per avviare l'infotainment (framebuffer, no X)
 ###############################################################################
 echo ">>> Creazione servizio systemd 'infotainment.service'..."
