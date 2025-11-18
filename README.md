@@ -61,7 +61,7 @@ git clone https://github.com/giulio177/rpi_car_infotainment.git
 cd rpi_car_infotainment
 ```
 
-## 3. Clone the repo
+## 3. Sart install script
 Enable and start the install script:
 ```bash
 chmod +x scripts/install_rpi_car_infotainment.sh
