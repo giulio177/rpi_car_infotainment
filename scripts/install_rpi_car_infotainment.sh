@@ -83,13 +83,13 @@ echo ">>> Configurazione $CMDLINE_FILE..."
 
 EXTRA_CMDLINE="logo.nologo quiet loglevel=3 vt.global_cursor_default=0"
 
-if ! grep -q "1024x600@60D" "$CMDLINE_FILE"; then
-  # cmdline.txt è una sola riga: aggiungiamo le opzioni in coda
+if ! grep -q "logo.nologo" "$CMDLINE_FILE"; then
   sed -i "1s|\$| ${EXTRA_CMDLINE}|" "$CMDLINE_FILE"
   echo "Aggiunte opzioni extra/logo/log a cmdline.txt."
 else
   echo "Opzioni extra già presenti in cmdline.txt, salto."
 fi
+
 echo
 
 ###############################################################################
