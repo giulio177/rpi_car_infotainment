@@ -1,5 +1,4 @@
-obd==0.7.2
-Pint==0.20.1
+obd==0.7.3
 pyserial==3.5
 requests==2.32.3
 PyQt6>=6.0.0

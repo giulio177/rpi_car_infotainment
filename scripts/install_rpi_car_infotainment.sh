@@ -64,14 +64,14 @@ apt full-upgrade -y
 
 apt install -y \
   git python3-venv python3-pip \
-  python3-pyqt6 qt6-base-dev \
-  python3-pygame ffmpeg \
+  ffmpeg \
   pulseaudio pulseaudio-module-bluetooth alsa-utils \
   bluez bluez-tools \
   python3-dbus python3-gi gir1.2-glib-2.0 \
   dbus-user-session \
   libdbus-1-dev libglib2.0-dev python3-dev \
   build-essential pkg-config
+
 
 echo ">>> Pacchetti installati."
 echo
@@ -333,7 +333,7 @@ echo ">>> Creazione virtualenv e installazione requirements.txt..."
 sudo -u "$USER_NAME" bash -lc "
   set -e
   cd '$PROJECT_DIR'
-  python3 -m venv --system-site-packages venv
+  python3 -m venv venv
   source venv/bin/activate
   pip install --upgrade pip
   pip install -r requirements.txt
