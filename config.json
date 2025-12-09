@@ -15,6 +15,6 @@
     "position_bottom_right": true,
     "ui_scale_mode": "auto",
     "developer_mode": false,
-    "ui_render_mode": "html",
+    "ui_render_mode": "native",
     "volume": 48
 }

@@ -435,34 +435,58 @@ fi
 
 
 ###############################################################################
-# 12) Servizio systemd per avviare l'infotainment (framebuffer, no X)
+# 12) Servizio systemd per avviare l'infotainment (FINAL WORKING VERSION)
 ###############################################################################
 echo ">>> Creazione servizio systemd 'infotainment.service'..."
 
+# Percorsi
+SERVICE_EXEC="/home/pi/rpi_car_infotainment/scripts/start_infotainment.sh"
+SERVICE_WORK="/home/pi/rpi_car_infotainment"
+
+# Assicuriamoci che lo script sia eseguibile
+chmod +x "$SERVICE_EXEC"
+chown $USER_NAME:$USER_NAME "$SERVICE_EXEC"
+
+# Percorso Socket PulseAudio
 PULSE_SERVER_PATH="unix:/run/user/${USER_UID}/pulse/native"
 
+# Scriviamo il file di servizio (Versione stabile senza SupplementaryGroups espliciti)
 cat >/etc/systemd/system/infotainment.service <<EOF
 [Unit]
-Description=RPi Car Infotainment (framebuffer, no X)
-After=network.target bluetooth.service
+Description=RPi Car Infotainment (Qt6 Framebuffer)
+After=network.target bluetooth.service pulseaudio.service
 Wants=bluetooth.service
 
 [Service]
 Type=simple
 User=$USER_NAME
 Group=$USER_NAME
-WorkingDirectory=$USER_HOME
-# Accesso a /dev/fb0 e /dev/input/event*
-SupplementaryGroups=video,input
-# Niente display X
-Environment=DISPLAY=
-# Audio app: SDL/pygame -> Pulse, e sink scelto sopra
+WorkingDirectory=$SERVICE_WORK
+
+# Nota: L'utente $USER_NAME deve essere già nei gruppi video, input, audio, render.
+# Systemd userà i gruppi di default dell'utente.
+
+# --- VARIABILI AMBIENTE ---
+Environment=PYTHONUNBUFFERED=1
+
+# Configurazione Grafica Qt (Framebuffer 1024x600 FORZATO)
+# Impedisce il taglio della barra in basso e i pulsanti stirati
+Environment=QT_QPA_PLATFORM=linuxfb:fb=/dev/fb0:size=1024x600
+Environment=QT_QPA_GENERIC_PLUGINS=evdevtouch:/dev/input/event0
+
+# Configurazione Audio
 Environment=SDL_AUDIODRIVER=pulseaudio
 Environment=PULSE_SERVER=$PULSE_SERVER_PATH
 Environment=PULSE_SINK=$SINK_NAME
-ExecStart=$PROJECT_DIR/scripts/start_infotainment.sh
-Restart=on-failure
-RestartSec=2
+
+# Comando di avvio
+ExecStart=$SERVICE_EXEC
+
+# Riavvio automatico
+Restart=always
+RestartSec=3
+
+# Log
 StandardOutput=journal
 StandardError=journal
 

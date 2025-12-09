@@ -5,44 +5,98 @@ import os
 import signal
 import logging
 import psutil
+from datetime import datetime  # <--- Necessario per la data/ora
 from PyQt6.QtCore import QTimer, Qt
 from PyQt6.QtWidgets import QApplication
 from gui.main_window import MainWindow
 from backend.settings_manager import SettingsManager
 
-# --- 1. SETUP DEL SISTEMA DI LOGGING ---
-LOG_FILE_PATH = "/tmp/infotainment_app.log"
+# --- 1. SETUP DEL SISTEMA DI LOGGING (VERSIONE ROBUSTA) ---
+
+# Calcola la cartella base dove si trova QUESTO file (main.py)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+LOG_DIR = os.path.join(BASE_DIR, "logs")
+
+# Classe helper per reindirizzare print() e stderr dentro il sistema di logging
+class StreamToLogger(object):
+    def __init__(self, logger, log_level=logging.INFO):
+        self.logger = logger
+        self.log_level = log_level
+        self.linebuf = ''
+
+    def write(self, buf):
+        # Scrive ogni linea nel logger invece che sul terminale grezzo
+        for line in buf.rstrip().splitlines():
+            self.logger.log(self.log_level, line.rstrip())
+
+    def flush(self):
+        pass
 
 def setup_logging():
-    """Configura il logging per scrivere su file e sulla console."""
-    # Cancella il file di log precedente se esiste
-    if os.path.exists(LOG_FILE_PATH):
-        os.remove(LOG_FILE_PATH)
+    """Configura il logging resettando eventuali config di Qt e catturando stdout/stderr."""
     
-    # Configura il logger principale per catturare tutto
-    logging.basicConfig(
-        level=logging.DEBUG,
-        format='%(asctime)s - %(levelname)s - [%(name)s:%(lineno)d] - %(message)s',
-        handlers=[
-            logging.FileHandler(LOG_FILE_PATH, mode='w', encoding='utf-8'),
-            logging.StreamHandler(sys.stdout) # Continua a stampare anche sul terminale
-        ]
-    )
+    # 1. Crea la cartella log se non esiste
+    try:
+        os.makedirs(LOG_DIR, exist_ok=True)
+    except OSError as e:
+        print(f"Errore critico creazione cartella log: {e}")
+        return
+
+    # 2. Genera il nome del file con timestamp
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    log_filename = f"infotainment_app_{timestamp}.log"
+    current_log_path = os.path.join(LOG_DIR, log_filename)
+    
+    # 3. RESET DEL LOGGER ROOT (Il passaggio fondamentale!)
+    # Otteniamo il logger principale
+    root_logger = logging.getLogger()
+    
+    # Rimuoviamo TUTTI gli handler esistenti (es. quelli messi da Qt o Pygame)
+    if root_logger.handlers:
+        for handler in root_logger.handlers[:]: # Copia della lista per iterare e rimuovere
+            root_logger.removeHandler(handler)
+    
+    # Impostiamo il livello base
+    root_logger.setLevel(logging.DEBUG)
+
+    # 4. Creiamo manualmente i nuovi Handler
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - [%(name)s:%(lineno)d] - %(message)s')
+
+    # A) File Handler (Scrive su disco)
+    file_handler = logging.FileHandler(current_log_path, mode='w', encoding='utf-8')
+    file_handler.setFormatter(formatter)
+    file_handler.setLevel(logging.DEBUG)
+
+    # B) Console Handler (Scrive a video)
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setFormatter(formatter)
+    console_handler.setLevel(logging.DEBUG)
+
+    # Aggiungiamo i nostri handler puliti
+    root_logger.addHandler(file_handler)
+    root_logger.addHandler(console_handler)
+
+    # 5. CATTURA DI STDOUT E STDERR (Opzionale ma consigliato)
+    # Questo fa sì che anche i "print()" e gli errori di sistema finiscano nel file .log
+    sys.stdout = StreamToLogger(logging.getLogger('STDOUT'), logging.INFO)
+    sys.stderr = StreamToLogger(logging.getLogger('STDERR'), logging.ERROR)
+
     logging.info("--- Inizio del Log di RPi Car Infotainment ---")
+    logging.info(f"File di log creato: {current_log_path}")
+    logging.info(f"Piattaforma: {sys.platform}")
+
 
 def handle_exception(exc_type, exc_value, exc_traceback):
     """
-    Questa funzione viene chiamata automaticamente da Python quando c'è un crash (eccezione non gestita).
-    Scriverà il traceback completo nel nostro file di log prima di terminare.
+    Gestisce i crash scrivendo il traceback nel log.
     """
     if issubclass(exc_type, KeyboardInterrupt):
         sys.__excepthook__(exc_type, exc_value, exc_traceback)
         return
 
-    # Logga l'errore fatale che ha causato il crash
     logging.critical("!!! ERRORE FATALE NON GESTITO (CRASH) !!!", exc_info=(exc_type, exc_value, exc_traceback))
 
-# Imposta la nostra funzione per gestire i crash il prima possibile
+# Imposta la nostra funzione per gestire i crash
 sys.excepthook = handle_exception
 # --- FINE SETUP LOGGING ---
 
@@ -147,9 +201,21 @@ if __name__ == "__main__":
         logging.warning("Nessuno schermo primario disponibile, imposto dimensione di default.")
         window_pos = None
 
+
+    main_win.setFixedSize(target_width, target_height)
+    
     if is_framebuffer:
         logging.info("Piattaforma framebuffer rilevata (%s). Avvio in fullscreen.", qpa_platform or "default")
-        main_win.showFullScreen()
+        logging.info(f"FORZATURA: Applico dimensione {target_width}x{target_height} e posiziono a (0,0).")
+        
+        # Rimuove bordi e decorazioni (simula fullscreen ma con dimensioni controllate)
+        main_win.setWindowFlags(Qt.WindowType.FramelessWindowHint)
+        
+        # Forza la posizione in alto a sinistra
+        main_win.move(0, 0)
+        
+        # Usa .show() invece di .showFullScreen() per evitare l'override del driver
+        main_win.show()
     else:
         main_win.setFixedSize(target_width, target_height)
         if window_pos is not None:

@@ -3,5 +3,6 @@ __pycache__/
 .DS_Store
 config.json
 music/
+logs/
 node_modules/
 .npm/
