@@ -185,50 +185,59 @@ fi
 echo
 
 ###############################################################################
-# 6) Configurazione BlueZ (BR/EDR, AutoEnable) in /etc/bluetooth/main.conf
+# 6) Configurazione BlueZ (Car Audio, Timeout 180s)
 ###############################################################################
 echo ">>> Configurazione /etc/bluetooth/main.conf..."
 
+# 1. Creazione file base se manca
 if [[ ! -f /etc/bluetooth/main.conf ]]; then
-  # Creiamo un file base con sezione [General]
-  cat >/etc/bluetooth/main.conf <<'EOF'
-[General]
-EOF
+    echo "[General]" > /etc/bluetooth/main.conf
+elif ! grep -q '^\[General\]' /etc/bluetooth/main.conf; then
+    sed -i '1i[General]' /etc/bluetooth/main.conf
 fi
 
-# Assicuriamoci che la sezione [General] esista
-if ! grep -q '^\[General\]' /etc/bluetooth/main.conf; then
-  sed -i '1i[General]' /etc/bluetooth/main.conf
-fi
+# 2. Funzione helper
+set_bt_conf() {
+    local key="$1"
+    local val="$2"
+    local file="/etc/bluetooth/main.conf"
+    if grep -q "^$key" "$file"; then
+        sed -i "s/^$key.*/$key = $val/" "$file"
+    else
+        sed -i "/^\[General\]/a $key = $val" "$file"
+    fi
+}
 
-# Aggiungi/aggiorna ControllerMode e AutoEnable
-if grep -q '^ControllerMode' /etc/bluetooth/main.conf; then
-  sed -i 's/^ControllerMode.*/ControllerMode = bredr/' /etc/bluetooth/main.conf
-else
-  sed -i '/^\[General\]/a ControllerMode = bredr' /etc/bluetooth/main.conf
-fi
+# 3. CONFIGURAZIONE CHIAVE
+# Class 0x200420 = Car Audio (Il telefono capisce che deve mandare l'audio qui)
+set_bt_conf "Class" "0x200420"
 
-if grep -q '^AutoEnable' /etc/bluetooth/main.conf; then
-  sed -i 's/^AutoEnable.*/AutoEnable = true/' /etc/bluetooth/main.conf
-else
-  sed -i '/^\[General\]/a AutoEnable = true' /etc/bluetooth/main.conf
-fi
+# Timeout Visibilità: 180 secondi (3 minuti) poi torna invisibile
+set_bt_conf "DiscoverableTimeout" "180"
 
-echo "/etc/bluetooth/main.conf configurato (BR/EDR, AutoEnable=true)."
+# Timeout Pairing: 0 (Sempre accoppiabile SE visibile)
+set_bt_conf "PairableTimeout" "0"
+
+# Bluetooth acceso all'avvio, ma NON visibile (lo farà la tua app)
+set_bt_conf "AutoEnable" "true"
+set_bt_conf "ControllerMode" "bredr"
+set_bt_conf "Name" "RPi-Infotainment"
+
+echo "/etc/bluetooth/main.conf configurato: Car Audio, Timeout 180s."
 echo
 
 ###############################################################################
-# 7) Agente Bluetooth di auto-pairing (PIN 0000)
+# 7) Agente Bluetooth Auto-Pairing (NO PIN - Just Works)
 ###############################################################################
-echo ">>> Installazione agente Bluetooth di auto-pairing..."
+echo ">>> Installazione agente Bluetooth NoInputNoOutput..."
 
 cat >/usr/local/bin/bt-agent-rpi.py <<'PY'
 #!/usr/bin/env python3
 import dbus, dbus.service, dbus.mainloop.glib
 from gi.repository import GLib
 
+# NoInputNoOutput = "Just Works" (Nessun PIN richiesto)
 AGENT_PATH = "/test/agent"
-AGENT_INTERFACE = "org.bluez.Agent1"
 CAPABILITY = "NoInputNoOutput"
 
 class Agent(dbus.service.Object):
@@ -242,28 +251,33 @@ class Agent(dbus.service.Object):
                 self.bus.get_object("org.bluez", path),
                 "org.freedesktop.DBus.Properties"
             )
+            # Marca come fidato immediatamente
             props.Set("org.bluez.Device1", "Trusted", True)
-        except Exception:
-            pass
+            print(f"Device {path} set to Trusted.")
+        except Exception as e:
+            print(f"Failed to set trusted: {e}")
 
-    @dbus.service.method(AGENT_INTERFACE, in_signature="o", out_signature="s")
+    @dbus.service.method("org.bluez.Agent1", in_signature="o", out_signature="s")
     def RequestPinCode(self, device):
         self.set_trusted(device)
         return "0000"
 
-    @dbus.service.method(AGENT_INTERFACE, in_signature="ou", out_signature="")
+    @dbus.service.method("org.bluez.Agent1", in_signature="o", out_signature="u")
+    def RequestPasskey(self, device):
+        self.set_trusted(device)
+        return dbus.UInt32(0000)
+
+    @dbus.service.method("org.bluez.Agent1", in_signature="ou", out_signature="")
     def RequestConfirmation(self, device, passkey):
         self.set_trusted(device)
+        return
 
-    @dbus.service.method(AGENT_INTERFACE, in_signature="o", out_signature="")
+    @dbus.service.method("org.bluez.Agent1", in_signature="o", out_signature="")
     def RequestAuthorization(self, device):
         self.set_trusted(device)
+        return
 
-    @dbus.service.method(AGENT_INTERFACE, in_signature="", out_signature="")
-    def Release(self):
-        pass
-
-    @dbus.service.method(AGENT_INTERFACE, in_signature="", out_signature="")
+    @dbus.service.method("org.bluez.Agent1", in_signature="", out_signature="")
     def Cancel(self):
         pass
 
@@ -273,16 +287,23 @@ if __name__ == "__main__":
     agent = Agent(bus, AGENT_PATH)
     obj = bus.get_object("org.bluez", "/org/bluez")
     manager = dbus.Interface(obj, "org.bluez.AgentManager1")
+    
+    # Rimuove vecchi agenti
+    try: manager.UnregisterAgent(AGENT_PATH)
+    except: pass
+        
     manager.RegisterAgent(AGENT_PATH, CAPABILITY)
     manager.RequestDefaultAgent(AGENT_PATH)
+    print("Bluetooth Agent (NoInputNoOutput) Running...")
     GLib.MainLoop().run()
 PY
 
 chmod +x /usr/local/bin/bt-agent-rpi.py
 
+# Servizio Systemd per l'agente
 cat >/etc/systemd/system/bt-agent.service <<EOF
 [Unit]
-Description=Bluetooth Auto-Pairing Agent (RPi Car Infotainment)
+Description=Bluetooth Auto-Pairing Agent
 Requires=bluetooth.service
 After=bluetooth.service
 
@@ -290,6 +311,8 @@ After=bluetooth.service
 ExecStart=/usr/local/bin/bt-agent-rpi.py
 Restart=always
 RestartSec=2
+StandardOutput=journal
+StandardError=journal
 
 [Install]
 WantedBy=bluetooth.target
@@ -298,7 +321,15 @@ EOF
 systemctl daemon-reload
 systemctl enable --now bt-agent.service
 
-echo "Agente Bluetooth bt-agent-rpi attivato."
+# Configurazione legacy per sicurezza
+btmgmt io-cap 3       || true
+btmgmt bondable on    || true
+btmgmt pairable on    || true
+# IMPORTANTE: NON mettiamo 'discoverable on' qui, ci penserà la tua app
+btmgmt connectable on || true
+btmgmt bredr on       || true
+
+echo "Agente Bluetooth installato. Visibilità gestita dall'App."
 echo
 
 ###############################################################################
