@@ -507,6 +507,15 @@ fi
 ###############################################################################
 echo ">>> Creazione servizio systemd 'infotainment.service'..."
 
+
+# Proviamo a rilevare il nome esatto del sink (scheda audio) analogico/cuffie
+SINK_NAME=$(sudo -u "$USER_NAME" XDG_RUNTIME_DIR="/run/user/$USER_UID" pactl list sinks short 2>/dev/null | grep -E "analog-stereo|Headphones" | cut -f2 | head -n1)
+
+# Se il rilevamento fallisce, usiamo il nome standard del Raspberry Pi o il default
+if [[ -z "${SINK_NAME:-}" ]]; then
+    SINK_NAME="alsa_output.platform-bcm2835_audio.analog-stereo"
+fi
+echo "Sink Audio identificato per il servizio: $SINK_NAME"
 # Percorsi
 SERVICE_EXEC="/home/pi/rpi_car_infotainment/scripts/start_infotainment.sh"
 SERVICE_WORK="/home/pi/rpi_car_infotainment"
