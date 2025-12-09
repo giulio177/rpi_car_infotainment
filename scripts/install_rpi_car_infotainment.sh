@@ -343,72 +343,109 @@ echo "Virtualenv e dipendenze Python installate."
 echo
 
 ###############################################################################
-# 11) Setup systemd user per PulseAudio e loopback Bluetooth → analog
+# 11) Setup Audio: PulseAudio, ALSA Default e Loopback Bluetooth
 ###############################################################################
-echo ">>> Configurazione user systemd, PulseAudio e loopback Bluetooth..."
+echo ">>> Configurazione Audio (Forzatura Jack Analogico)..."
 
-# Linger: permette al manager user di girare anche senza login interattivo
+# 1. Configura ALSA per usare SEMPRE la Card 1 (Jack) come default
+# Questo corrisponde al file .asoundrc che hai creato a mano
+sudo -u "$USER_NAME" bash -c "cat > $USER_HOME/.asoundrc" <<EOF
+pcm.!default {
+    type hw
+    card 1
+    device 0
+}
+ctl.!default {
+    type hw
+    card 1
+}
+EOF
+echo "File .asoundrc creato per forzare Card 1."
+
+# 2. Reset configurazione PulseAudio (per cancellare vecchie memorie HDMI)
+rm -rf "$USER_HOME/.config/pulse"
+echo "Configurazione PulseAudio pulita."
+
+# 3. Imposta volume Hardware (PCM su Card 1) al 100%
+# Usiamo 'amixer -c 1' per essere sicuri di colpire la scheda giusta
+amixer -c 1 set PCM 100% unmute || true
+echo "Volume PCM alzato al 100%."
+
+# 4. Linger e Systemd User (come prima)
 loginctl enable-linger "$USER_NAME" || true
-
-# Avvia systemd user per l'utente
 systemctl start "user@${USER_UID}.service" || true
 
-# Proviamo ad abilitare/avviare pulseaudio come servizio user (se esiste)
+# 5. Avvia PulseAudio (necessario per configurare il loopback)
 sudo -u "$USER_NAME" XDG_RUNTIME_DIR="/run/user/$USER_UID" systemctl --user enable pulseaudio 2>/dev/null || true
 sudo -u "$USER_NAME" XDG_RUNTIME_DIR="/run/user/$USER_UID" systemctl --user start pulseaudio 2>/dev/null || true
+# Aspetta che PulseAudio sia su
+sleep 5
 
-# Se non esiste il servizio, PulseAudio di solito si auto-spawna; forziamo l'avvio una volta
-sudo -u "$USER_NAME" XDG_RUNTIME_DIR="/run/user/$USER_UID" pulseaudio --start 2>/dev/null || true
+# 6. Script Loopback DINAMICO (Migliorato)
+# Questo script cerca il sink ogni volta che parte, così non sbaglia mai nome
+mkdir -p "$USER_HOME/.local/bin" "$USER_HOME/.config/systemd/user"
 
-sleep 3
-
-# Individua il sink analogico (o il primo disponibile) per usarlo come uscita
-SINK_NAME="$(sudo -u "$USER_NAME" XDG_RUNTIME_DIR="/run/user/$USER_UID" pactl list sinks short 2>/dev/null | awk '/analog-stereo/ {print $2; exit}')"
-if [[ -z "${SINK_NAME:-}" ]]; then
-  SINK_NAME="$(sudo -u "$USER_NAME" XDG_RUNTIME_DIR="/run/user/$USER_UID" pactl list sinks short 2>/dev/null | awk 'NR==1 {print $2; exit}')"
-fi
-if [[ -z "${SINK_NAME:-}" ]]; then
-  echo "ATTENZIONE: nessun sink PulseAudio trovato. Imposto fallback generico per Pi analog:"
-  SINK_NAME="alsa_output.platform-bcm2835-audio.analog-stereo"
-fi
-
-echo "Sink PulseAudio usato: $SINK_NAME"
-echo
-
-# Script loopback bluetooth → sink scelto (user)
-sudo -u "$USER_NAME" mkdir -p "$USER_HOME/.local/bin" "$USER_HOME/.config/systemd/user"
-
-cat >"$USER_HOME/.local/bin/bt-loopback.sh" <<EOF
+cat >"$USER_HOME/.local/bin/bt-loopback.sh" <<'SCRIPT_EOF'
 #!/bin/bash
 set -euo pipefail
-SINK="$SINK_NAME"
 
-try_once() {
-  src=\$(pactl list sources short | awk '/bluez_source/ {print \$2; exit}')
-  if [[ -n "\${src:-}" ]]; then
-    pactl load-module module-loopback source="\$src" sink="\$SINK" latency_msec=60 >/dev/null 2>&1 || true
-  fi
+# Funzione per trovare il sink analogico ATTUALE
+find_sink() {
+    # Cerca il sink che contiene "analog-stereo" o "Headphones"
+    TARGET_SINK=$(pactl list sinks short | grep -E "analog-stereo|Headphones" | cut -f2 | head -n1)
+    
+    # Se non lo trova, usa il default (che grazie a .asoundrc dovrebbe essere giusto)
+    if [[ -z "$TARGET_SINK" ]]; then
+        TARGET_SINK="@DEFAULT_SINK@"
+    fi
+    echo "$TARGET_SINK"
 }
 
-try_once
+# Funzione per collegare il bluetooth al sink
+try_connect() {
+    SINK=$(find_sink)
+    # Disabilita profilo HDMI (Card 0) per sicurezza, se esiste
+    pactl set-card-profile 0 off 2>/dev/null || true
+    
+    # Cerca sorgenti bluetooth
+    pactl list sources short | grep "bluez_source" | while read -r line; do
+        SRC_ID=$(echo "$line" | cut -f2)
+        # Evita duplicati
+        if ! pactl list modules short | grep -q "source=$SRC_ID sink=$SINK"; then
+            echo "Loopback: $SRC_ID -> $SINK"
+            pactl load-module module-loopback source="$SRC_ID" sink="$SINK" latency_msec=100
+        fi
+    done
+}
+
+# Tentativo all'avvio
+try_connect
+
+# Ascolta eventi (connessione telefono)
 pactl subscribe | while read -r line; do
-  echo "\$line" | grep -qE "source|card" && try_once
+    if echo "$line" | grep -qE "new|put"; then
+        if echo "$line" | grep -qE "source|card"; then
+            sleep 2
+            try_connect
+        fi
+    fi
 done
-EOF
+SCRIPT_EOF
 
 chown "$USER_NAME:$USER_NAME" "$USER_HOME/.local/bin/bt-loopback.sh"
 chmod +x "$USER_HOME/.local/bin/bt-loopback.sh"
 
+# 7. Servizio Systemd per il Loopback
 cat >"$USER_HOME/.config/systemd/user/bt-loopback.service" <<EOF
 [Unit]
-Description=Bluetooth A2DP loopback to analog sink
+Description=Bluetooth Loopback Automation
 After=pulseaudio.service bluetooth.target
 Wants=pulseaudio.service
 
 [Service]
 ExecStart=$USER_HOME/.local/bin/bt-loopback.sh
 Restart=always
-RestartSec=2
+RestartSec=5
 
 [Install]
 WantedBy=default.target
@@ -418,9 +455,9 @@ chown "$USER_NAME:$USER_NAME" "$USER_HOME/.config/systemd/user/bt-loopback.servi
 
 sudo -u "$USER_NAME" XDG_RUNTIME_DIR="/run/user/$USER_UID" systemctl --user daemon-reload
 sudo -u "$USER_NAME" XDG_RUNTIME_DIR="/run/user/$USER_UID" systemctl --user enable bt-loopback.service
-sudo -u "$USER_NAME" XDG_RUNTIME_DIR="/run/user/$USER_UID" systemctl --user start bt-loopback.service
+sudo -u "$USER_NAME" XDG_RUNTIME_DIR="/run/user/$USER_UID" systemctl --user restart bt-loopback.service
 
-echo "Servizio user bt-loopback attivato."
+echo "Configurazione Audio e Loopback completata."
 echo
 
 ###############################################################################
