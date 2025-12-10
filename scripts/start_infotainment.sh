@@ -65,7 +65,43 @@ start_application() {
 #clear
 #echo -e "\033[?25l"
 
+# Definisci il percorso del socket PulseAudio (basato sull'ID utente attuale)
+USER_ID=$(id -u)
+
+# Esportiamo variabili fondamentali per Audio e Video
+export XDG_RUNTIME_DIR="/run/user/$USER_ID"
+export PULSE_SERVER="unix:$XDG_RUNTIME_DIR/pulse/native"
+export SDL_AUDIODRIVER="pulseaudio"
+
+
 echo "=== Avvio RPi Car Infotainment Launcher ==="
+echo "Socket Audio atteso: $PULSE_SOCKET"
+
+# Non ci fidiamo solo del file, proviamo a chiedere info al server
+MAX_RETRIES=15
+COUNT=0
+READY=0
+
+while [ $COUNT -lt $MAX_RETRIES ]; do
+  # pactl info restituisce 0 (successo) solo se il server risponde
+  if pactl info > /dev/null 2>&1; then
+    echo "SUCCESS: PulseAudio è pronto e risponde!"
+    READY=1
+    break
+  fi
+  
+  echo "Waiting for PulseAudio daemon... ($COUNT/$MAX_RETRIES)"
+  sleep 2
+  ((COUNT++))
+done
+
+if [ $READY -eq 0 ]; then
+  echo "WARNING: Timeout attesa Audio. L'app potrebbe partire muta."
+else
+  echo "Audio System Ready."
+fi
+
+unset PULSE_SINK
 
 # Attiva l'ambiente virtuale
 activate_venv

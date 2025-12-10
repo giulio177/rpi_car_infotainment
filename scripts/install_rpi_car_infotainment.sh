@@ -378,20 +378,6 @@ echo
 ###############################################################################
 echo ">>> Configurazione Audio (Forzatura Jack Analogico)..."
 
-# 1. Configura ALSA per usare SEMPRE la Card 1 (Jack) come default
-# Questo corrisponde al file .asoundrc che hai creato a mano
-sudo -u "$USER_NAME" bash -c "cat > $USER_HOME/.asoundrc" <<EOF
-pcm.!default {
-    type hw
-    card 1
-    device 0
-}
-ctl.!default {
-    type hw
-    card 1
-}
-EOF
-echo "File .asoundrc creato per forzare Card 1."
 
 # 2. Reset configurazione PulseAudio (per cancellare vecchie memorie HDMI)
 rm -rf "$USER_HOME/.config/pulse"
