@@ -103,6 +103,14 @@ fi
 
 unset PULSE_SINK
 
+# --- FIX GRAFICI PER RASPBERRY PI ---
+# Disabilita l'accelerazione GPU per il WebEngine (Chromium)
+export QTWEBENGINE_CHROMIUM_FLAGS="--disable-gpu --disable-gpu-compositing"
+# Forza il rendering software per Qt Quick
+export QT_QUICK_BACKEND=software
+# Disabilita sandbox per evitare problemi di permessi
+export QTWEBENGINE_DISABLE_SANDBOX=1
+
 # Attiva l'ambiente virtuale
 activate_venv
 
