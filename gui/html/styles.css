@@ -39,7 +39,8 @@ html,body {
 #app {
     display: flex;
     flex-direction: column;
-    min-height: 100vh;
+    height: 100vh; 
+    overflow: hidden; /* Assicura che l'app stessa non scrolli, ma solo i suoi figli */
 }
 
 .toolbar {
