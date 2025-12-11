@@ -69,7 +69,7 @@ apt install -y \
   bluez bluez-tools \
   python3-dbus python3-gi gir1.2-glib-2.0 \
   dbus-user-session \
-  libxkbfile1 libsnappy1v5 \
+  libminizip1 libxkbfile1 libsnappy1v5 \
   libdbus-1-dev libglib2.0-dev python3-dev \
   build-essential pkg-config
 
