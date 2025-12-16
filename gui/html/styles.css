@@ -801,7 +801,7 @@ body, .home-text {
   position: fixed;
   left: 0;
   right: 0;
-  background: linear-gradient(to top, var(--bg-primary) 40%, transparent);
+  background: linear-gradient(to top, var(--bg-primary) 20%, transparent);
 }
 
 /* Absolute (fissato al fondo del container) */
