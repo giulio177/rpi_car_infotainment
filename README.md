@@ -75,6 +75,43 @@ Reboot the system and you're done:
 sudo reboot
 ```
 
+
+# Installation with GUI
+
+## 1. Install git
+After installing the **Raspberry Pi OS Lite** on the raspberry **with pi as a user**, install git and remove ipv6:
+```bash
+sudo apt update
+sudo tee -a /etc/sysctl.conf >/dev/null <<'EOF'
+net.ipv6.conf.all.disable_ipv6 = 1
+net.ipv6.conf.default.disable_ipv6 = 1
+net.ipv6.conf.lo.disable_ipv6 = 1
+EOF
+sudo sysctl -p
+sudo apt install -y git
+```
+
+## 2. Clone the repo
+Clone the repo in your user folder (pi):
+```bash
+cd /home/pi
+git clone https://github.com/giulio177/rpi_car_infotainment.git
+```
+
+## 3. Sart install script
+Enable and start the install script:
+```bash
+cd rpi_car_infotainment/scripts
+chmod +x bootstrap.sh
+sudo .bootstrap.sh
+```
+
+## 4. Reboot
+Reboot the system and you're done:
+```bash
+sudo reboot
+```
+
 #
 
 
