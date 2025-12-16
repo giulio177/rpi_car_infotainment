@@ -103,7 +103,7 @@ Enable and start the install script:
 ```bash
 cd rpi_car_infotainment/scripts
 chmod +x bootstrap.sh
-sudo .bootstrap.sh
+sudo ./bootstrap.sh
 ```
 
 ## 4. Reboot
