@@ -1,5 +1,7 @@
 # gui/setting_screen.py
 
+import socket # <--- AGGIUNGI QUESTO
+import os     # <--- AGGIUNGI QUESTO
 import subprocess
 import threading # Importato per le operazioni in background
 import psutil
@@ -19,6 +21,7 @@ from PyQt6.QtWidgets import (
     QCheckBox,
     QAbstractItemView, # <--- Aggiungi questo
     QScroller,
+    QMessageBox,
 )
 from PyQt6.QtCore import QTimer, QDateTime, pyqtSlot, Qt, pyqtSignal
 
@@ -53,7 +56,7 @@ class TouchComboBox(QComboBox):
 
         # Abilita lo scorrimento cinetico (smartphone style) dentro la tendina
         self.view().setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
-        QScroller.grabGesture(self.view().viewport(), QScroller.ScrollerGesture.TouchGesture)
+        QScroller.grabGesture(self.view().viewport(), QScroller.ScrollerGestureType.TouchGesture)
 
     def showPopup(self):
         super().showPopup()
@@ -96,7 +99,7 @@ class SettingsScreen(QWidget):
         self.scroll_area.setVerticalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAsNeeded
         )
-        QScroller.grabGesture(self.scroll_area.viewport(), QScroller.ScrollerGesture.TouchGesture)
+        QScroller.grabGesture(self.scroll_area.viewport(), QScroller.ScrollerGestureType.TouchGesture)
 
         self.scroll_content_widget = QWidget()
         self.scroll_content_widget.setObjectName("settingsScrollContent")
@@ -294,6 +297,23 @@ class SettingsScreen(QWidget):
         # ---
         self.scroll_layout.addWidget(self.radio_group)  # Add group to scroll area
 
+        # --- UPDATE SECTION (Software Update) ---
+        self.update_group = QGroupBox("Software Update")
+        self.update_group.setObjectName("settingsUpdateGroup")
+        self.update_layout = QVBoxLayout()
+        self.update_group.setLayout(self.update_layout)
+
+        self.update_info_label = QLabel("Current Version: Main Branch")
+        self.update_info_label.setStyleSheet("color: gray; font-size: 12px;")
+        self.update_layout.addWidget(self.update_info_label)
+
+        self.check_update_button = QPushButton("Check & Update from GitHub")
+        self.check_update_button.setMinimumHeight(45) # Bello grande per il touch
+        self.check_update_button.clicked.connect(self.perform_app_update)
+        self.update_layout.addWidget(self.check_update_button)
+
+        self.scroll_layout.addWidget(self.update_group)
+
         # Add stretch at the end of the scroll content
         self.scroll_layout.addStretch(1)
         # Set the content widget for the scroll area
@@ -324,6 +344,86 @@ class SettingsScreen(QWidget):
         self.info_update_timer.timeout.connect(self.start_info_update_thread)
         self.info_update_timer.start(10000) # Aggiorna ogni 10 secondi per ridurre il carico
         self.start_info_update_thread() # Chiamata iniziale
+
+    def check_internet_connection(self):
+        """Tenta di connettersi a GitHub per verificare l'internet."""
+        try:
+            # Prova a connettersi alla porta 443 (HTTPS) di github.com con timeout di 3 secondi
+            socket.create_connection(("github.com", 443), timeout=3)
+            return True
+        except OSError:
+            return False
+
+    def perform_app_update(self):
+        """Gestisce il flusso di aggiornamento dell'app."""
+        print("Starting update process...")
+        self.check_update_button.setText("Checking Connection...")
+        self.check_update_button.setEnabled(False)
+        self.repaint() # Forza l'aggiornamento grafico immediato
+
+        # 1. Controllo Internet
+        if not self.check_internet_connection():
+            QMessageBox.warning(self, "Update Error", "No Internet Connection available.\nCheck your WiFi or hotspot.")
+            self.check_update_button.setText("Check & Update from GitHub")
+            self.check_update_button.setEnabled(True)
+            return
+
+        # 2. Conferma Utente
+        reply = QMessageBox.question(
+            self, 
+            "Confirm Update", 
+            "Do you want to pull the latest version from GitHub?\nThis will overwrite local changes and restart the app.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+
+        if reply == QMessageBox.StandardButton.No:
+            self.check_update_button.setText("Check & Update from GitHub")
+            self.check_update_button.setEnabled(True)
+            return
+
+        # 3. Esecuzione Git Pull
+        self.check_update_button.setText("Updating... Please Wait")
+        self.repaint()
+
+        try:
+            # Determina la cartella del progetto (dove gira lo script)
+            project_dir = os.path.dirname(os.path.abspath(__file__))
+            # Risaliamo di un livello se siamo dentro /gui/
+            if project_dir.endswith("gui"):
+                project_dir = os.path.dirname(project_dir)
+
+            # Esegue git pull origin main
+            # capture_output=True ci serve per leggere eventuali errori
+            result = subprocess.run(
+                ["git", "pull", "origin", "main"], 
+                cwd=project_dir, 
+                capture_output=True, 
+                text=True
+            )
+
+            if result.returncode == 0:
+                # Successo
+                if "Already up to date" in result.stdout:
+                    QMessageBox.information(self, "Update", "The application is already up to date!")
+                    self.check_update_button.setText("Check & Update from GitHub")
+                    self.check_update_button.setEnabled(True)
+                else:
+                    QMessageBox.information(self, "Update Success", "Update installed successfully!\nThe application will now restart.")
+                    # Riavvio applicazione
+                    if self.main_window and hasattr(self.main_window, "restart_application"):
+                        self.main_window.restart_application()
+            else:
+                # Errore Git (es. modifiche locali in conflitto)
+                error_msg = f"Git Error:\n{result.stderr}"
+                print(error_msg)
+                QMessageBox.critical(self, "Update Failed", f"Could not update repo.\n{result.stderr}")
+                self.check_update_button.setText("Check & Update from GitHub")
+                self.check_update_button.setEnabled(True)
+
+        except Exception as e:
+            QMessageBox.critical(self, "Critical Error", f"An error occurred during update:\n{str(e)}")
+            self.check_update_button.setText("Check & Update from GitHub")
+            self.check_update_button.setEnabled(True)
 
     # ## NUOVO: Funzione per avviare il thread ##
     def start_info_update_thread(self):
