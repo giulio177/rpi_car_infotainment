@@ -66,12 +66,12 @@ apt install -y \
   git python3-venv python3-pip \
   ffmpeg \
   pulseaudio pulseaudio-module-bluetooth alsa-utils \
-  bluez bluez-tools \
+  bluez bluez-tools pi-bluetooth bluez-firmware \
   python3-dbus python3-gi gir1.2-glib-2.0 \
   dbus-user-session \
   libminizip1 libxkbfile1 libsnappy1v5 \
   libdbus-1-dev libglib2.0-dev python3-dev \
-  build-essential pkg-config
+  build-essential pkg-config 
 
 
 echo ">>> Pacchetti installati."
