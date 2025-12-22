@@ -186,18 +186,45 @@ fi
 echo
 
 ###############################################################################
-# 6) Configurazione BlueZ (Car Audio, Timeout 180s)
+# 6) Configurazione BlueZ e FIX HARDWARE (Sblocco UART/RFKill)
 ###############################################################################
+echo ">>> Configurazione Bluetooth (Hardware & Software)..."
+
+# --- 6.1 FIX HARDWARE: UART e RFKill (Risolve 'Failed to set power on') ---
+
+# 1. Rimuove blocco 'disable-bt' se presente in config.txt
+if grep -q "dtoverlay=disable-bt" "$CONFIG_FILE"; then
+    sed -i '/dtoverlay=disable-bt/d' "$CONFIG_FILE"
+    echo "Rimosso dtoverlay=disable-bt da config.txt."
+fi
+
+# 2. Assicura che la UART sia abilitata (Necessario per il chip BT del Pi)
+if ! grep -q "enable_uart=1" "$CONFIG_FILE"; then
+    echo "enable_uart=1" >> "$CONFIG_FILE"
+    echo "Abilitato enable_uart=1 in config.txt."
+fi
+
+# 3. Sblocco RFKill (Soft Block)
+if command -v rfkill &> /dev/null; then
+    rfkill unblock bluetooth || true
+    echo "RFKill sbloccato."
+fi
+
+# 4. Assicura che il servizio driver UART (hciuart) sia attivo
+systemctl enable hciuart
+systemctl restart hciuart || true
+
+# --- 6.2 Configurazione main.conf ---
 echo ">>> Configurazione /etc/bluetooth/main.conf..."
 
-# 1. Creazione file base se manca
+# Creazione file base se manca
 if [[ ! -f /etc/bluetooth/main.conf ]]; then
     echo "[General]" > /etc/bluetooth/main.conf
 elif ! grep -q '^\[General\]' /etc/bluetooth/main.conf; then
     sed -i '1i[General]' /etc/bluetooth/main.conf
 fi
 
-# 2. Funzione helper
+# Funzione helper
 set_bt_conf() {
     local key="$1"
     local val="$2"
@@ -209,143 +236,70 @@ set_bt_conf() {
     fi
 }
 
-# 3. CONFIGURAZIONE CHIAVE
-# Class 0x200420 = Car Audio (Il telefono capisce che deve mandare l'audio qui)
-set_bt_conf "Class" "0x200420"
-
-# Timeout Visibilità: 180 secondi (3 minuti) poi torna invisibile
-set_bt_conf "DiscoverableTimeout" "180"
-
-# Timeout Pairing: 0 (Sempre accoppiabile SE visibile)
-set_bt_conf "PairableTimeout" "0"
-
-# Bluetooth acceso all'avvio, ma NON visibile (lo farà la tua app)
-set_bt_conf "AutoEnable" "true"
-set_bt_conf "ControllerMode" "bredr"
+# CONFIGURAZIONE STRATEGICA
+set_bt_conf "Class" "0x200420"             # Car Audio
+set_bt_conf "DiscoverableTimeout" "30"     # 30s Visibilità (Sicurezza)
+set_bt_conf "PairableTimeout" "0"          # Sempre accoppiabile se visibile
+set_bt_conf "JustWorksRepairing" "always"  # Forza No PIN
+set_bt_conf "AutoEnable" "true"            # Acceso al boot
+set_bt_conf "ControllerMode" "bredr"       # Modalità classica (A2DP)
 set_bt_conf "Name" "RPi-Infotainment"
 
-echo "/etc/bluetooth/main.conf configurato: Car Audio, Timeout 180s."
+echo "/etc/bluetooth/main.conf configurato: Just Works, UART Fix applicato."
 echo
 
 ###############################################################################
-# 7) Agente Bluetooth Auto-Pairing (NO PIN - Just Works)
+# 7) Agente Bluetooth Auto-Pairing (bluez-tools / NoInputNoOutput)
 ###############################################################################
-echo ">>> Installazione agente Bluetooth NoInputNoOutput..."
+echo ">>> Installazione agente Bluetooth 'Just Works' (bluez-tools)..."
 
-cat >/usr/local/bin/bt-agent-rpi.py <<'PY'
-#!/usr/bin/env python3
-import dbus, dbus.service, dbus.mainloop.glib
-from gi.repository import GLib
+# 1. Installazione bluez-tools (Agente C++)
+if ! dpkg -l | grep -q bluez-tools; then
+    apt install -y bluez-tools
+fi
 
-# NoInputNoOutput = "Just Works" (Nessun PIN richiesto)
-AGENT_PATH = "/test/agent"
-CAPABILITY = "NoInputNoOutput"
-
-class Agent(dbus.service.Object):
-    def __init__(self, bus, path):
-        super().__init__(bus, path)
-        self.bus = bus
-
-    def set_trusted(self, path):
-        try:
-            props = dbus.Interface(
-                self.bus.get_object("org.bluez", path),
-                "org.freedesktop.DBus.Properties"
-            )
-            # Marca come fidato immediatamente
-            props.Set("org.bluez.Device1", "Trusted", True)
-            print(f"Device {path} set to Trusted.")
-        except Exception as e:
-            print(f"Failed to set trusted: {e}")
-
-    @dbus.service.method("org.bluez.Agent1", in_signature="o", out_signature="s")
-    def RequestPinCode(self, device):
-        self.set_trusted(device)
-        return "0000"
-
-    @dbus.service.method("org.bluez.Agent1", in_signature="o", out_signature="u")
-    def RequestPasskey(self, device):
-        self.set_trusted(device)
-        return dbus.UInt32(0000)
-
-    @dbus.service.method("org.bluez.Agent1", in_signature="ou", out_signature="")
-    def RequestConfirmation(self, device, passkey):
-        self.set_trusted(device)
-        return
-
-    @dbus.service.method("org.bluez.Agent1", in_signature="o", out_signature="")
-    def RequestAuthorization(self, device):
-        self.set_trusted(device)
-        return
-
-    @dbus.service.method("org.bluez.Agent1", in_signature="", out_signature="")
-    def Cancel(self):
-        pass
-
-if __name__ == "__main__":
-    dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
-    bus = dbus.SystemBus()
-    agent = Agent(bus, AGENT_PATH)
-    obj = bus.get_object("org.bluez", "/org/bluez")
-    manager = dbus.Interface(obj, "org.bluez.AgentManager1")
-    
-    # Rimuove vecchi agenti
-    try: manager.UnregisterAgent(AGENT_PATH)
-    except: pass
-        
-    manager.RegisterAgent(AGENT_PATH, CAPABILITY)
-    manager.RequestDefaultAgent(AGENT_PATH)
-    print("Bluetooth Agent (NoInputNoOutput) Running...")
-    GLib.MainLoop().run()
-PY
-
-chmod +x /usr/local/bin/bt-agent-rpi.py
-
-# Servizio Systemd per l'agente
-cat >/etc/systemd/system/bt-agent.service <<EOF
+# 2. Creazione Servizio 'Porte Aperte'
+cat >/etc/systemd/system/bt-auto-pair.service <<EOF
 [Unit]
-Description=Bluetooth Auto-Pairing Agent
-Requires=bluetooth.service
+Description=Bluetooth Auto-Accept Agent (No PIN, No Confirmation)
 After=bluetooth.service
+Requires=bluetooth.service
 
 [Service]
-ExecStart=/usr/local/bin/bt-agent-rpi.py
+Type=simple
+# -c NoInputNoOutput: Dice al telefono che non c'è tastiera/schermo
+# L'agente accetta AUTOMATICAMENTE le richieste
+ExecStart=/usr/bin/bt-agent -c NoInputNoOutput
 Restart=always
 RestartSec=2
-StandardOutput=journal
-StandardError=journal
 
 [Install]
-WantedBy=bluetooth.target
+WantedBy=multi-user.target
 EOF
 
 systemctl daemon-reload
-systemctl enable --now bt-agent.service
+systemctl enable --now bt-auto-pair.service
 
-# Configurazione legacy per sicurezza
-btmgmt io-cap 3       || true
-btmgmt bondable on    || true
-btmgmt pairable on    || true
-# IMPORTANTE: NON mettiamo 'discoverable on' qui, ci penserà la tua app
-btmgmt connectable on || true
-btmgmt bredr on       || true
-
-echo "Agente Bluetooth installato. Visibilità gestita dall'App."
+echo "Nuovo agente 'bt-auto-pair' installato e attivo."
 echo
 
 ###############################################################################
-# 8) Configurazione spinte tramite btmgmt (non interattivo)
+# 8) Configurazione spinte tramite btmgmt
 ###############################################################################
 echo ">>> Configurazione controller Bluetooth (btmgmt)..."
 
-# In caso il controller non sia power on, btmgmt potrebbe lamentarsi: ignoriamo errori
+# Forza capabilities I/O basse per evitare richieste PIN
 btmgmt io-cap 3       || true
 btmgmt bondable on    || true
-btmgmt connectable on || true
 btmgmt pairable on    || true
 btmgmt bredr on       || true
+# NON mettiamo 'discoverable on', lo farà l'app
+btmgmt connectable on || true
 
-echo "btmgmt configurato (io-cap=3, bondable/connectable/pairable/bredr on)."
+# Riavvio finale dello stack bluetooth per applicare tutto
+systemctl restart bluetooth
+
+echo "btmgmt configurato."
 echo
 
 ###############################################################################

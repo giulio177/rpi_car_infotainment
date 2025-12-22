@@ -31,113 +31,141 @@ class BluetoothDialog(QDialog):
         self.update_timer.start(2000)
 
     def setup_ui(self):
-        """Setup the Bluetooth dialog UI."""
+        """Setup the Bluetooth dialog UI (Compact Version)."""
+        # Layout principale
         layout = QVBoxLayout(self)
+        layout.setSpacing(10)  # Riduce spazio tra gli elementi
+        layout.setContentsMargins(15, 15, 15, 15)
 
+        # 1. Titolo (Semplificato)
         title_label = QLabel("Bluetooth Settings")
-        title_label.setObjectName("dialogTitle")
-        font = QFont()
-        font.setPointSize(16)
-        font.setBold(True)
-        title_label.setFont(font)
+        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        title_label.setFont(QFont("Arial", 16, QFont.Weight.Bold))
         layout.addWidget(title_label)
 
-        status_group = QGroupBox("Status")
-        status_layout = QFormLayout(status_group)
-        self.status_label = QLabel("Checking...")
-        self.connected_device_label = QLabel("None")
-        self.battery_label = QLabel("N/A")
-        status_layout.addRow("Bluetooth:", self.status_label)
-        status_layout.addRow("Connected Device:", self.connected_device_label)
-        status_layout.addRow("Battery Level:", self.battery_label)
-        layout.addWidget(status_group)
+        # 2. PANNELLO DI CONTROLLO (Stato + Pulsanti)
+        control_group = QGroupBox("Control Panel")
+        control_layout = QVBoxLayout(control_group)
+        control_layout.setSpacing(8)
 
-        discovery_group = QGroupBox("Device Control")
-        discovery_layout = QVBoxLayout(discovery_group)
+        # A) Grande Label di Stato (quella che cambia colore)
+        self.status_label = QLabel("Disconnected")
+        self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.status_label.setStyleSheet("font-weight: bold; font-size: 18px; color: gray; margin: 5px;")
+        control_layout.addWidget(self.status_label)
 
-        discovery_status_layout = QHBoxLayout()
-        discovery_status_layout.addWidget(QLabel("Status:"))
-        self.discovery_status_label = QLabel("Checking...")
-        discovery_status_layout.addWidget(self.discovery_status_label)
-        discovery_status_layout.addStretch()
-        discovery_layout.addLayout(discovery_status_layout)
-
-        # ## MODIFICATO: Layout dei pulsanti di controllo ##
-        control_buttons_layout = QHBoxLayout()
+        # B) Riga Pulsanti Azione (Visibilità | Disconnetti | Scan)
+        # Li mettiamo in orizzontale per risparmiare spazio
+        actions_layout = QHBoxLayout()
         
-        # Pulsante unico per discoverability
         self.toggle_discoverability_button = QPushButton("Loading...")
+        self.toggle_discoverability_button.setMinimumHeight(40) # Pulsanti comodi per il touch
         self.toggle_discoverability_button.clicked.connect(self.toggle_discoverability)
-        control_buttons_layout.addWidget(self.toggle_discoverability_button)
-
-        # Pulsante per disconnettere tutti i dispositivi
-        self.disconnect_all_button = QPushButton("Disconnect All")
-        self.disconnect_all_button.clicked.connect(self.confirm_disconnect_all)
-        control_buttons_layout.addWidget(self.disconnect_all_button)
         
-        discovery_layout.addLayout(control_buttons_layout)
+        self.disconnect_all_button = QPushButton("Disconnect All")
+        self.disconnect_all_button.setMinimumHeight(40)
+        self.disconnect_all_button.clicked.connect(self.confirm_disconnect_all)
 
-        name_layout = QHBoxLayout()
-        name_layout.addWidget(QLabel("Device Name:"))
+        self.scan_button = QPushButton("Scan Devices")
+        self.scan_button.setMinimumHeight(40)
+        self.scan_button.clicked.connect(self.scan_devices)
+
+        actions_layout.addWidget(self.toggle_discoverability_button)
+        actions_layout.addWidget(self.disconnect_all_button)
+        actions_layout.addWidget(self.scan_button)
+        control_layout.addLayout(actions_layout)
+
+        # C) Riga Rinonima (Compatta)
+        rename_layout = QHBoxLayout()
         self.device_name_input = QLineEdit()
         self.device_name_input.setPlaceholderText("Car Audio System")
         self.device_name_input.mousePressEvent = lambda event: self.show_keyboard(self.device_name_input)
+        
         self.set_name_button = QPushButton("Set Name")
         self.set_name_button.clicked.connect(self.set_device_name)
-        name_layout.addWidget(self.device_name_input)
-        name_layout.addWidget(self.set_name_button)
-        discovery_layout.addLayout(name_layout)
-        layout.addWidget(discovery_group)
+        
+        rename_layout.addWidget(QLabel("Name:"))
+        rename_layout.addWidget(self.device_name_input)
+        rename_layout.addWidget(self.set_name_button)
+        control_layout.addLayout(rename_layout)
 
-        device_group = QGroupBox("Device Management")
+        layout.addWidget(control_group)
+
+        # 3. LISTA DISPOSITIVI (Prende tutto lo spazio rimanente)
+        device_group = QGroupBox("Available Devices")
         device_layout = QVBoxLayout(device_group)
-        self.scan_button = QPushButton("Scan for Devices")
-        self.scan_button.clicked.connect(self.scan_devices)
-        device_layout.addWidget(self.scan_button)
+        device_layout.setContentsMargins(5, 5, 5, 5) # Meno bordi interni
+        
         self.device_list = QListWidget()
+        self.device_list.setStyleSheet("font-size: 14px;") # Testo lista leggibile
         device_layout.addWidget(self.device_list)
+        
         layout.addWidget(device_group)
 
+        # 4. Pulsante Chiudi (Bottom)
         close_button = QPushButton("Close")
+        close_button.setMinimumHeight(40)
+        close_button.setStyleSheet("background-color: #444; color: white;") # Un po' distinto
         close_button.clicked.connect(self.accept)
         layout.addWidget(close_button)
 
     def update_status(self):
-        """Update the Bluetooth status display."""
+        """Update the Bluetooth status display (Single Label Logic)."""
         if not self.bluetooth_manager:
             return
 
+        # Verifica se c'è un dispositivo connesso
         connected = self.bluetooth_manager.connected_device_path is not None
-        self.status_label.setText("Connected" if connected else "Disconnected")
 
-        if connected:
-            device_name = self.bluetooth_manager.connected_device_name
-            self.connected_device_label.setText(device_name)
-            battery = self.bluetooth_manager.current_battery
-            self.battery_label.setText(f"{battery}%" if battery is not None else "N/A")
+        if not connected:
+            # CASO DISCONNESSO: Scritta rossa "Disconnected"
+            self.status_label.setText("Disconnected")
+            self.status_label.setStyleSheet("font-weight: bold; font-size: 16px; color: #FF5555;")
         else:
-            self.connected_device_label.setText("None")
-            self.battery_label.setText("N/A")
+            # CASO CONNESSO: Costruiamo la stringa "Nome (Batteria%)"
+            
+            # 1. Prendi il nome (o usa un default se vuoto)
+            device_name = self.bluetooth_manager.connected_device_name
+            if not device_name:
+                device_name = "Unknown Device"
+            
+            # 2. Prendi la batteria
+            battery = self.bluetooth_manager.current_battery
+            
+            # 3. Componi il testo
+            display_text = device_name
+            
+            # Aggiungi la percentuale solo se il valore della batteria esiste
+            if battery is not None:
+                display_text += f" ({battery}%)"
 
+            # 4. Applica il testo e il colore verde
+            self.status_label.setText(display_text)
+            self.status_label.setStyleSheet("font-weight: bold; font-size: 16px; color: #55FF55;")
+
+        # Mantieni l'aggiornamento del pulsante discoverable (se serve ancora alla tua logica)
         self.update_discoverability_status()
     
     # ## MODIFICATO: Logica di aggiornamento per il pulsante unico ##
     def update_discoverability_status(self):
-        """Update the discoverability status display and button."""
+        """Update the discoverability button text/style gracefully."""
         if not self.bluetooth_manager:
-            self.discovery_status_label.setText("Unknown (No Manager)")
-            self.toggle_discoverability_button.setEnabled(False)
             return
 
-        is_discoverable = self.bluetooth_manager.is_discoverable()
-        self.toggle_discoverability_button.setEnabled(True)
-
+        # USA getattr PER EVITARE IL CRASH se le proprietà non esistono nel manager
+        is_discoverable = getattr(self.bluetooth_manager, 'discoverable', False)
+        timeout = getattr(self.bluetooth_manager, 'discoverable_timeout', 0)
+        
+        # Logica del pulsante
         if is_discoverable:
-            self.discovery_status_label.setText("Discoverable")
-            self.toggle_discoverability_button.setText("Make Hidden")
+            # Se visibile -> Verde
+            text = f"Visible ({timeout}s)" if timeout > 0 else "Visible"
+            self.toggle_discoverability_button.setText(text)
+            self.toggle_discoverability_button.setStyleSheet("background-color: #44FF44; color: black; font-weight: bold;")
         else:
-            self.discovery_status_label.setText("Hidden")
-            self.toggle_discoverability_button.setText("Make Discoverable")
+            # Se invisibile -> Normale
+            self.toggle_discoverability_button.setText("Make Visible")
+            self.toggle_discoverability_button.setStyleSheet("")
     
     # ## NUOVO: Funzione unica per gestire il click del pulsante discoverability ##
     def toggle_discoverability(self):

@@ -17,12 +17,53 @@ from PyQt6.QtWidgets import (
     QSizePolicy,
     QScrollArea,
     QCheckBox,
+    QAbstractItemView, # <--- Aggiungi questo
+    QScroller,
 )
 from PyQt6.QtCore import QTimer, QDateTime, pyqtSlot, Qt, pyqtSignal
 
 from .styling import scale_value
 
+class TouchComboBox(QComboBox):
+    """
+    Un QComboBox ottimizzato per touchscreen:
+    - Elementi della lista più grandi.
+    - Scorrimento cinetico all'interno della lista.
+    - Forza l'apertura del popup al tocco (ignora il jitter).
+    """
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setMinimumHeight(40)  # Altezza minima per facilitare il tocco
+        
+        # Stile CSS per ingrandire il menu a tendina e gli elementi interni
+        self.setStyleSheet("""
+            QComboBox::drop-down {
+                width: 40px;
+                border-left: 1px solid gray;
+            }
+            QComboBox QAbstractItemView {
+                min-height: 40px;
+                border: 1px solid gray;
+            }
+            QComboBox QAbstractItemView::item {
+                min-height: 40px; /* Altezza righe menu */
+                padding: 5px;
+            }
+        """)
 
+        # Abilita lo scorrimento cinetico (smartphone style) dentro la tendina
+        self.view().setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
+        QScroller.grabGesture(self.view().viewport(), QScroller.ScrollerGesture.TouchGesture)
+
+    def showPopup(self):
+        super().showPopup()
+        # Opzionale: qui potresti forzare dimensioni specifiche del popup se necessario
+        
+    def mousePressEvent(self, e):
+        # Accetta subito l'evento per evitare che la QScrollArea padre lo rubi
+        super().mousePressEvent(e)
+        e.accept()
+    
 class SettingsScreen(QWidget):
     screen_title = "Settings"
 
@@ -55,6 +96,7 @@ class SettingsScreen(QWidget):
         self.scroll_area.setVerticalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAsNeeded
         )
+        QScroller.grabGesture(self.scroll_area.viewport(), QScroller.ScrollerGesture.TouchGesture)
 
         self.scroll_content_widget = QWidget()
         self.scroll_content_widget.setObjectName("settingsScrollContent")
@@ -88,14 +130,14 @@ class SettingsScreen(QWidget):
         # Spacing set by update_scaling
         self.general_group.setLayout(self.general_layout)
 
-        self.theme_combo = QComboBox()
+        self.theme_combo = TouchComboBox()
         self.theme_combo.setObjectName("themeCombo")
         self.theme_combo.addItems(["light", "dark"])
         self.theme_combo.setCurrentText(self.settings_manager.get("theme"))
         self.general_layout.addRow("UI Theme:", self.theme_combo)
 
         # --- UI Render Mode ---
-        self.render_mode_combo = QComboBox()
+        self.render_mode_combo = TouchComboBox()
         self.render_mode_combo.setObjectName("renderModeCombo")
         self.render_mode_combo.addItem("Native Widgets (Qt)", "native")
         try:
@@ -133,7 +175,7 @@ class SettingsScreen(QWidget):
             self.general_layout.addRow("", self.render_mode_hint)
 
         # --- Resolution Setting ---
-        self.resolution_combo = QComboBox()
+        self.resolution_combo = TouchComboBox()
         self.resolution_combo.setObjectName("resolutionCombo")
         self.resolution_combo.addItems(["1024x600", "1280x720", "1920x1080"])
         current_res = self.settings_manager.get("window_resolution")
@@ -144,7 +186,7 @@ class SettingsScreen(QWidget):
         self.general_layout.addRow("Resolution:", self.resolution_combo)
 
         # --- UI Scale Mode Setting ---
-        self.ui_scale_combo = QComboBox()
+        self.ui_scale_combo = TouchComboBox()
         self.ui_scale_combo.setObjectName("uiScaleCombo")
         self.ui_scale_combo.addItems(
             [
