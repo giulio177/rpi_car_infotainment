@@ -444,26 +444,30 @@ fi
 
 
 ###############################################################################
-# 12) Servizio systemd per avviare l'infotainment (FINAL WORKING VERSION)
+# 12) Servizio systemd per avviare l'infotainment (FIXED)
 ###############################################################################
 echo ">>> Creazione servizio systemd 'infotainment.service'..."
 
+# Tenta di rilevare il nome del sink. Aggiungiamo "|| true" per evitare che
+# grep faccia crashare lo script se non trova nulla (cosa normale prima del reboot).
+DETECTED_SINK=$(sudo -u "$USER_NAME" XDG_RUNTIME_DIR="/run/user/$USER_UID" pactl list sinks short 2>/dev/null | grep -E "analog-stereo|Headphones" | cut -f2 | head -n1 || true)
 
-# Proviamo a rilevare il nome esatto del sink (scheda audio) analogico/cuffie
-SINK_NAME=$(sudo -u "$USER_NAME" XDG_RUNTIME_DIR="/run/user/$USER_UID" pactl list sinks short 2>/dev/null | grep -E "analog-stereo|Headphones" | cut -f2 | head -n1)
-
-# Se il rilevamento fallisce, usiamo il nome standard del Raspberry Pi o il default
-if [[ -z "${SINK_NAME:-}" ]]; then
+if [[ -n "$DETECTED_SINK" ]]; then
+    SINK_NAME="$DETECTED_SINK"
+    echo "Sink Audio rilevato dinamicamente: $SINK_NAME"
+else
+    # Se il rilevamento fallisce (es. al primo install), usiamo il default del Jack Audio del Pi
     SINK_NAME="alsa_output.platform-bcm2835_audio.analog-stereo"
+    echo "Nessun sink rilevato (normale pre-reboot). Usato default: $SINK_NAME"
 fi
-echo "Sink Audio identificato per il servizio: $SINK_NAME"
-# Percorsi
-SERVICE_EXEC="/home/pi/rpi_car_infotainment/scripts/start_infotainment.sh"
-SERVICE_WORK="/home/pi/rpi_car_infotainment"
 
-# Assicuriamoci che lo script sia eseguibile
+# Percorsi
+SERVICE_EXEC="$PROJECT_DIR/scripts/start_infotainment.sh"
+SERVICE_WORK="$PROJECT_DIR"
+
+# Assicuriamoci che lo script sia eseguibile e appartenga all'utente
 chmod +x "$SERVICE_EXEC"
-chown $USER_NAME:$USER_NAME "$SERVICE_EXEC"
+chown "$USER_NAME:$USER_NAME" "$SERVICE_EXEC"
 
 # Percorso Socket PulseAudio
 PULSE_SERVER_PATH="unix:/run/user/${USER_UID}/pulse/native"
@@ -481,14 +485,10 @@ User=$USER_NAME
 Group=$USER_NAME
 WorkingDirectory=$SERVICE_WORK
 
-# Nota: L'utente $USER_NAME deve essere già nei gruppi video, input, audio, render.
-# Systemd userà i gruppi di default dell'utente.
-
 # --- VARIABILI AMBIENTE ---
 Environment=PYTHONUNBUFFERED=1
 
 # Configurazione Grafica Qt (Framebuffer 1024x600 FORZATO)
-# Impedisce il taglio della barra in basso e i pulsanti stirati
 Environment=QT_QPA_PLATFORM=linuxfb:fb=/dev/fb0:size=1024x600
 Environment=QT_QPA_GENERIC_PLUGINS=evdevtouch:/dev/input/event0
 
