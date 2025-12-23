@@ -5,14 +5,17 @@ import os     # <--- AGGIUNGI QUESTO
 import subprocess
 import threading # Importato per le operazioni in background
 import psutil
+import time
 from PyQt6.QtWidgets import (
     QWidget,
+    QDialog,
     QVBoxLayout,
     QHBoxLayout,
     QLabel,
     QPushButton,
     QComboBox,
     QLineEdit,
+    QListWidget,
     QFormLayout,
     QGroupBox,
     QSpacerItem,
@@ -22,6 +25,8 @@ from PyQt6.QtWidgets import (
     QAbstractItemView, # <--- Aggiungi questo
     QScroller,
     QMessageBox,
+    QGroupBox, 
+    QFormLayout,
 )
 from PyQt6.QtCore import QTimer, QDateTime, pyqtSlot, Qt, pyqtSignal
 
@@ -255,12 +260,14 @@ class SettingsScreen(QWidget):
         self.obd_port_edit.setPlaceholderText(
             "e.g., /dev/rfcomm0 or /dev/ttyUSB0 (leave blank for auto)"
         )
+        self.obd_port_edit.mousePressEvent = lambda event: self.show_keyboard(self.obd_port_edit)
         self.obd_port_edit.setText(self.settings_manager.get("obd_port") or "")
         self.obd_layout.addRow("OBD Port:", self.obd_port_edit)
 
         self.obd_baud_edit = QLineEdit()
         self.obd_baud_edit.setObjectName("obdBaudEdit")
         self.obd_baud_edit.setPlaceholderText("e.g., 38400 (leave blank for auto)")
+        self.obd_baud_edit.mousePressEvent = lambda event: self.show_keyboard(self.obd_baud_edit)
         obd_baud = self.settings_manager.get("obd_baudrate")
         self.obd_baud_edit.setText(str(obd_baud) if obd_baud else "")
         self.obd_layout.addRow("Baudrate:", self.obd_baud_edit)
@@ -291,6 +298,7 @@ class SettingsScreen(QWidget):
         self.radio_i2c_addr_edit = QLineEdit()
         self.radio_i2c_addr_edit.setObjectName("radioI2cAddrEdit")
         self.radio_i2c_addr_edit.setPlaceholderText("e.g., 0x10 (for I2C type)")
+        self.radio_i2c_addr_edit.mousePressEvent = lambda event: self.show_keyboard(self.radio_i2c_addr_edit)
         i2c_addr = self.settings_manager.get("radio_i2c_address")
         self.radio_i2c_addr_edit.setText(hex(i2c_addr) if i2c_addr is not None else "")
         self.radio_layout.addRow("I2C Address:", self.radio_i2c_addr_edit)
@@ -353,6 +361,14 @@ class SettingsScreen(QWidget):
             return True
         except OSError:
             return False
+    
+    def show_keyboard(self, line_edit):
+        """Show virtual keyboard for text input."""
+        from .virtual_keyboard import VirtualKeyboard
+
+        keyboard = VirtualKeyboard(line_edit.text(), self)
+        if keyboard.exec() == QDialog.DialogCode.Accepted:
+            line_edit.setText(keyboard.get_text())
 
     def perform_app_update(self):
         """
