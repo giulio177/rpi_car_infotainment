@@ -151,10 +151,10 @@ echo
 ###############################################################################
 echo ">>> Configurazione PulseAudio/ALSA/Bluetooth..."
 
-# Disabilita eventuale pulseaudio di sistema (se non esiste, non è un problema)
+# Disabilita eventuale pulseaudio di sistema
 systemctl disable --now pulseaudio 2>/dev/null || true
 
-# ALSA → PulseAudio di default
+# ALSA -> PulseAudio di default
 cat >/etc/asound.conf <<'EOF'
 pcm.!default pulse
 ctl.!default pulse
@@ -166,20 +166,21 @@ if [[ -f /etc/pulse/default.pa ]]; then
   if ! grep -q 'bluetooth-discover' /etc/pulse/default.pa; then
     cat >>/etc/pulse/default.pa <<'EOF'
 
-### Bluetooth A2DP (user instance)
-load-module module-bluetooth-policy
+### Bluetooth A2DP (user instance) - AUTOMOTIVE OPTIMIZED
+# auto_switch=2: Forza il profilo A2DP (Alta Qualità) invece di HFP (Chiamata)
+# a2dp_source_selection=auto: Negozia il bitrate massimo (SBC Dual Channel / AAC)
+load-module module-bluetooth-policy auto_switch=2 a2dp_source_selection=auto
 load-module module-bluetooth-discover
 EOF
-    echo "Aggiunti moduli Bluetooth a /etc/pulse/default.pa."
+    echo "Aggiunti moduli Bluetooth OTTIMIZZATI a /etc/pulse/default.pa."
   else
     echo "Moduli Bluetooth già presenti in /etc/pulse/default.pa, salto."
   fi
 else
-  # File non esistente: creiamo mini default.pa con solo moduli BT
+  # File non esistente: creiamo mini default.pa con solo moduli BT ottimizzati
   cat >/etc/pulse/default.pa <<'EOF'
-### Minimal PulseAudio config with Bluetooth
-
-load-module module-bluetooth-policy
+### Minimal PulseAudio config with Bluetooth Optimized
+load-module module-bluetooth-policy auto_switch=2 a2dp_source_selection=auto
 load-module module-bluetooth-discover
 EOF
   echo "Creato /etc/pulse/default.pa minimale con moduli Bluetooth."
