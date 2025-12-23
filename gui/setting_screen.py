@@ -355,11 +355,14 @@ class SettingsScreen(QWidget):
             return False
 
     def perform_app_update(self):
-        """Gestisce il flusso di aggiornamento dell'app."""
+        """
+        Tenta un aggiornamento standard. 
+        Se fallisce per conflitti, offre all'utente l'opzione di forzare il reset.
+        """
         print("Starting update process...")
-        self.check_update_button.setText("Checking Connection...")
+        self.check_update_button.setText("Checking...")
         self.check_update_button.setEnabled(False)
-        self.repaint() # Forza l'aggiornamento grafico immediato
+        self.repaint() # Aggiorna la GUI subito
 
         # 1. Controllo Internet
         if not self.check_internet_connection():
@@ -368,11 +371,11 @@ class SettingsScreen(QWidget):
             self.check_update_button.setEnabled(True)
             return
 
-        # 2. Conferma Utente
+        # 2. Conferma Iniziale (Gentile)
         reply = QMessageBox.question(
             self, 
             "Confirm Update", 
-            "Do you want to pull the latest version from GitHub?\nThis will overwrite local changes and restart the app.",
+            "Do you want to pull the latest version from GitHub?\nThe application will restart.",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
 
@@ -381,19 +384,17 @@ class SettingsScreen(QWidget):
             self.check_update_button.setEnabled(True)
             return
 
-        # 3. Esecuzione Git Pull
-        self.check_update_button.setText("Updating... Please Wait")
+        # 3. Tentativo Standard (Git Pull)
+        self.check_update_button.setText("Updating...")
         self.repaint()
 
-        try:
-            # Determina la cartella del progetto (dove gira lo script)
-            project_dir = os.path.dirname(os.path.abspath(__file__))
-            # Risaliamo di un livello se siamo dentro /gui/
-            if project_dir.endswith("gui"):
-                project_dir = os.path.dirname(project_dir)
+        # Calcolo cartella progetto
+        project_dir = os.path.dirname(os.path.abspath(__file__))
+        if project_dir.endswith("gui"):
+            project_dir = os.path.dirname(project_dir)
 
-            # Esegue git pull origin main
-            # capture_output=True ci serve per leggere eventuali errori
+        try:
+            # Esegue git pull standard
             result = subprocess.run(
                 ["git", "pull", "origin", "main"], 
                 cwd=project_dir, 
@@ -402,26 +403,67 @@ class SettingsScreen(QWidget):
             )
 
             if result.returncode == 0:
-                # Successo
+                # CASO A: Aggiornamento riuscito (o già aggiornato)
                 if "Already up to date" in result.stdout:
                     QMessageBox.information(self, "Update", "The application is already up to date!")
                     self.check_update_button.setText("Check & Update from GitHub")
                     self.check_update_button.setEnabled(True)
                 else:
-                    QMessageBox.information(self, "Update Success", "Update installed successfully!\nThe application will now restart.")
-                    # Riavvio applicazione
+                    QMessageBox.information(self, "Success", "Update installed successfully!\nRestarting...")
                     if self.main_window and hasattr(self.main_window, "restart_application"):
                         self.main_window.restart_application()
+            
             else:
-                # Errore Git (es. modifiche locali in conflitto)
-                error_msg = f"Git Error:\n{result.stderr}"
-                print(error_msg)
-                QMessageBox.critical(self, "Update Failed", f"Could not update repo.\n{result.stderr}")
+                # CASO B: Fallimento (Probabile conflitto)
+                error_output = result.stderr
+                print(f"Git Pull Failed: {error_output}")
+
+                # Chiede all'utente se vuole FORZARE
+                force_reply = QMessageBox.warning(
+                    self, 
+                    "Update Failed", 
+                    f"Standard update failed (likely due to local file changes).\n\nError:\n{error_output}\n\nDo you want to FORCE the update?\nWARNING: This will delete your local changes.",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+                )
+
+                if force_reply == QMessageBox.StandardButton.Yes:
+                    self._force_update(project_dir)
+                else:
+                    self.check_update_button.setText("Check & Update from GitHub")
+                    self.check_update_button.setEnabled(True)
+
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"An unexpected error occurred:\n{str(e)}")
+            self.check_update_button.setText("Check & Update from GitHub")
+            self.check_update_button.setEnabled(True)
+
+    def _force_update(self, project_dir):
+        """Funzione helper per eseguire il reset forzato."""
+        self.check_update_button.setText("Forcing Update...")
+        self.repaint()
+        
+        try:
+            # 1. Fetch
+            subprocess.run(["git", "fetch", "--all"], cwd=project_dir, capture_output=True)
+            # 2. Reset Hard
+            reset_result = subprocess.run(
+                ["git", "reset", "--hard", "origin/main"], 
+                cwd=project_dir, 
+                capture_output=True, 
+                text=True
+            )
+
+            if reset_result.returncode == 0:
+                QMessageBox.information(self, "Forced Update", "Forced update successful!\nLocal changes overwritten.\nRestarting...")
+                if self.main_window and hasattr(self.main_window, "restart_application"):
+                    self.main_window.restart_application()
+            else:
+                QMessageBox.critical(self, "Fatal Error", f"Could not force update.\n{reset_result.stderr}")
                 self.check_update_button.setText("Check & Update from GitHub")
                 self.check_update_button.setEnabled(True)
 
         except Exception as e:
-            QMessageBox.critical(self, "Critical Error", f"An error occurred during update:\n{str(e)}")
+            QMessageBox.critical(self, "Error", f"Error during forced update:\n{str(e)}")
             self.check_update_button.setText("Check & Update from GitHub")
             self.check_update_button.setEnabled(True)
 
