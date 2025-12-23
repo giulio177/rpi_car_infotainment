@@ -67,6 +67,7 @@ apt install -y \
   ffmpeg \
   pulseaudio pulseaudio-module-bluetooth alsa-utils \
   bluez bluez-tools pi-bluetooth bluez-firmware \
+  libfdk-aac2 libavcodec-extra \
   python3-dbus python3-gi gir1.2-glib-2.0 \
   dbus-user-session \
   libminizip1 libxkbfile1 libsnappy1v5 \
@@ -333,6 +334,30 @@ echo
 ###############################################################################
 echo ">>> Configurazione Audio (Forzatura Jack Analogico)..."
 
+# --- NUOVO BLOCCO: Ottimizzazione Qualità Audio ---
+echo "Configurazione /etc/pulse/daemon.conf per audio alta qualità..."
+cat >/etc/pulse/daemon.conf <<'EOF'
+# Priorità Processo
+high-priority = yes
+nice-level = -11
+realtime-scheduling = yes
+realtime-priority = 5
+
+# Qualità Audio (Stabile per RPi 4)
+resample-method = speex-float-1
+avoid-resampling = false
+
+# Formato e Frequenza (Match iPhone/Android standard)
+default-sample-format = s16le
+default-sample-rate = 44100
+alternate-sample-rate = 48000
+default-sample-channels = 2
+
+# Buffer (Bilanciato per Bluetooth)
+default-fragments = 4
+default-fragment-size-msec = 25
+EOF
+echo "daemon.conf ottimizzato."
 
 # 2. Reset configurazione PulseAudio (per cancellare vecchie memorie HDMI)
 rm -rf "$USER_HOME/.config/pulse"
@@ -385,7 +410,7 @@ try_connect() {
         # Evita duplicati
         if ! pactl list modules short | grep -q "source=$SRC_ID sink=$SINK"; then
             echo "Loopback: $SRC_ID -> $SINK"
-            pactl load-module module-loopback source="$SRC_ID" sink="$SINK" latency_msec=100
+            pactl load-module module-loopback source="$SRC_ID" sink="$SINK" latency_msec=200
         fi
     done
 }
