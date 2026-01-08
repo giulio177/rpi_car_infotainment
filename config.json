@@ -2,7 +2,7 @@
     "theme": "dark",
     "obd_port": null,
     "obd_baudrate": null,
-    "obd_enabled": false,
+    "obd_enabled": true,
     "radio_type": "none",
     "radio_i2c_address": null,
     "radio_enabled": false,
@@ -12,7 +12,7 @@
         600
     ],
     "show_cursor": true,
-    "position_bottom_right": true,
+    "position_bottom_right": false,
     "ui_scale_mode": "auto",
     "developer_mode": false,
     "ui_render_mode": "native",

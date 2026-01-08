@@ -2,6 +2,7 @@
 
 import socket # <--- AGGIUNGI QUESTO
 import os     # <--- AGGIUNGI QUESTO
+import sys
 import subprocess
 import threading # Importato per le operazioni in background
 import psutil
@@ -368,13 +369,27 @@ class SettingsScreen(QWidget):
         self.update_info_label.setStyleSheet("color: gray; font-size: 12px;")
         self.update_layout.addWidget(self.update_info_label)
 
-        self.check_update_button = QPushButton("Check & Update from GitHub")
-        self.check_update_button.setMinimumHeight(45) # Bello grande per il touch
+        # Update Buttons Layout
+        self.update_buttons_layout = QHBoxLayout()
+        
+        self.check_update_button = QPushButton("Update (GitHub)")
+        self.check_update_button.setMinimumHeight(45)
         self.check_update_button.clicked.connect(self.perform_app_update)
-        self.update_layout.addWidget(self.check_update_button)
+        
+        self.revert_update_button = QPushButton("Revert Version")
+        self.revert_update_button.setMinimumHeight(45)
+        self.revert_update_button.setStyleSheet("background-color: #666; color: white;")
+        self.revert_update_button.clicked.connect(self.revert_app_update)
+        
+        self.update_buttons_layout.addWidget(self.check_update_button)
+        self.update_buttons_layout.addWidget(self.revert_update_button)
+        self.update_layout.addLayout(self.update_buttons_layout)
 
         self.scroll_layout.addWidget(self.update_group)
 
+        # Add a large spacer at the bottom so the last setting isn't covered by the floating button
+        self.scroll_layout.addSpacing(100)
+        
         # Add stretch at the end of the scroll content
         self.scroll_layout.addStretch(1)
         # Set the content widget for the scroll area
@@ -384,20 +399,16 @@ class SettingsScreen(QWidget):
 
         # AirPlay info button moved to AirPlay screen settings section
 
-        # --- Button Layout ---
-        self.button_layout = QHBoxLayout()
-        # Spacing set by update_scaling
-        self.save_button = QPushButton("Apply Settings")
+        # --- Floating "Apply Settings" Button ---
+        # Created as a child of 'self' (the overlay), NOT added to any layout.
+        self.save_button = QPushButton("Apply Settings", self)
         self.save_button.setObjectName("settingsSaveButton")
+        self.save_button.setFixedSize(140, 45) # Slightly smaller than before
         self.save_button.clicked.connect(self.apply_settings)
-        self.restart_button = QPushButton("Apply and Restart")
-        self.restart_button.setObjectName("settingsRestartButton")
-        self.restart_button.clicked.connect(self.apply_and_restart)
-        self.button_layout.addStretch(1)
-        self.button_layout.addWidget(self.save_button)
-        self.button_layout.addWidget(self.restart_button)
-        self.button_layout.addStretch(1)
-        self.main_layout.addLayout(self.button_layout)
+        
+        # Initial position (will be updated by resizeEvent)
+        self.save_button.show()
+        self.save_button.raise_() # Ensure it stays on top
 
         # ## MODIFICATO: Collegamento del segnale e avvio del timer stabile ##
         self.info_updated.connect(self.update_info_labels)
@@ -405,6 +416,17 @@ class SettingsScreen(QWidget):
         self.info_update_timer.timeout.connect(self.start_info_update_thread)
         self.info_update_timer.start(10000) # Aggiorna ogni 10 secondi per ridurre il carico
         self.start_info_update_thread() # Chiamata iniziale
+
+    def resizeEvent(self, event):
+        """Handle resize events to position the floating button."""
+        super().resizeEvent(event)
+        if hasattr(self, 'save_button'):
+            # Position: Bottom Right with margin
+            margin = 20
+            x = self.width() - self.save_button.width() - margin
+            y = self.height() - self.save_button.height() - margin
+            self.save_button.move(x, y)
+            self.save_button.raise_() # Ensure top z-order
 
     def check_internet_connection(self):
         """Tenta di connettersi a GitHub per verificare l'internet."""
@@ -471,6 +493,21 @@ class SettingsScreen(QWidget):
             self.power_off_button.setText("POWER CUT")
             self.power_off_button.setEnabled(False)
 
+    def _install_dependencies(self, project_dir):
+        """Installs dependencies from requirements.txt."""
+        req_file = os.path.join(project_dir, "requirements.txt")
+        if os.path.exists(req_file):
+            print("Installing dependencies...")
+            try:
+                subprocess.run(
+                    [sys.executable, "-m", "pip", "install", "-r", req_file], 
+                    check=True, 
+                    capture_output=True
+                )
+                print("Dependencies installed successfully.")
+            except Exception as e:
+                print(f"Error installing dependencies: {e}")
+
     def perform_app_update(self):
         """
         Tenta un aggiornamento standard. 
@@ -526,6 +563,7 @@ class SettingsScreen(QWidget):
                     self.check_update_button.setText("Check & Update from GitHub")
                     self.check_update_button.setEnabled(True)
                 else:
+                    self._install_dependencies(project_dir) # Install dependencies
                     QMessageBox.information(self, "Success", "Update installed successfully!\nRestarting...")
                     if self.main_window and hasattr(self.main_window, "restart_application"):
                         self.main_window.restart_application()
@@ -571,6 +609,7 @@ class SettingsScreen(QWidget):
             )
 
             if reset_result.returncode == 0:
+                self._install_dependencies(project_dir) # Install dependencies
                 QMessageBox.information(self, "Forced Update", "Forced update successful!\nLocal changes overwritten.\nRestarting...")
                 if self.main_window and hasattr(self.main_window, "restart_application"):
                     self.main_window.restart_application()
@@ -583,6 +622,79 @@ class SettingsScreen(QWidget):
             QMessageBox.critical(self, "Error", f"Error during forced update:\n{str(e)}")
             self.check_update_button.setText("Check & Update from GitHub")
             self.check_update_button.setEnabled(True)
+
+    def revert_app_update(self):
+        """Reverts the application to the previous commit/version."""
+        # Calcolo cartella progetto
+        project_dir = os.path.dirname(os.path.abspath(__file__))
+        if project_dir.endswith("gui"):
+            project_dir = os.path.dirname(project_dir)
+
+        reply = QMessageBox.question(
+            self,
+            "Revert Version",
+            "Are you sure you want to revert to the previous version?\nThis will undo the last update.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+
+        if reply == QMessageBox.StandardButton.No:
+            return
+
+        self.revert_update_button.setText("Reverting...")
+        self.revert_update_button.setEnabled(False)
+        self.repaint()
+
+        try:
+            # Attempt to reset to the previous state (ORIG_HEAD is usually set before a merge/pull)
+            # Alternatively, HEAD@{1} refers to the state before the last action.
+            # Using HEAD@{1} is safer for "undoing" the last git command in the reflog.
+            
+            result = subprocess.run(
+                ["git", "reset", "--hard", "HEAD@{1}"],
+                cwd=project_dir,
+                capture_output=True,
+                text=True
+            )
+
+            if result.returncode == 0:
+                self._install_dependencies(project_dir) # Install dependencies
+                QMessageBox.information(
+                    self, 
+                    "Revert Successful", 
+                    "Successfully reverted to previous version.\nThe application will now restart."
+                )
+                if self.main_window and hasattr(self.main_window, "restart_application"):
+                    self.main_window.restart_application()
+            else:
+                error_msg = result.stderr
+                if "Reflog is not enabled" in error_msg or "HEAD@{1}" in error_msg:
+                     # Fallback to HEAD^ (parent commit) if reflog fails
+                     print("Reflog failed, trying HEAD^")
+                     result = subprocess.run(
+                        ["git", "reset", "--hard", "HEAD^"],
+                        cwd=project_dir,
+                        capture_output=True,
+                        text=True
+                    )
+                     if result.returncode == 0:
+                        self._install_dependencies(project_dir) # Install dependencies
+                        QMessageBox.information(
+                            self, 
+                            "Revert Successful", 
+                            "Successfully reverted to previous commit.\nThe application will now restart."
+                        )
+                        if self.main_window and hasattr(self.main_window, "restart_application"):
+                            self.main_window.restart_application()
+                        return
+
+                QMessageBox.critical(self, "Revert Failed", f"Could not revert version:\n{error_msg}")
+                self.revert_update_button.setText("Revert Version")
+                self.revert_update_button.setEnabled(True)
+
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"An unexpected error occurred:\n{str(e)}")
+            self.revert_update_button.setText("Revert Version")
+            self.revert_update_button.setEnabled(True)
 
     # ## NUOVO: Funzione per avviare il thread ##
     def start_info_update_thread(self):
@@ -645,9 +757,6 @@ class SettingsScreen(QWidget):
         )
         scaled_form_h_spacing = scale_value(self.base_form_h_spacing, scale_factor)
         scaled_form_v_spacing = scale_value(self.base_form_v_spacing, scale_factor)
-        scaled_button_layout_spacing = scale_value(
-            self.base_button_layout_spacing, scale_factor
-        )
 
         # Apply to MAIN layouts
         self.main_layout.setContentsMargins(
@@ -657,9 +766,6 @@ class SettingsScreen(QWidget):
             scaled_main_margin,
         )
         self.main_layout.setSpacing(scaled_spacing)
-        self.button_layout.setSpacing(
-            scaled_button_layout_spacing
-        )  # Scale button spacing
 
         # Apply to the layout INSIDE the scroll area
         self.scroll_layout.setContentsMargins(0, 0, 0, 0)
@@ -839,58 +945,39 @@ class SettingsScreen(QWidget):
                 print("Radio connection settings saved, but Radio is disabled.")
 
         # Feedback logic
-        if show_feedback:
-            if settings_changed:
-                status_message = "Settings applied."
-                if restart_required:
-                    status_message += (
-                        " Restart required for resolution, cursor, or position changes."
-                    )
-                print(status_message)
-                self.save_button.setText("Applied!")
-                self.restart_button.setText("Applied!")
-                self.save_button.setEnabled(False)
-                self.restart_button.setEnabled(False)
-                QTimer.singleShot(
-                    2000,
-                    lambda: (
-                        self.save_button.setText("Apply Settings"),
-                        self.restart_button.setText("Apply and Restart"),
-                        self.save_button.setEnabled(True),
-                        self.restart_button.setEnabled(True),
-                    ),
+        if settings_changed:
+            if restart_required:
+                reply = QMessageBox.question(
+                    self, 
+                    "Restart Required", 
+                    "Settings saved. Some changes require a restart to take effect.\nDo you want to restart now?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
                 )
+                
+                if reply == QMessageBox.StandardButton.Yes:
+                    if self.main_window and hasattr(self.main_window, "restart_application"):
+                        self.main_window.restart_application()
+                    return True
+                else:
+                    self.save_button.setText("Saved (Restart Needed)")
             else:
-                print("Settings applied (No changes detected).")
-                self.save_button.setText("No Changes")
-                self.restart_button.setText("No Changes")
-                self.save_button.setEnabled(False)
-                self.restart_button.setEnabled(False)
-                QTimer.singleShot(
-                    1500,
-                    lambda: (
-                        self.save_button.setText("Apply Settings"),
-                        self.restart_button.setText("Apply and Restart"),
-                        self.save_button.setEnabled(True),
-                        self.restart_button.setEnabled(True),
-                    ),
-                )
+                self.save_button.setText("Applied!")
+        else:
+            self.save_button.setText("No Changes")
+
+        self.save_button.setEnabled(False)
+        
+        # Reset button state after delay (shortened)
+        QTimer.singleShot(
+            500,
+            lambda: (
+                self.save_button.setText("Apply Settings"),
+                self.save_button.setEnabled(True),
+            ),
+        )
 
         if self.main_window and hasattr(self.main_window, "refresh_html_settings"):
             self.main_window.refresh_html_settings()
         return restart_required
-
-    def apply_and_restart(self):
-        """Applies settings and then initiates the application restart sequence."""
-        print("Apply and Restart requested.")
-        # Apply settings first (suppress the normal feedback message)
-        self.apply_settings(show_feedback=False)
-        # Trigger restart (always happens now, even if no settings changed)
-        if self.main_window and hasattr(self.main_window, "restart_application"):
-            self.main_window.restart_application()
-        else:
-            print(
-                "ERROR: Cannot restart. MainWindow reference is invalid or missing 'restart_application' method."
-            )
 
     # AirPlay info popup method moved to AirPlay screen

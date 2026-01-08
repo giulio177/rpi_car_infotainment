@@ -4,7 +4,7 @@ import time
 import traceback
 import dbus
 from PyQt6.QtCore import QThread, pyqtSignal, QVariant, QObject, pyqtSlot
-from PyQt6.QtDBus import QDBusConnection, QDBusInterface, QDBusMessage, QDBusVariant
+from PyQt6.QtDBus import QDBusConnection, QDBusInterface, QDBusMessage, QDBusVariant, QDBusObjectPath
 
 # Constants for BlueZ D-Bus
 BLUEZ_SERVICE = "org.bluez"
@@ -59,6 +59,7 @@ class BluetoothManager(QThread):
     battery_updated = pyqtSignal(object)  # Use object for None support
     media_properties_changed = pyqtSignal(dict)
     playback_status_changed = pyqtSignal(str)
+    devices_discovered = pyqtSignal(list) # List of dictionaries {path, name, address, paired, connected, trusted}
 
     def __init__(self):
         super().__init__()
@@ -75,6 +76,7 @@ class BluetoothManager(QThread):
         self.media_properties = {}
         self.playback_status = "stopped"
         self.dbus_receiver = QObject()  # Potentially needed if sender context required
+        self.scanning = False
 
     def find_adapter(self):
         print("DEBUG: BluetoothManager.find_adapter - Entered")
@@ -405,6 +407,152 @@ class BluetoothManager(QThread):
     ):
         print("!!! on_device_properties_changed called unexpectedly !!!")
         pass
+
+    # --- Scanning and Device Management Methods ---
+
+    def start_scan(self):
+        """Starts device discovery."""
+        if not self.adapter_path:
+            self.adapter_path = self.find_adapter()
+        
+        if not self.adapter_path:
+            print("BT Manager: No adapter found to start scan.")
+            return False
+
+        try:
+            adapter = QDBusInterface(BLUEZ_SERVICE, self.adapter_path, ADAPTER_IFACE, self.bus)
+            reply = adapter.call("StartDiscovery")
+            if reply.type() != QDBusMessage.MessageType.ErrorMessage:
+                print("BT Manager: Scanning started.")
+                self.scanning = True
+                return True
+            else:
+                print(f"BT Manager: Failed to start scan: {reply.errorMessage()}")
+                return False
+        except Exception as e:
+            print(f"BT Manager: Exception starting scan: {e}")
+            return False
+
+    def stop_scan(self):
+        """Stops device discovery."""
+        if not self.adapter_path:
+            return False
+
+        try:
+            adapter = QDBusInterface(BLUEZ_SERVICE, self.adapter_path, ADAPTER_IFACE, self.bus)
+            reply = adapter.call("StopDiscovery")
+            if reply.type() != QDBusMessage.MessageType.ErrorMessage:
+                print("BT Manager: Scanning stopped.")
+                self.scanning = False
+                return True
+            else:
+                # "No discovery started" is a common error, treat as success
+                if "No discovery started" in reply.errorMessage():
+                     self.scanning = False
+                     return True
+                print(f"BT Manager: Failed to stop scan: {reply.errorMessage()}")
+                return False
+        except Exception as e:
+            print(f"BT Manager: Exception stopping scan: {e}")
+            return False
+
+    def get_available_devices(self):
+        """Returns a list of all known devices (paired or discovered)."""
+        devices = []
+        try:
+            om = QDBusInterface(BLUEZ_SERVICE, "/", DBUS_OM_IFACE, self.bus)
+            reply = om.call("GetManagedObjects")
+            
+            if reply.type() == QDBusMessage.MessageType.ErrorMessage:
+                return []
+
+            objects = qvariant_dict_to_python(reply.arguments()[0])
+            
+            for path, interfaces in objects.items():
+                if DEVICE_IFACE in interfaces:
+                    props = interfaces.get(DEVICE_IFACE, {})
+                    address = props.get("Address", "")
+                    name = props.get("Name", props.get("Alias", address))
+                    paired = props.get("Paired", False)
+                    connected = props.get("Connected", False)
+                    trusted = props.get("Trusted", False)
+                    rssi = props.get("RSSI", -100) # Signal strength
+
+                    devices.append({
+                        "path": path,
+                        "name": name,
+                        "address": address,
+                        "paired": paired,
+                        "connected": connected,
+                        "trusted": trusted,
+                        "rssi": rssi
+                    })
+            
+            # Sort by connected (first), then paired (second), then RSSI (desc)
+            devices.sort(key=lambda x: (not x['connected'], not x['paired'], -x['rssi']))
+            return devices
+
+        except Exception as e:
+            print(f"BT Manager: Error getting available devices: {e}")
+            return []
+
+    def pair_device(self, device_path):
+        """Pairs with a device."""
+        try:
+            device = QDBusInterface(BLUEZ_SERVICE, device_path, DEVICE_IFACE, self.bus)
+            print(f"BT Manager: Pairing with {device_path}...")
+            reply = device.call("Pair")
+            
+            if reply.type() != QDBusMessage.MessageType.ErrorMessage:
+                print(f"BT Manager: Pair request sent/successful for {device_path}")
+                # Often good to set Trusted after pairing
+                props = QDBusInterface(BLUEZ_SERVICE, device_path, DBUS_PROP_IFACE, self.bus)
+                props.call("Set", DEVICE_IFACE, "Trusted", QDBusVariant(True))
+                return True, "Pairing initiated"
+            else:
+                err = reply.errorMessage()
+                print(f"BT Manager: Pairing failed: {err}")
+                return False, err
+        except Exception as e:
+            return False, str(e)
+
+    def connect_device(self, device_path):
+        """Connects to a device."""
+        try:
+            device = QDBusInterface(BLUEZ_SERVICE, device_path, DEVICE_IFACE, self.bus)
+            print(f"BT Manager: Connecting to {device_path}...")
+            # Connect is often blocking, consider running in worker if UI freezes
+            reply = device.call("Connect")
+            
+            if reply.type() != QDBusMessage.MessageType.ErrorMessage:
+                print(f"BT Manager: Connected to {device_path}")
+                return True, "Connected"
+            else:
+                err = reply.errorMessage()
+                print(f"BT Manager: Connection failed: {err}")
+                return False, err
+        except Exception as e:
+            return False, str(e)
+            
+    def remove_device_dbus(self, device_path):
+        """Removes a device using D-Bus Adapter.RemoveDevice."""
+        if not self.adapter_path:
+             return False, "No adapter"
+             
+        try:
+            adapter = QDBusInterface(BLUEZ_SERVICE, self.adapter_path, ADAPTER_IFACE, self.bus)
+            print(f"BT Manager: Removing device {device_path}...")
+            reply = adapter.call("RemoveDevice", QDBusObjectPath(device_path))
+            
+            if reply.type() != QDBusMessage.MessageType.ErrorMessage:
+                print(f"BT Manager: Device {device_path} removed.")
+                return True, "Removed"
+            else:
+                err = reply.errorMessage()
+                print(f"BT Manager: Removal failed: {err}")
+                return False, err
+        except Exception as e:
+            return False, str(e)
 
     # --- run Method (Polling Implementation) ---
     def run(self):

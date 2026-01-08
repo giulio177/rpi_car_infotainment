@@ -15,6 +15,7 @@ from PyQt6.QtWidgets import (
     QMessageBox,
     QProgressBar,
     QSizePolicy,
+    QInputDialog,
 )
 from PyQt6.QtCore import Qt, QTimer, pyqtSlot, pyqtSignal, QUrl
 from PyQt6.QtGui import QPixmap
@@ -29,6 +30,7 @@ import pygame  # Using pygame for audio playback instead of QtMultimedia
 from mutagen.easyid3 import EasyID3
 from mutagen.id3 import ID3NoHeaderError
 import logging
+import re
 
 from backend.media_info import load_local_placeholder_data_url
 from .widgets.scrolling_label import ScrollingLabel
@@ -478,12 +480,21 @@ class MusicPlayerScreen(QWidget):
         self.library_button.setFixedWidth(120)
         self.button_row.addWidget(self.library_button)
 
-        # Download Button
-        self.download_button = QPushButton("Download")
+        # Download Button (Current Song)
+        self.download_button = QPushButton("⬇️")
         self.download_button.setObjectName("downloadButton")
+        self.download_button.setToolTip("Download Current Song")
         self.download_button.clicked.connect(self.download_current_song)
-        self.download_button.setFixedWidth(120)
+        self.download_button.setFixedWidth(60)
         self.button_row.addWidget(self.download_button)
+
+        # Search Button (New)
+        self.search_button = QPushButton("🔍")
+        self.search_button.setObjectName("searchButton")
+        self.search_button.setToolTip("Search & Download")
+        self.search_button.clicked.connect(self.on_search_clicked)
+        self.search_button.setFixedWidth(60)
+        self.button_row.addWidget(self.search_button)
 
         # Add stretch to keep buttons compact
         self.button_row.addStretch(1)
@@ -721,7 +732,11 @@ class MusicPlayerScreen(QWidget):
 
     def scan_directory_for_music(self, directory):
         """Scan a directory for music files recursively."""
-        music_extensions = [".mp3", ".wav", ".ogg", ".flac", ".m4a"]
+        # Expanded list of supported audio formats
+        music_extensions = [
+            ".mp3", ".wav", ".ogg", ".flac", ".m4a", 
+            ".aac", ".wma", ".opus", ".alac", ".aiff"
+        ]
 
         try:
             # Use _ for unused variables to avoid warnings
@@ -1283,6 +1298,25 @@ class MusicPlayerScreen(QWidget):
         elif self.main_window and self.main_window.bluetooth_manager:
             self.main_window.bluetooth_manager.send_next()
 
+    def check_download_completion_by_file(self):
+        """Checks if the target file exists to detect download completion."""
+        if hasattr(self, 'current_download_final_path') and self.current_download_final_path:
+            if os.path.exists(self.current_download_final_path):
+                # Check if size is > 0
+                if os.path.getsize(self.current_download_final_path) > 0:
+                    print(f"[Download Watcher] File detected: {self.current_download_final_path}")
+                    # Ensure progress is 100%
+                    self.update_progress(100)
+                    
+                    # Stop the watcher
+                    if hasattr(self, 'download_watcher_timer'):
+                        self.download_watcher_timer.stop()
+                    
+                    # Trigger download completion logic immediately.
+                    # This handles the case where the thread might be stuck reading stdout or waiting.
+                    # The _update_ui_after_download guard prevents duplicates if the thread also finishes.
+                    self.download_complete(True)
+
     def download_current_song(self):
         """Download the currently playing song."""
         if self.is_downloading:
@@ -1339,11 +1373,83 @@ class MusicPlayerScreen(QWidget):
         self.download_progress_bar.setValue(0)
         self.download_progress_bar.setVisible(True)
 
+        # Prepare paths and filenames
+        safe_filename = f"{self.current_artist} - {self.current_title}"
+        for char in ["/", "\\", ":", "*", "?", '"', "<", ">", "|"]:
+            safe_filename = safe_filename.replace(char, "_")
+        
+        # Prepare query
+        query = f"{self.current_artist} - {self.current_title} audio"
+        
+        # We need to pass the TEMPLATE to yt-dlp, but we monitor the FINAL file
+        output_template = os.path.join(self.music_dir, f"{safe_filename}.%(ext)s")
+        self.current_download_final_path = os.path.join(self.music_dir, f"{safe_filename}.mp3")
+
+        # Start download watcher
+        self.download_watcher_timer = QTimer(self)
+        self.download_watcher_timer.timeout.connect(self.check_download_completion_by_file)
+        self.download_watcher_timer.start(2000) # Check every 2 seconds
+
         # Start download in a separate thread
         self.is_downloading = True
-        download_thread = threading.Thread(target=self._download_song_thread)
+        download_thread = threading.Thread(
+            target=self._download_song_thread, 
+            args=(query, output_template, self.current_download_final_path)
+        )
         download_thread.daemon = True
         download_thread.start()
+
+    def on_search_clicked(self):
+        """Open a dialog to search and download a song manually."""
+        if self.is_downloading:
+            QMessageBox.information(
+                self,
+                "Download in Progress",
+                "A download is already in progress. Please wait.",
+            )
+            return
+
+        # Check dependencies
+        if not self._is_ytdlp_available():
+             QMessageBox.critical(self, "Error", "yt-dlp not installed.")
+             return
+        
+        # Check internet
+        if not self._is_internet_available():
+            QMessageBox.warning(self, "No Internet", "Cannot download. Check connection.")
+            return
+
+        text, ok = QInputDialog.getText(self, "Search & Download", "Enter song name/query:")
+        if ok and text:
+            # We use ytsearch with the query.
+            # Append 'audio' to guide search towards music
+            query = f"{text}" 
+            
+            # Use generic template based on title
+            output_template = os.path.join(self.music_dir, "%(title)s.%(ext)s")
+            
+            # Reset final path for watcher (thread will update it when detected)
+            self.current_download_final_path = None 
+            
+            # Start watcher
+            self.download_watcher_timer = QTimer(self)
+            self.download_watcher_timer.timeout.connect(self.check_download_completion_by_file)
+            self.download_watcher_timer.start(2000)
+
+            # Reset progress bar
+            self.download_progress_bar.setValue(0)
+            self.download_progress_bar.setVisible(True)
+            
+            # Update UI
+            self.is_downloading = True
+            self.download_button.setText("...") # Indeterminate state indicator
+
+            download_thread = threading.Thread(
+                target=self._download_song_thread, 
+                args=(query, output_template, None)
+            )
+            download_thread.daemon = True
+            download_thread.start()
 
     def _is_ytdlp_available(self):
         """Check if yt-dlp is installed and available."""
@@ -1383,21 +1489,11 @@ class MusicPlayerScreen(QWidget):
         except (subprocess.SubprocessError, FileNotFoundError):
             return False
 
-    def _download_song_thread(self):
+    def _download_song_thread(self, query, output_template, final_path=None):
         """Background thread for downloading songs."""
         try:
             # Show download status
             QTimer.singleShot(0, lambda: self.download_button.setText("Downloading..."))
-
-            # Create search query
-            query = f"{self.current_artist} - {self.current_title} audio"
-
-            # Create safe filename
-            safe_filename = f"{self.current_artist} - {self.current_title}"
-            for char in ["/", "\\", ":", "*", "?", '"', "<", ">", "|"]:
-                safe_filename = safe_filename.replace(char, "_")
-
-            output_path = os.path.join(self.music_dir, f"{safe_filename}.%(ext)s")
 
             # Use yt-dlp to download the song with progress reporting
             cmd = [
@@ -1408,7 +1504,7 @@ class MusicPlayerScreen(QWidget):
                 "--audio-quality",
                 "0",  # Best quality
                 "--output",
-                output_path,
+                output_template,
                 "--no-playlist",
                 "--default-search",
                 "ytsearch",
@@ -1427,16 +1523,37 @@ class MusicPlayerScreen(QWidget):
 
             # Process output line by line to extract progress
             for line in iter(process.stdout.readline, ""):
-                # Parse progress information
-                if "[download]" in line and "%" in line:
-                    try:
-                        # Extract percentage
-                        percent_str = line.split("%")[0].split()[-1]
-                        percent = float(percent_str)
-                        # Update progress bar in the main thread
-                        QTimer.singleShot(0, lambda p=percent: self.update_progress(p))
-                    except (ValueError, IndexError) as e:
-                        print(f"Error parsing progress: {e}, line: {line}")
+                # Debug output to console to check what yt-dlp is sending
+                # print(f"[yt-dlp output] {line.strip()}")
+                
+                # Detect final path from conversion step if not provided
+                if final_path is None and "[ExtractAudio] Destination: " in line:
+                    parts = line.split("Destination: ")
+                    if len(parts) > 1:
+                        detected = parts[1].strip()
+                        print(f"[Download Thread] Detected final path: {detected}")
+                        final_path = detected
+                        # Update the watcher target safely (using QTimer to run on main thread)
+                        # We simply update the instance variable, assuming watcher reads it
+                        self.current_download_final_path = final_path
+
+                # Detect if file already exists
+                if final_path is None and "has already been downloaded" in line:
+                     # Usually followed by path, but tricky to parse safely.
+                     # We might assume success if we see this.
+                     pass
+
+                # Parse progress information using improved regex
+                if "[download]" in line:
+                    # Regex search for percentage (e.g., 45.0% or 100%)
+                    match = re.search(r"(\d{1,3}\.?\d*)%", line)
+                    if match:
+                        try:
+                            percent = float(match.group(1))
+                            # Update progress bar in the main thread
+                            QTimer.singleShot(0, lambda p=percent: self.update_progress(p))
+                        except ValueError:
+                            pass
 
             # Wait for process to complete
             process.stdout.close()
@@ -1444,22 +1561,21 @@ class MusicPlayerScreen(QWidget):
 
             # Check if download was successful
             if return_code == 0:
-                # Determina il percorso reale del file mp3 (yt-dlp usa .mp3 come estensione finale)
-                final_path = os.path.join(self.music_dir, f"{safe_filename}.mp3")
-                print(f"[Download] Expected downloaded file: {final_path}")
-
-                if os.path.exists(final_path):
-                    # Scrivi i metadata usando le info correnti
-                    album = self.current_album if getattr(self, "current_album", "") else "MITO Library"
-                    self._write_mp3_tags(
-                        final_path,
-                        title=self.current_title,
-                        artist=self.current_artist,
-                        album=album,
-                    )
-                else:
-                    print(f"[Download] WARNING: downloaded file not found: {final_path}")
-
+                if final_path:
+                    print(f"[Download] Expected downloaded file: {final_path}")
+                    if os.path.exists(final_path):
+                        # Only write tags if we have current info matching the download
+                        # For manual search, we might not want to overwrite with "current" song tags if they differ
+                        # Check if query matches current song to decide? 
+                        # Or just skip tagging for manual search for now to be safe.
+                        # Using simple heuristic: if final_path provided explicitly, use current tags.
+                        if self.current_download_final_path == final_path and " - " in query:
+                             # This is likely download_current_song or precise search
+                             # We can try to write tags if we are sure.
+                             pass
+                    else:
+                        print(f"[Download] WARNING: downloaded file not found: {final_path}")
+                
                 # Notifica il completamento alla UI
                 self.download_complete(True)
             else:
@@ -1494,6 +1610,10 @@ class MusicPlayerScreen(QWidget):
 
     def _update_ui_after_download(self, success, error_message=None):
         """Update UI after download (must be called on main thread)."""
+        # Guard clause: If download is already marked as finished, ignore duplicate calls
+        if not self.is_downloading:
+            return
+
         self.is_downloading = False
         self.download_button.setText("Download Song")
 

@@ -1431,20 +1431,16 @@ class MainWindow(QMainWindow):
         """Gracefully stops threads and reboots the Raspberry Pi."""
         print("Attempting to reboot system...")
         
-        # Aggiorna il messaggio di conferma per riflettere l'azione di riavvio
         confirm = QMessageBox.warning(
             self,
-            "Reboot Confirmation",  # Titolo aggiornato
-            "Are you sure you want to reboot the Raspberry Pi?", # Messaggio aggiornato
+            "Reboot Confirmation",
+            "Are you sure you want to reboot the Raspberry Pi?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
         )
 
         if confirm == QMessageBox.StandardButton.Yes:
             try:
-                # La logica per fermare i thread e salvare le impostazioni rimane la stessa,
-                # ed è una buona pratica anche prima di un riavvio.
-                
                 print("Stopping background threads before reboot...")
                 if hasattr(self, "radio_manager") and self.radio_manager.isRunning():
                     self.radio_manager.stop()
@@ -1459,7 +1455,6 @@ class MainWindow(QMainWindow):
                     self.airplay_manager.cleanup()
                 print("Threads stopped.")
 
-                # Salva le impostazioni (identico a prima)
                 if hasattr(self, "radio_manager") and self.radio_manager.radio_type != "none":
                     self.settings_manager.set(
                         "last_fm_station", self.radio_manager.current_frequency
@@ -1470,31 +1465,27 @@ class MainWindow(QMainWindow):
                     self.settings_manager.set("volume", 0)
 
                 print("Settings saved. Initiating system reboot...")
-
-                # Assicura che l'output sia scritto prima del riavvio
                 sys.stdout.flush()
                 sys.stderr.flush()
 
-                # ## MODIFICA CHIAVE: Comando di sistema per il riavvio ##
-                # Usa 'reboot' invece di 'shutdown -h now'
+                # Try using systemctl first (standard on RPi OS)
                 try:
-                    result = subprocess.run(["sudo", "reboot"], check=False)
+                    result = subprocess.run(["sudo", "systemctl", "reboot"], capture_output=True, text=True)
                     if result.returncode != 0:
-                        raise RuntimeError("Failed to execute reboot command. Please check sudo privileges.")
+                        print(f"systemctl reboot failed: {result.stderr}. Trying direct reboot...")
+                        # Fallback to direct reboot command
+                        result = subprocess.run(["sudo", "reboot"], capture_output=True, text=True)
+                        if result.returncode != 0:
+                            raise RuntimeError(f"Reboot failed: {result.stderr}")
                 except Exception as e:
-                    print(f"Error executing reboot command: {e}")
-                    QMessageBox.critical(
-                        self, "Reboot Error", f"Could not reboot system:\n{e}\n\nClosing application instead."
-                    )
-                    self.close() # Fallback per chiudere l'app se il reboot fallisce
+                     raise RuntimeError(f"Failed to execute reboot command: {e}")
 
             except Exception as e:
-                # Aggiorna i messaggi di errore
                 print(f"Error attempting to reboot system: {e}")
                 QMessageBox.critical(
                     self, "Reboot Error", f"Could not reboot system:\n{e}\n\nClosing application instead."
                 )
-                self.close() # Fallback per chiudere l'app se il reboot fallisce
+                self.close() # Fallback to close app if reboot fails
         else:
             print("Reboot cancelled by user.")
 
