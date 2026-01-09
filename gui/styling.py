@@ -100,7 +100,7 @@ def get_light_theme(scale_factor=1.0):
     QPushButton {{
         background-color: #dcdcdc;
         border: {scaled_border}px solid #b0b0b0;
-        padding: {scale_value(base_padding_px * 0.6, scale_factor)}px {scale_value(base_padding_px * 1.2, scale_factor)}px; /* Adjusted padding */
+        padding: {scale_value(base_padding_px * 0.6, scale_factor)}px {scale_value(base_padding_px * 0.6, scale_factor)}px; /* Symmetric padding */
         border-radius: {scaled_border_radius}px;
         min-height: {scaled_button_min_height}px;
         outline: none; /* Remove focus outline */
@@ -321,8 +321,7 @@ def get_light_theme(scale_factor=1.0):
 
     /* --- Settings Screen --- */
      QPushButton#settingsSaveButton, QPushButton#settingsRestartButton {{
-        padding: {scale_value(base_padding_px * 0.9, scale_factor)}px {scale_value(base_padding_px * 2.0, scale_factor)}px;
-        min-width: {scale_value(200, scale_factor)}px; /* Adjusted base size */
+        padding: {scale_value(base_padding_px * 0.9, scale_factor)}px {scale_value(base_padding_px * 0.9, scale_factor)}px;
         font-size: {scale_value(base_font_size_pt + 2, scale_factor)}pt; /* Adjusted base size */
         margin-top: {scaled_padding // 2}px; margin-bottom: {scaled_padding // 2}px;
      }}
@@ -646,7 +645,7 @@ def get_dark_theme(scale_factor=1.0):
     QPushButton {{
         background-color: #505050;
         border: {scaled_border}px solid #707070; color: #e0e0e0;
-        padding: {scale_value(base_padding_px * 0.6, scale_factor)}px {scale_value(base_padding_px * 1.2, scale_factor)}px;
+        padding: {scale_value(base_padding_px * 0.6, scale_factor)}px {scale_value(base_padding_px * 0.6, scale_factor)}px;
         border-radius: {scaled_border_radius}px;
         min-height: {scaled_button_min_height}px;
         outline: none; /* Remove focus outline */
@@ -864,8 +863,7 @@ def get_dark_theme(scale_factor=1.0):
 
     /* --- Settings Screen --- */
     QPushButton#settingsSaveButton, QPushButton#settingsRestartButton {{
-        padding: {scale_value(base_padding_px * 0.9, scale_factor)}px {scale_value(base_padding_px * 2.0, scale_factor)}px;
-        min-width: {scale_value(200, scale_factor)}px;
+        padding: {scale_value(base_padding_px * 0.9, scale_factor)}px {scale_value(base_padding_px * 0.9, scale_factor)}px;
         font-size: {scale_value(base_font_size_pt + 2, scale_factor)}pt;
         margin-top: {scaled_padding // 2}px; margin-bottom: {scaled_padding // 2}px;
     }}

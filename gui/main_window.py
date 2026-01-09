@@ -875,6 +875,12 @@ class MainWindow(QMainWindow):
         elif action == "refresh_state":
             self.refresh_html_settings()
             self._push_html_init_state()
+        elif action == "update_app":
+            if hasattr(self, "settings_screen"):
+                self.settings_screen.perform_app_update()
+        elif action == "revert_app":
+            if hasattr(self, "settings_screen"):
+                self.settings_screen.revert_app_update()
 
     def _handle_html_media_control(self, payload):
         action = (payload or {}).get("action")
@@ -926,6 +932,30 @@ class MainWindow(QMainWindow):
         self._set_active_screen(self.music_player_screen)
         # Chiedi al MusicPlayerScreen di riprodurre il file
         self.music_player_screen.play_file_from_path(file_path)
+
+    def _handle_html_search_music(self, payload):
+        """HTML: richiesta di ricerca musica."""
+        print("[HTML] Search music requested")
+        if hasattr(self, "music_player_screen") and self.music_player_screen:
+            # We open the native dialog on top of the HTML view
+            self.music_player_screen.on_search_clicked()
+
+    def _handle_html_edit_audio(self, payload):
+        """HTML: richiesta di editing audio."""
+        filename = payload.get("filename")
+        if not filename:
+            print("[HTML] Edit audio requested but no filename provided")
+            return
+            
+        print(f"[HTML] Edit audio requested for: {filename}")
+        if hasattr(self, "music_player_screen") and self.music_player_screen:
+            music_dir = getattr(self.music_player_screen, "music_dir", None)
+            if music_dir:
+                file_path = os.path.join(music_dir, filename)
+                if os.path.exists(file_path):
+                    self.music_player_screen.open_audio_editor(file_path)
+                else:
+                    print(f"[HTML] File not found for editing: {file_path}")
 
 
     # --- Scaling ---

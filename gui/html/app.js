@@ -289,13 +289,31 @@
                 </p>
                 </div>
             </div>
-            <span class="track-item__duration ${isActive ? "track-item__duration--active" : ""}">
-                ${track.duration || "--:--"}
-            </span>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span class="track-item__duration ${isActive ? "track-item__duration--active" : ""}">
+                    ${track.duration || "--:--"}
+                </span>
+                <button class="track-edit-btn" style="background: none; border: none; color: inherit; padding: 8px;">
+                    <span class="material-symbols-outlined" style="font-size: 24px;">edit</span>
+                </button>
+            </div>
             `;
 
-            // 👇 QUI: click per far partire la canzone
-            btn.addEventListener("click", () => {
+            // Edit button handler
+            const editBtn = btn.querySelector(".track-edit-btn");
+            if (editBtn) {
+                editBtn.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    console.log("[LIBRARY] Edit clicked for", track.filename);
+                    emit("edit_audio", { filename: track.filename });
+                });
+            }
+
+            // Play handler
+            btn.addEventListener("click", (e) => {
+                // Ignore if clicked on edit button (though stopPropagation should handle it)
+                if (e.target.closest(".track-edit-btn")) return;
+                
                 emit("play_track", { filename: track.filename });
 
                 // opzionale: passa subito alla schermata music player
@@ -611,6 +629,7 @@
         const btnPlayPause = root.querySelector("#btn-play-pause");
         const btnNext = root.querySelector("#btn-next");
         const btnDownload = root.querySelector("#btn-download");
+        const btnSearch = root.querySelector("#btn-search");
 
         if (btnPrev) {
             btnPrev.onclick = (ev) => {
@@ -641,6 +660,14 @@
             ev.preventDefault();
             console.log("[PLAYER] download click");
             emit("download_current_song", {});
+            };
+        }
+
+        if (btnSearch) {
+            btnSearch.onclick = (ev) => {
+            ev.preventDefault();
+            console.log("[PLAYER] search click");
+            emit("search_music", {});
             };
         }
     }

@@ -16,6 +16,8 @@ from PyQt6.QtWidgets import (
     QProgressBar,
     QSizePolicy,
     QInputDialog,
+    QDialog,
+    QLineEdit,
 )
 from PyQt6.QtCore import Qt, QTimer, pyqtSlot, pyqtSignal, QUrl
 from PyQt6.QtGui import QPixmap
@@ -31,9 +33,195 @@ from mutagen.easyid3 import EasyID3
 from mutagen.id3 import ID3NoHeaderError
 import logging
 import re
+import json
 
 from backend.media_info import load_local_placeholder_data_url
 from .widgets.scrolling_label import ScrollingLabel
+from .virtual_keyboard import VirtualKeyboard
+from .audio_editor import AudioEditorDialog
+
+
+class SearchDialog(QDialog):
+    """Dialog for searching music online using yt-dlp."""
+    
+    song_selected = pyqtSignal(dict) # Emits {title, id, uploader}
+    search_results_ready = pyqtSignal(list) # Internal signal for thread communication
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Search Music")
+        self.resize(800, 600)
+        self.setModal(True)
+        self.setup_ui()
+        self.results = []
+        
+        # Apply object name for styling
+        self.setObjectName("networkDialog") # Reuse the dialog style
+        
+        # Connect signals
+        self.search_results_ready.connect(self.update_results_list)
+
+    def setup_ui(self):
+        layout = QVBoxLayout(self)
+        
+        # Input Area
+        input_layout = QHBoxLayout()
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Search song...")
+        self.search_input.setMinimumHeight(50)
+        # Use a lambda or proper connection to pass event if needed, 
+        # but QLineEdit.mousePressEvent override is cleaner if subclassing.
+        # Here we just connect a custom signal or event filter? 
+        # Easier: Set up an event filter or just subclass QLineEdit locally?
+        # Or just use a button "Open Keyboard". 
+        # The user asked for "pop up keyboard like wifi". Wifi uses mousePressEvent hook.
+        # I will hook mousePressEvent dynamically.
+        self.search_input.mousePressEvent = self.open_keyboard
+        input_layout.addWidget(self.search_input)
+        
+        search_btn = QPushButton("Search")
+        search_btn.setMinimumHeight(50)
+        search_btn.clicked.connect(self.perform_search)
+        input_layout.addWidget(search_btn)
+        
+        layout.addLayout(input_layout)
+        
+        # Results List
+        self.results_list = QListWidget()
+        self.results_list.setStyleSheet("font-size: 16px; padding: 5px;")
+        layout.addWidget(self.results_list)
+        
+        # Actions
+        btn_layout = QHBoxLayout()
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.setMinimumHeight(50)
+        cancel_btn.clicked.connect(self.reject)
+        
+        download_btn = QPushButton("Download Selected")
+        download_btn.setMinimumHeight(50)
+        download_btn.setStyleSheet("background-color: #007AFF; color: white; font-weight: bold;")
+        download_btn.clicked.connect(self.accept_selection)
+        
+        btn_layout.addWidget(cancel_btn)
+        btn_layout.addWidget(download_btn)
+        layout.addLayout(btn_layout)
+
+    def open_keyboard(self, event):
+        keyboard = VirtualKeyboard(self.search_input.text(), self)
+        if keyboard.exec() == QDialog.DialogCode.Accepted:
+            self.search_input.setText(keyboard.get_text())
+            self.perform_search() # Auto-search on enter
+
+    def perform_search(self):
+        query = self.search_input.text().strip()
+        if not query: return
+        
+        self.results_list.clear()
+        self.results_list.addItem("Searching...")
+        self.results = []
+        
+        # Run in thread
+        threading.Thread(target=self._search_thread, args=(query,), daemon=True).start()
+
+    def _search_thread(self, query):
+        print(f"[Search Thread] Starting search for: {query}")
+        try:
+            # yt-dlp search command
+            cmd = [
+                "yt-dlp",
+                "--dump-json",
+                "--flat-playlist", 
+                "--default-search", "ytsearch10", # Get 10 results
+                "--no-playlist",
+                "--ignore-errors", # Don't crash on individual video errors
+                query
+            ]
+            
+            print(f"Executing search command: {' '.join(cmd)}")
+            
+            process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            try:
+                stdout, stderr = process.communicate(timeout=30)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                stdout, stderr = process.communicate()
+                print("[Search Thread] Timeout expired")
+                QTimer.singleShot(0, lambda: self.results_list.addItem("Error: Search timed out."))
+                return
+            
+            print(f"[Search Thread] Process finished. Return code: {process.returncode}")
+            
+            if process.returncode != 0:
+                print(f"Stderr: {stderr}")
+                error_msg = "Unknown error"
+                if "command not found" in stderr or "No such file" in stderr:
+                    error_msg = "yt-dlp not found. Install it: pip install yt-dlp"
+                elif "Network is unreachable" in stderr:
+                    error_msg = "Network error. Check connection."
+                else:
+                    error_msg = stderr.strip().split('\n')[-1]
+                
+                QTimer.singleShot(0, lambda: self.results_list.addItem(f"Error: {error_msg}"))
+                return
+
+            results = []
+            for line in stdout.strip().split('\n'):
+                if line:
+                    try:
+                        data = json.loads(line)
+                        results.append(data)
+                    except json.JSONDecodeError:
+                        pass
+            
+            print(f"[Search Thread] Found {len(results)} results.")
+            
+            # Update UI safely via signal
+            self.search_results_ready.emit(results)
+            
+        except FileNotFoundError:
+             print("[Search Thread] yt-dlp executable not found.")
+             self.search_results_ready.emit([{"error": "yt-dlp not found. Install it."}])
+        except Exception as e:
+            print(f"Search error: {e}")
+            self.search_results_ready.emit([{"error": str(e)}])
+
+    def update_results_list(self, results):
+        print(f"[UI Thread] update_results_list called with {len(results)} items.")
+        try:
+            self.results_list.clear()
+            self.results = results
+            
+            if not results:
+                print("[UI Thread] No results found.")
+                self.results_list.addItem("No results found.")
+                return
+                
+            for vid in results:
+                # Check if it's an error item
+                if "error" in vid:
+                    self.results_list.addItem(f"Error: {vid['error']}")
+                    continue
+
+                title = vid.get('title', 'Unknown')
+                uploader = vid.get('uploader', 'Unknown')
+                
+                item_text = f"{title}\n{uploader}"
+                item = QListWidgetItem(item_text)
+                item.setData(Qt.ItemDataRole.UserRole, vid)
+                self.results_list.addItem(item)
+            
+            print(f"[UI Thread] List populated with {self.results_list.count()} items.")
+        except Exception as e:
+            print(f"[UI Thread] Error updating list: {e}")
+            self.results_list.addItem(f"UI Error: {e}")
+
+    def accept_selection(self):
+        current_item = self.results_list.currentItem()
+        if current_item:
+            data = current_item.data(Qt.ItemDataRole.UserRole)
+            if data and isinstance(data, dict):
+                self.song_selected.emit(data)
+                self.accept()
 
 
 class PygameMediaPlayer:
@@ -502,18 +690,16 @@ class MusicPlayerScreen(QWidget):
         # Add button row to main button layout
         self.button_layout.addLayout(self.button_row)
 
-        # Download Progress Bar
+        # Download Status Label
         self.download_progress_layout = QHBoxLayout()
-        self.download_progress_bar = QProgressBar()
-        self.download_progress_bar.setObjectName("downloadProgressBar")
-        self.download_progress_bar.setRange(0, 100)
-        self.download_progress_bar.setValue(0)
-        self.download_progress_bar.setTextVisible(True)
-        self.download_progress_bar.setFormat("%p% - %v of %m")
-        self.download_progress_bar.setVisible(False)  # Hide initially
-        self.download_progress_layout.addWidget(self.download_progress_bar)
+        self.download_status_label = QLabel("")
+        self.download_status_label.setObjectName("downloadStatusLabel")
+        self.download_status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.download_status_label.setStyleSheet("font-weight: bold; color: #007AFF; margin-top: 5px;")
+        self.download_status_label.setVisible(False)  # Hide initially
+        self.download_progress_layout.addWidget(self.download_status_label)
 
-        # Add progress bar to main button layout
+        # Add progress label to main button layout
         self.button_layout.addLayout(self.download_progress_layout)
 
         # Add the complete button layout to player layout
@@ -739,19 +925,53 @@ class MusicPlayerScreen(QWidget):
         ]
 
         try:
-            # Use _ for unused variables to avoid warnings
             for root, _, files in os.walk(directory):
                 for file in files:
                     if any(file.lower().endswith(ext) for ext in music_extensions):
                         full_path = os.path.join(root, file)
                         display_name = os.path.basename(file)
-                        item = QListWidgetItem(display_name)
-                        item.setData(
-                            Qt.ItemDataRole.UserRole, full_path
-                        )  # Store the full path
-                        self.library_list.addItem(item)
+                        
+                        # Create List Item
+                        item = QListWidgetItem(self.library_list)
+                        item.setData(Qt.ItemDataRole.UserRole, full_path)
+                        
+                        # Create Custom Widget
+                        widget = QWidget()
+                        layout = QHBoxLayout(widget)
+                        layout.setContentsMargins(5, 5, 5, 5)
+                        
+                        # Song Name Label
+                        label = QLabel(display_name)
+                        label.setStyleSheet("font-size: 16px; color: #333;")
+                        layout.addWidget(label)
+                        
+                        layout.addStretch()
+                        
+                        # Edit Button (Right Aligned)
+                        edit_btn = QPushButton("Edit")
+                        edit_btn.setFixedSize(70, 40)
+                        edit_btn.setStyleSheet("background-color: #ddd; color: #333; border-radius: 5px;")
+                        # Use lambda with default arg to capture current path
+                        edit_btn.clicked.connect(lambda checked, p=full_path: self.open_audio_editor(p))
+                        layout.addWidget(edit_btn)
+                        
+                        widget.setLayout(layout)
+                        item.setSizeHint(widget.sizeHint())
+                        
+                        self.library_list.setItemWidget(item, widget)
+                        
         except Exception as e:
             print(f"Error scanning directory: {e}")
+
+    def open_audio_editor(self, file_path):
+        """Opens the audio editor for the selected file."""
+        # Stop playback if playing
+        self.media_player.stop()
+        
+        editor = AudioEditorDialog(file_path, self)
+        if editor.exec() == QDialog.DialogCode.Accepted:
+            # If saved, reload library to reflect changes (e.g. timestamp/duration might change)
+            self.load_library_files()
 
 
     def play_file_from_path(self, file_path: str) -> None:
@@ -1380,24 +1600,13 @@ class MusicPlayerScreen(QWidget):
         
         # Prepare query
         query = f"{self.current_artist} - {self.current_title} audio"
+        self.download_title = self.current_title # For UI label
         
         # We need to pass the TEMPLATE to yt-dlp, but we monitor the FINAL file
         output_template = os.path.join(self.music_dir, f"{safe_filename}.%(ext)s")
         self.current_download_final_path = os.path.join(self.music_dir, f"{safe_filename}.mp3")
 
-        # Start download watcher
-        self.download_watcher_timer = QTimer(self)
-        self.download_watcher_timer.timeout.connect(self.check_download_completion_by_file)
-        self.download_watcher_timer.start(2000) # Check every 2 seconds
-
-        # Start download in a separate thread
-        self.is_downloading = True
-        download_thread = threading.Thread(
-            target=self._download_song_thread, 
-            args=(query, output_template, self.current_download_final_path)
-        )
-        download_thread.daemon = True
-        download_thread.start()
+        self.start_download_process(query, output_template)
 
     def on_search_clicked(self):
         """Open a dialog to search and download a song manually."""
@@ -1409,47 +1618,60 @@ class MusicPlayerScreen(QWidget):
             )
             return
 
-        # Check dependencies
-        if not self._is_ytdlp_available():
-             QMessageBox.critical(self, "Error", "yt-dlp not installed.")
-             return
-        
         # Check internet
         if not self._is_internet_available():
             QMessageBox.warning(self, "No Internet", "Cannot download. Check connection.")
             return
 
-        text, ok = QInputDialog.getText(self, "Search & Download", "Enter song name/query:")
-        if ok and text:
-            # We use ytsearch with the query.
-            # Append 'audio' to guide search towards music
-            query = f"{text}" 
-            
-            # Use generic template based on title
-            output_template = os.path.join(self.music_dir, "%(title)s.%(ext)s")
-            
-            # Reset final path for watcher (thread will update it when detected)
-            self.current_download_final_path = None 
-            
-            # Start watcher
-            self.download_watcher_timer = QTimer(self)
-            self.download_watcher_timer.timeout.connect(self.check_download_completion_by_file)
-            self.download_watcher_timer.start(2000)
+        # Open Custom Search Dialog
+        dialog = SearchDialog(self)
+        dialog.song_selected.connect(self.start_download_from_search)
+        dialog.exec()
 
-            # Reset progress bar
-            self.download_progress_bar.setValue(0)
-            self.download_progress_bar.setVisible(True)
-            
-            # Update UI
-            self.is_downloading = True
-            self.download_button.setText("...") # Indeterminate state indicator
+    def start_download_from_search(self, data):
+        """Initiate download for a selected search result."""
+        title = data.get('title', 'Unknown')
+        video_id = data.get('id')
+        uploader = data.get('uploader', '')
+        
+        if not video_id: return
 
-            download_thread = threading.Thread(
-                target=self._download_song_thread, 
-                args=(query, output_template, None)
-            )
-            download_thread.daemon = True
-            download_thread.start()
+        # Set title for UI label
+        self.download_title = title 
+        
+        # Prepare paths
+        safe_filename = f"{uploader} - {title}"
+        for char in ["/", "\\", ":", "*", "?", '"', "<", ">", "|"]:
+            safe_filename = safe_filename.replace(char, "_")
+        
+        output_template = os.path.join(self.music_dir, f"{safe_filename}.%(ext)s")
+        self.current_download_final_path = os.path.join(self.music_dir, f"{safe_filename}.mp3")
+        
+        # Use video URL for download
+        query = f"https://www.youtube.com/watch?v={video_id}"
+        
+        self.start_download_process(query, output_template)
+
+    def start_download_process(self, query, output_template):
+        """Starts the download thread and watcher."""
+        # Reset progress UI
+        self.download_status_label.setText(f"Downloading - {self.download_title}")
+        self.download_status_label.setVisible(True)
+        self.download_button.setText("...") 
+
+        # Start watcher
+        self.download_watcher_timer = QTimer(self)
+        self.download_watcher_timer.timeout.connect(self.check_download_completion_by_file)
+        self.download_watcher_timer.start(2000)
+
+        # Start download thread
+        self.is_downloading = True
+        download_thread = threading.Thread(
+            target=self._download_song_thread, 
+            args=(query, output_template, self.current_download_final_path)
+        )
+        download_thread.daemon = True
+        download_thread.start()
 
     def _is_ytdlp_available(self):
         """Check if yt-dlp is installed and available."""
@@ -1598,8 +1820,9 @@ class MusicPlayerScreen(QWidget):
             self.download_complete(False, f"An error occurred: {str(e)}")
 
     def update_progress(self, percent):
-        """Update the progress bar (called from main thread)."""
-        self.download_progress_bar.setValue(int(percent))
+        """Update the download status label."""
+        if hasattr(self, 'download_status_label') and self.download_status_label.isVisible():
+             self.download_status_label.setText(f"Downloading - {self.download_title} - ({int(percent)}%)")
 
     def download_complete(self, success, error_message=None):
         """Called when download completes (from any thread)."""
@@ -1619,9 +1842,9 @@ class MusicPlayerScreen(QWidget):
 
         # Set progress to 100% if successful, hide after a delay
         if success:
-            self.download_progress_bar.setValue(100)
+            self.update_progress(100)
             QTimer.singleShot(
-                3000, lambda: self.download_progress_bar.setVisible(False)
+                3000, lambda: self.download_status_label.setVisible(False)
             )
 
             # Show success message with file location
@@ -1629,7 +1852,7 @@ class MusicPlayerScreen(QWidget):
             QMessageBox.information(
                 self,
                 "Download Complete",
-                f"Successfully downloaded '{self.current_title}' by {self.current_artist}.\n\n"
+                f"Successfully downloaded '{self.download_title if hasattr(self, 'download_title') else 'Song'}'.\n\n"
                 f"The file has been saved to the {file_location} folder.",
             )
 
@@ -1638,7 +1861,7 @@ class MusicPlayerScreen(QWidget):
                 self.load_library_files()
         else:
             # Hide progress bar immediately on failure
-            self.download_progress_bar.setVisible(False)
+            self.download_status_label.setVisible(False)
 
             # Show appropriate error message
             title = "Download Failed"
