@@ -191,8 +191,8 @@ class MainWindow(QMainWindow):
         self.header_quit_button = QPushButton()
         self.header_quit_button.setIcon(self.power_icon)
         self.header_quit_button.setObjectName("appActionButton")
-        self.header_quit_button.setToolTip("Exit Application")
-        self.header_quit_button.clicked.connect(self.close)
+        self.header_quit_button.setToolTip("Shutdown System")
+        self.header_quit_button.clicked.connect(self.shutdown_system)
         self.header_layout.addWidget(self.header_quit_button)
 
         # Add second spacer to push clock to right
@@ -1522,63 +1522,52 @@ class MainWindow(QMainWindow):
     def shutdown_system(self):
         """Gracefully stops threads and shuts down the Raspberry Pi."""
         print("Attempting to shutdown system...")
-        confirm = QMessageBox.warning(
-            self,
-            "Shutdown Confirmation",
-            "Are you sure you want to shutdown the Raspberry Pi?\n\nThis will power off the system completely.",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No,
-        )
+        try:
+            # Cleanly stop threads before shutdown
+            print("Stopping background threads before shutdown...")
+            if hasattr(self, "radio_manager") and self.radio_manager.isRunning():
+                self.radio_manager.stop()
+                self.radio_manager.wait(1500)  # Wait max 1.5s
+            if hasattr(self, "obd_manager") and self.obd_manager.isRunning():
+                self.obd_manager.stop()
+                self.obd_manager.wait(1500)  # Wait max 1.5s
+            if hasattr(self, "bluetooth_manager") and self.bluetooth_manager.isRunning():
+                self.bluetooth_manager.stop()
+                self.bluetooth_manager.wait(1500)
+            if hasattr(self, "airplay_manager"):
+                self.airplay_manager.cleanup()
+            print("Threads stopped.")
 
-        if confirm == QMessageBox.StandardButton.Yes:
-            try:
-                # Cleanly stop threads before shutdown
-                print("Stopping background threads before shutdown...")
-                if hasattr(self, "radio_manager") and self.radio_manager.isRunning():
-                    self.radio_manager.stop()
-                    self.radio_manager.wait(1500)  # Wait max 1.5s
-                if hasattr(self, "obd_manager") and self.obd_manager.isRunning():
-                    self.obd_manager.stop()
-                    self.obd_manager.wait(1500)  # Wait max 1.5s
-                if hasattr(self, "bluetooth_manager") and self.bluetooth_manager.isRunning():
-                    self.bluetooth_manager.stop()
-                    self.bluetooth_manager.wait(1500)
-                if hasattr(self, "airplay_manager"):
-                    self.airplay_manager.cleanup()
-                print("Threads stopped.")
-
-                # Save settings
-                if hasattr(self, "radio_manager") and self.radio_manager.radio_type != "none":
-                    self.settings_manager.set(
-                        "last_fm_station", self.radio_manager.current_frequency
-                    )
-
-                # Save volume settings
-                if self.last_volume_level > 0:
-                    print(f"Saving last non-muted volume: {self.last_volume_level}")
-                    self.settings_manager.set("volume", self.last_volume_level)
-                elif self.volume_slider.value() == 0 and not self.is_muted:
-                    print("Saving volume as 0 (manually set)")
-                    self.settings_manager.set("volume", 0)
-
-                print("Settings saved. Initiating system shutdown...")
-
-                # Flush outputs
-                sys.stdout.flush()
-                sys.stderr.flush()
-
-                # Execute system shutdown command
-                subprocess.run(["sudo", "shutdown", "-h", "now"], check=False)
-
-            except Exception as e:
-                print(f"Error attempting to shutdown system: {e}")
-                QMessageBox.critical(
-                    self, "Shutdown Error", f"Could not shutdown system:\n{e}\n\nClosing application instead."
+            # Save settings
+            if hasattr(self, "radio_manager") and self.radio_manager.radio_type != "none":
+                self.settings_manager.set(
+                    "last_fm_station", self.radio_manager.current_frequency
                 )
-                # Fallback: Just close the application if shutdown fails
-                self.close()
-        else:
-            print("Shutdown cancelled by user.")
+
+            # Save volume settings
+            if self.last_volume_level > 0:
+                print(f"Saving last non-muted volume: {self.last_volume_level}")
+                self.settings_manager.set("volume", self.last_volume_level)
+            elif self.volume_slider.value() == 0 and not self.is_muted:
+                print("Saving volume as 0 (manually set)")
+                self.settings_manager.set("volume", 0)
+
+            print("Settings saved. Initiating system shutdown...")
+
+            # Flush outputs
+            sys.stdout.flush()
+            sys.stderr.flush()
+
+            # Execute system shutdown command
+            subprocess.run(["sudo", "shutdown", "-h", "now"], check=False)
+
+        except Exception as e:
+            print(f"Error attempting to shutdown system: {e}")
+            QMessageBox.critical(
+                self, "Shutdown Error", f"Could not shutdown system:\n{e}\n\nClosing application instead."
+            )
+            # Fallback: Just close the application if shutdown fails
+            self.close()
 
     def closeEvent(self, event):
         """Handles window close events (triggered by Alt+F4, Ctrl+Q, Power button)."""

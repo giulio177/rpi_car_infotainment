@@ -35,7 +35,7 @@ try:
 except ImportError:
     GPIO_AVAILABLE = False
     print("GPIO library not found. GPIO features will be disabled.")
-from PyQt6.QtCore import QTimer, QDateTime, pyqtSlot, Qt, pyqtSignal
+from PyQt6.QtCore import QTimer, QDateTime, pyqtSlot, Qt, pyqtSignal, QProcess, QProcess
 
 from .styling import scale_value
 
@@ -355,6 +355,11 @@ class SettingsScreen(QWidget):
         self.power_layout.addWidget(self.power_toggle)
         self.power_layout.addWidget(self.power_off_button)
         
+        # Boot configuration button
+        self.apply_boot_config_button = QPushButton("Apply Boot Configuration")
+        self.apply_boot_config_button.clicked.connect(self.apply_boot_config)
+        self.power_layout.addWidget(self.apply_boot_config_button)
+        
         self.scroll_layout.addWidget(self.power_group)
 
         
@@ -492,6 +497,32 @@ class SettingsScreen(QWidget):
             # Disattiviamo il bottone visivamente
             self.power_off_button.setText("POWER CUT")
             self.power_off_button.setEnabled(False)
+
+    def apply_boot_config(self):
+        script_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'deployment', 'configure_boot.sh'))
+        
+        self.process = QProcess(self)
+        self.process.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
+        
+        self.process.readyReadStandardOutput.connect(self.handle_output)
+        self.process.finished.connect(self.handle_finish)
+        
+        # The user will be prompted for the password in the terminal where the app was launched
+        self.process.start("sudo", ["bash", script_path])
+
+    def handle_output(self):
+        output = self.process.readAllStandardOutput().data().decode().strip()
+        print(f"Script output: {output}")
+        # NOTE: Showing a message box here might be too noisy if the script produces a lot of output.
+        # A log window would be a better place for this. For now, we print to console.
+        
+    def handle_finish(self, exit_code, exit_status):
+        output = self.process.readAllStandardOutput().data().decode().strip()
+        if exit_code == 0:
+            QMessageBox.information(self, "Success", f"Boot configuration applied successfully.\n\nOutput:\n{output}\n\nPlease reboot for the changes to take effect.")
+        else:
+            QMessageBox.warning(self, "Error", f"Failed to apply boot configuration. See terminal for details.\n\nOutput:\n{output}")
+
 
     def _install_dependencies(self, project_dir):
         """Installs dependencies from requirements.txt."""

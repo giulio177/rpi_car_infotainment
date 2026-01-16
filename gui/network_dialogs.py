@@ -32,6 +32,11 @@ class BluetoothDialog(QDialog):
         self.update_timer.timeout.connect(self.update_timer_tick)
         self.update_timer.start(2000) # Update every 2 seconds
 
+        # Timer for discoverability timeout
+        self.discoverability_timer = QTimer(self)
+        self.discoverability_timer.setSingleShot(True)
+        self.discoverability_timer.timeout.connect(self._handle_discoverability_timeout)
+
     def setup_ui(self):
         """Setup the Bluetooth dialog UI (Compact Version)."""
         # Layout principale
@@ -179,21 +184,42 @@ class BluetoothDialog(QDialog):
             self.toggle_discoverability_button.setStyleSheet("")
     
     def toggle_discoverability(self):
-        """Toggle the device's discoverability status."""
+        """Toggle the device's discoverability status and manage the timeout timer."""
         if not self.bluetooth_manager:
             return
 
         is_currently_discoverable = self.bluetooth_manager.is_discoverable()
         self.toggle_discoverability_button.setText("Working...")
-        QApplication.processEvents() # Force UI update
-        
-        # Esegui l'azione opposta allo stato attuale
-        success = self.bluetooth_manager.set_discoverability(not is_currently_discoverable)
+        QApplication.processEvents()  # Force UI update
+
+        # The action is to do the opposite of the current state
+        new_state = not is_currently_discoverable
+        success = self.bluetooth_manager.set_discoverability(new_state)
 
         if not success:
             QMessageBox.warning(self, "Error", "Failed to change discoverability status. Check logs.")
-        
+        else:
+            if new_state is True:
+                # If we just turned discoverability ON, start the 60-second timer
+                print("Bluetooth discoverability is ON. Starting 60-second timeout.")
+                self.discoverability_timer.start(60000)
+            else:
+                # If we just turned it OFF (manually), stop the timer
+                print("Bluetooth discoverability was manually turned OFF. Stopping timer.")
+                self.discoverability_timer.stop()
+
         self.update_discoverability_status()
+
+    def _handle_discoverability_timeout(self):
+        """Called when the discoverability timer expires."""
+        print("Discoverability timeout reached. Automatically turning off discoverability.")
+        
+        # Check if it's still discoverable before turning it off
+        if self.bluetooth_manager and self.bluetooth_manager.is_discoverable():
+            self.bluetooth_manager.set_discoverability(False)
+        
+        # Update the UI to reflect the change
+        self.update_status()
 
     def toggle_scan(self):
         """Toggle scanning state."""
@@ -412,769 +438,264 @@ class BluetoothDialog(QDialog):
 
 
 class WiFiDialog(QDialog):
-
-
     """Dialog for WiFi settings and network management."""
 
-
-
-
-
     def __init__(self, wifi_manager, parent=None):
-
-
         super().__init__(parent)
-
-
         self.wifi_manager = wifi_manager
-
-
         self.setWindowTitle("WiFi Settings")
-
-
         self.setModal(True)
-
-
         self.resize(700, 600)
 
-
-
-
-
         # Apply consistent theming
-
-
         self.setObjectName("networkDialog")
 
-
-
-
-
         self.setup_ui()
-
-
         self.update_status()
 
-
-
-
-
         # Connect signals
-
-
         if self.wifi_manager:
-
-
             self.wifi_manager.wifi_status_changed.connect(self.on_wifi_status_changed)
-
-
             self.wifi_manager.networks_updated.connect(self.on_networks_updated)
-
-
             self.wifi_manager.connection_changed.connect(self.on_connection_changed)
 
-
-
-
-
         # Update timer
-
-
         self.update_timer = QTimer()
-
-
         self.update_timer.timeout.connect(self.update_status)
-
-
         self.update_timer.start(3000)  # Update every 3 seconds
 
-
-
-
-
     def setup_ui(self):
-
-
         """Setup the WiFi dialog UI."""
-
-
         layout = QVBoxLayout(self)
-
-
         layout.setContentsMargins(15, 15, 15, 15)
-
-
         layout.setSpacing(10)
 
-
-
-
-
         # Title
-
-
         title_label = QLabel("WiFi Settings")
-
-
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-
         title_label.setFont(QFont("Arial", 16, QFont.Weight.Bold))
-
-
         layout.addWidget(title_label)
 
-
-
-
-
         # WiFi Control & Status Group
-
-
         control_group = QGroupBox("WiFi Status")
-
-
         control_layout = QHBoxLayout(control_group)
 
-
-
-
-
         self.wifi_status_label = QLabel("Checking...")
-
-
         self.wifi_status_label.setFont(QFont("Arial", 12))
-
-
         
-
-
         # Toggle Switch (QCheckBox styled)
-
-
         self.wifi_toggle = QCheckBox("Enable WiFi")
-
-
         self.wifi_toggle.setStyleSheet("""
-
-
             QCheckBox::indicator { width: 40px; height: 20px; }
-
-
             QCheckBox::indicator:checked { background-color: #44FF44; border-radius: 10px; }
-
-
             QCheckBox::indicator:unchecked { background-color: #888; border-radius: 10px; }
-
-
         """)
-
-
         self.wifi_toggle.clicked.connect(self.toggle_wifi) # Use clicked to avoid programmatic toggle loops
 
-
-
-
-
         self.refresh_button = QPushButton("Refresh Networks")
-
-
         self.refresh_button.clicked.connect(self.refresh_networks)
 
-
-
-
-
         control_layout.addWidget(self.wifi_status_label)
-
-
         control_layout.addStretch()
-
-
         control_layout.addWidget(self.wifi_toggle)
-
-
         control_layout.addWidget(self.refresh_button)
-
-
-
-
 
         layout.addWidget(control_group)
 
-
-
-
-
         # Current connection section
-
-
         current_group = QGroupBox("Current Connection")
-
-
         current_layout = QHBoxLayout(current_group)
 
-
-
-
-
         self.current_ssid_label = QLabel("None")
-
-
         self.current_ssid_label.setFont(QFont("Arial", 12, QFont.Weight.Bold))
-
-
         self.disconnect_button = QPushButton("Disconnect")
-
-
         self.disconnect_button.clicked.connect(self.disconnect_current)
 
-
-
-
-
         current_layout.addWidget(QLabel("Connected to: "))
-
-
         current_layout.addWidget(self.current_ssid_label)
-
-
         current_layout.addStretch()
-
-
         current_layout.addWidget(self.disconnect_button)
-
-
-
-
 
         layout.addWidget(current_group)
 
-
-
-
-
         # Available networks section
-
-
         networks_group = QGroupBox("Available Networks")
-
-
         networks_layout = QVBoxLayout(networks_group)
 
-
-
-
-
         self.networks_list = QListWidget()
-
-
         self.networks_list.setStyleSheet("font-size: 14px; padding: 5px;")
-
-
         self.networks_list.itemDoubleClicked.connect(self.connect_to_selected)
-
-
         networks_layout.addWidget(self.networks_list)
 
-
-
-
-
         # Connection controls
-
-
         connect_layout = QHBoxLayout()
-
-
         self.password_input = QLineEdit()
-
-
         self.password_input.setPlaceholderText("Password (if required)")
-
-
         self.password_input.setEchoMode(QLineEdit.EchoMode.Password)
-
-
         self.password_input.mousePressEvent = lambda event: self.show_keyboard(self.password_input)
-
-
         
-
-
         self.show_password_check = QCheckBox("Show")
-
-
         self.show_password_check.toggled.connect(self.toggle_password_visibility)
-
-
         
-
-
         self.connect_button = QPushButton("Connect")
-
-
         self.connect_button.setMinimumHeight(40)
-
-
         self.connect_button.clicked.connect(self.connect_to_selected)
 
-
-
-
-
         connect_layout.addWidget(self.password_input)
-
-
         connect_layout.addWidget(self.show_password_check)
-
-
         connect_layout.addWidget(self.connect_button)
 
-
-
-
-
         networks_layout.addLayout(connect_layout)
-
-
         layout.addWidget(networks_group)
 
-
-
-
-
         # Close button
-
-
         close_button = QPushButton("Close")
-
-
         close_button.setMinimumHeight(40)
-
-
         close_button.clicked.connect(self.accept)
-
-
         layout.addWidget(close_button)
 
-
-
-
-
     def update_status(self):
-
-
         """Update the WiFi status display."""
-
-
         if not self.wifi_manager:
-
-
             return
 
-
-
-
-
         # Trigger status update in manager
-
-
         self.wifi_manager.update_status()
 
-
-
-
-
     def on_wifi_status_changed(self, enabled):
-
-
         """Handle WiFi status change."""
-
-
         self.wifi_status_label.setText("WiFi is ON" if enabled else "WiFi is OFF")
-
-
         self.wifi_status_label.setStyleSheet(f"color: {'#44FF44' if enabled else '#FF5555'}; font-weight: bold;")
-
-
         
-
-
         # Block signals to prevent triggering toggle_wifi logic
-
-
         self.wifi_toggle.blockSignals(True)
-
-
         self.wifi_toggle.setChecked(enabled)
-
-
         self.wifi_toggle.setText("Enabled" if enabled else "Disabled")
-
-
         self.wifi_toggle.blockSignals(False)
-
-
         
-
-
         self.networks_list.setEnabled(enabled)
-
-
         self.connect_button.setEnabled(enabled)
-
-
         self.refresh_button.setEnabled(enabled)
-
-
         self.disconnect_button.setEnabled(enabled)
 
-
-
-
-
     def toggle_wifi(self):
-
-
         """Handle toggle switch click."""
-
-
         should_enable = self.wifi_toggle.isChecked()
-
-
         
-
-
         if self.wifi_manager:
-
-
             if should_enable:
-
-
                 self.wifi_status_label.setText("Enabling...")
-
-
                 self.wifi_manager.enable_wifi()
-
-
             else:
-
-
                 self.wifi_status_label.setText("Disabling...")
-
-
                 self.wifi_manager.disable_wifi()
-
-
         
-
-
         # Status update will come via signal
 
-
-
-
-
     def on_networks_updated(self, networks):
-
-
         """Handle networks list update."""
-
-
         self.networks_list.clear()
 
-
-
-
-
         for network in networks:
-
-
             ssid = network['ssid']
-
-
             signal = network['signal']
-
-
             secured = network['secured']
 
-
-
-
-
             # Create display text
-
-
             security_text = "🔒" if secured else "🔓"
-
-
             signal_bars = "📶" * (signal // 25 + 1)  # 1-4 bars based on signal
-
-
-
-
 
             item_text = f"{ssid}   {signal_bars} {signal}%   {security_text}"
 
-
-
-
-
             item = QListWidgetItem(item_text)
-
-
             item.setData(Qt.ItemDataRole.UserRole, network)
-
-
             self.networks_list.addItem(item)
 
-
-
-
-
     def on_connection_changed(self, connected, ssid):
-
-
         """Handle connection status change."""
-
-
         if connected:
-
-
             self.current_ssid_label.setText(ssid)
-
-
             self.current_ssid_label.setStyleSheet("color: #44FF44;")
-
-
             self.disconnect_button.setEnabled(True)
-
-
         else:
-
-
             self.current_ssid_label.setText("None")
-
-
             self.current_ssid_label.setStyleSheet("color: gray;")
-
-
             self.disconnect_button.setEnabled(False)
 
-
-
-
-
     def refresh_networks(self):
-
-
         """Refresh the networks list."""
-
-
         if self.wifi_manager:
-
-
             self.wifi_manager.update_status()
 
-
-
-
-
     def disconnect_current(self):
-
-
         """Disconnect from current network."""
-
-
         if self.wifi_manager and self.wifi_manager.disconnect_current():
-
-
             self.current_ssid_label.setText("Disconnecting...")
 
-
-
-
-
     def connect_to_selected(self):
-
-
-        """Connect to the selected network."""
-
-
+        """Connect to the selected network, checking for saved connections first."""
         current_item = self.networks_list.currentItem()
-
-
         if not current_item or not self.wifi_manager:
-
-
             return
 
-
-
-
-
         network = current_item.data(Qt.ItemDataRole.UserRole)
-
-
         ssid = network['ssid']
-
-
         secured = network['secured']
 
-
-
-
+        saved_networks = self.wifi_manager.get_saved_networks()
+        is_known_network = ssid in saved_networks
 
         password = None
 
-
-        if secured:
-
-
+        # If the network is secured but already known, we don't need a password.
+        if secured and not is_known_network:
             password = self.password_input.text().strip()
-
-
             if not password:
-
-
                 QMessageBox.warning(
-
-
                     self, "Password Required",
-
-
-                    f"Network '{ssid}' requires a password."
-
-
+                    f"Network '{ssid}' is new and requires a password."
                 )
-
-
                 return
-
-
-
-
-
-        # Show connecting message
-
+        
+        # If the network is known, connect without a password.
+        # If it's not secured, also connect without a password.
+        # If it's secured and not known, connect with the provided password.
 
         self.current_ssid_label.setText(f"Connecting to {ssid}...")
-
-
-
-
-
-        # Attempt connection (Run in background or make async in future if blocking UI too much)
-
-
-        # For now, it's blocking but calls subprocess which has timeout.
-
-
-        QApplication.processEvents() # Refresh UI before blocking call
-
-
-        
-
+        QApplication.processEvents()
 
         success, error_msg = self.wifi_manager.connect_to_network(ssid, password)
 
-
-
-
-
         if success:
-
-
             self.password_input.clear()
-
-
             QMessageBox.information(
-
-
                 self, "Connection Successful",
-
-
                 f"Successfully connected to '{ssid}'"
-
-
             )
-
-
         else:
-
-
             QMessageBox.warning(
-
-
                 self, "Connection Failed",
-
-
                 f"Failed to connect to '{ssid}':\n{error_msg}"
-
-
             )
-
-
-
-
 
     def toggle_password_visibility(self, show):
-
-
         """Toggle password field visibility."""
-
-
         if show:
-
-
             self.password_input.setEchoMode(QLineEdit.EchoMode.Normal)
-
-
         else:
-
-
             self.password_input.setEchoMode(QLineEdit.EchoMode.Password)
 
-
-
-
-
     def show_keyboard(self, line_edit):
-
-
         """Show virtual keyboard for text input."""
-
-
         from .virtual_keyboard import VirtualKeyboard
 
-
-
-
-
         keyboard = VirtualKeyboard(line_edit.text(), self)
-
-
         if keyboard.exec() == QDialog.DialogCode.Accepted:
-
-
             line_edit.setText(keyboard.get_text())
 
-
-
-
-
     def closeEvent(self, event):
-
-
         """Clean up when dialog is closed."""
-
-
         if hasattr(self, 'update_timer'):
-
-
             self.update_timer.stop()
-
-
         super().closeEvent(event)
 
