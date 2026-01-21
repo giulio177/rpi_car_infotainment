@@ -199,6 +199,39 @@ class BluetoothManager(QThread):
             print(f"ERROR getting UPower battery from {upower_device_path}: {e}")
             return None
 
+    def _reset_connection_state(self):
+        """Resets all connection and media state variables and emits signals."""
+        print("BT Manager: Resetting connection state...")
+        
+        # Disconnect signal if active
+        if self.media_player_path and self.bus and self.bus.isConnected():
+            try:
+                self.bus.disconnect(
+                    BLUEZ_SERVICE,
+                    self.media_player_path,
+                    DBUS_PROP_IFACE,
+                    "PropertiesChanged",
+                    self.on_media_properties_changed,
+                )
+            except Exception:
+                pass # Ignore errors during disconnect
+
+        self.connected_device_path = None
+        self.connected_device_name = "Disconnected"
+        self.current_battery = None
+        self.media_player_path = None
+        self.media_properties = {}
+        self.playback_status = "stopped"
+        
+        print("DEBUG: Emitting connection_changed(False, ...)")
+        self.connection_changed.emit(False, "Disconnected")
+        print("DEBUG: Emitting battery_updated(None)")
+        self.battery_updated.emit(None)
+        print("DEBUG: Emitting media_properties_changed({})")
+        self.media_properties_changed.emit({})
+        print("DEBUG: Emitting playback_status_changed('stopped')")
+        self.playback_status_changed.emit("stopped")
+
     def process_device_properties(self, path, properties):
         """Checks device properties. Tries UPower for battery if BlueZ property is missing."""
         try:
@@ -206,7 +239,6 @@ class BluetoothManager(QThread):
             device_name = properties.get("Name", "Unknown Device")
             alias = properties.get("Alias", device_name)
             battery = properties.get("Battery", None)  # BlueZ property
-            # print(f"DEBUG: process_device_properties - BlueZ Battery prop: {battery}")
 
             upower_battery = None
             if is_connected:
@@ -214,17 +246,26 @@ class BluetoothManager(QThread):
                 if upower_path:
                     upower_battery = self._get_battery_from_upower(upower_path)
 
-            # Use UPower battery if BlueZ one is None, otherwise prefer BlueZ
             final_battery = upower_battery if battery is None else battery
-            print(
-                f"DEBUG: process_device_properties - Final Battery for {alias}: {final_battery}"
-            )
+            
+            # Se siamo connessi al dispositivo X, ma riceviamo proprietà per X che dicono Connected=False
+            if self.connected_device_path == path and not is_connected:
+                 print(f"BT Manager: Detected disconnection via properties for {alias}")
+                 self._reset_connection_state()
+                 return
 
             if is_connected:
                 battery_changed = final_battery != self.current_battery
-                newly_connected = self.connected_device_path != path
+                
+                # Se è una nuova connessione O se è un dispositivo diverso da quello che pensavamo
+                newly_connected = (self.connected_device_path != path)
 
                 if newly_connected:
+                    # Se eravamo connessi a qualcos'altro, resettiamo prima
+                    if self.connected_device_path:
+                        print(f"BT Manager: Switching connection from {self.connected_device_path} to {path}")
+                        self._reset_connection_state()
+                        
                     print(f"BT Manager: Device connected - {alias} ({path})")
                     self.connected_device_path = path
                     self.connected_device_name = alias
@@ -236,38 +277,12 @@ class BluetoothManager(QThread):
                     print(f"DEBUG: Emitting battery_updated('{self.current_battery}')")
                     self.battery_updated.emit(self.current_battery)
                     self.find_media_player(path)  # Check for player on connect
-                elif battery_changed:
+                elif battery_changed and self.connected_device_path == path:
                     print(f"BT Manager: Battery updated for {alias} to {final_battery}")
                     self.current_battery = final_battery
                     print(f"DEBUG: Emitting battery_updated('{self.current_battery}')")
                     self.battery_updated.emit(self.current_battery)
 
-            elif self.connected_device_path == path:  # Device disconnected
-                print(f"BT Manager: Device disconnected - {alias} ({path})")
-                if self.media_player_path and self.media_player_path.startswith(path):
-                    if self.bus.isConnected():
-                        self.bus.disconnect(
-                            BLUEZ_SERVICE,
-                            self.media_player_path,
-                            DBUS_PROP_IFACE,
-                            "PropertiesChanged",
-                            self.on_media_properties_changed,
-                        )
-                    self.media_player_path = None
-
-                self.connected_device_path = None
-                self.connected_device_name = "Disconnected"
-                self.current_battery = None
-                self.media_properties = {}
-                self.playback_status = "stopped"
-                print("DEBUG: Emitting connection_changed(False, ...)")
-                self.connection_changed.emit(False, "Disconnected")
-                print("DEBUG: Emitting battery_updated(None)")
-                self.battery_updated.emit(None)
-                print("DEBUG: Emitting media_properties_changed({})")
-                self.media_properties_changed.emit({})
-                print("DEBUG: Emitting playback_status_changed('stopped')")
-                self.playback_status_changed.emit("stopped")
         except Exception as e:
             print(f"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
             print(f"ERROR in process_device_properties for path {path}: {e}")
@@ -614,13 +629,7 @@ class BluetoothManager(QThread):
                     dev['connected'] = False
             
             if self.connected_device_path == device_path:
-                self.connected_device_path = None
-                self.connected_device_name = "Disconnected"
-                self.current_battery = None
-                self.connection_changed.emit(False, "Disconnected")
-                self.battery_updated.emit(None)
-                self.media_player_path = None
-                self.update_media_state({"Status": "stopped", "Track": {}, "Position": 0})
+                self._reset_connection_state()
             
             return True, "Disconnected"
 
@@ -631,6 +640,9 @@ class BluetoothManager(QThread):
             
             if reply.type() != QDBusMessage.MessageType.ErrorMessage:
                 print(f"BT Manager: Disconnected from {device_path}")
+                # Force reset state immediately if we were connected to this device
+                if self.connected_device_path == device_path:
+                    self._reset_connection_state()
                 return True, "Disconnected"
             else:
                 err = reply.errorMessage()
