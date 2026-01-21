@@ -1523,22 +1523,7 @@ class MainWindow(QMainWindow):
         """Gracefully stops threads and shuts down the Raspberry Pi."""
         print("Attempting to shutdown system...")
         try:
-            # Cleanly stop threads before shutdown
-            print("Stopping background threads before shutdown...")
-            if hasattr(self, "radio_manager") and self.radio_manager.isRunning():
-                self.radio_manager.stop()
-                self.radio_manager.wait(1500)  # Wait max 1.5s
-            if hasattr(self, "obd_manager") and self.obd_manager.isRunning():
-                self.obd_manager.stop()
-                self.obd_manager.wait(1500)  # Wait max 1.5s
-            if hasattr(self, "bluetooth_manager") and self.bluetooth_manager.isRunning():
-                self.bluetooth_manager.stop()
-                self.bluetooth_manager.wait(1500)
-            if hasattr(self, "airplay_manager"):
-                self.airplay_manager.cleanup()
-            print("Threads stopped.")
-
-            # Save settings
+            # Save settings first (Radio)
             if hasattr(self, "radio_manager") and self.radio_manager.radio_type != "none":
                 self.settings_manager.set(
                     "last_fm_station", self.radio_manager.current_frequency
@@ -1558,8 +1543,11 @@ class MainWindow(QMainWindow):
             sys.stdout.flush()
             sys.stderr.flush()
 
-            # Execute system shutdown command
-            subprocess.run(["sudo", "shutdown", "-h", "now"], check=False)
+            # Execute system shutdown command asynchronously
+            subprocess.Popen(["sudo", "shutdown", "-h", "now"])
+
+            # Close the application immediately
+            self.close()
 
         except Exception as e:
             print(f"Error attempting to shutdown system: {e}")
