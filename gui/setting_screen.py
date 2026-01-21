@@ -79,6 +79,24 @@ class TouchComboBox(QComboBox):
         super().mousePressEvent(e)
         e.accept()
     
+class MockOutputDevice:
+    """Mock class for gpiozero.OutputDevice when running on PC or in emulation mode."""
+    def __init__(self, pin, active_high=True, initial_value=False):
+        self.pin = pin
+        self.value = initial_value
+        print(f"[MOCK GPIO] Initialized Pin {pin} (Initial: {initial_value})")
+
+    def on(self):
+        self.value = True
+        print(f"[MOCK GPIO] Pin {self.pin} turned ON")
+
+    def off(self):
+        self.value = False
+        print(f"[MOCK GPIO] Pin {self.pin} turned OFF")
+
+    def close(self):
+        print(f"[MOCK GPIO] Pin {self.pin} closed")
+
 class SettingsScreen(QWidget):
     screen_title = "Settings"
 
@@ -239,13 +257,13 @@ class SettingsScreen(QWidget):
         )
         self.general_layout.addRow(self.position_checkbox)
 
-        # --- Developer Mode Setting ---
-        self.developer_mode_checkbox = QCheckBox("Developer Mode (Testing Features)")
-        self.developer_mode_checkbox.setObjectName("developerModeCheckbox")
-        self.developer_mode_checkbox.setChecked(
-            self.settings_manager.get("developer_mode")
+        # --- Emulation Mode (PC) Setting ---
+        self.emulation_mode_checkbox = QCheckBox("Enable PC Emulation Mode (Mock Hardware)")
+        self.emulation_mode_checkbox.setObjectName("emulationModeCheckbox")
+        self.emulation_mode_checkbox.setChecked(
+            self.settings_manager.get("emulation_mode")
         )
-        self.general_layout.addRow(self.developer_mode_checkbox)
+        self.general_layout.addRow(self.emulation_mode_checkbox)
 
         self.scroll_layout.addWidget(self.general_group)  # Add group to scroll area
 
@@ -322,12 +340,9 @@ class SettingsScreen(QWidget):
         # self.power_layout.addWidget(self.power_toggle)
         # self.power_layout.addWidget(self.power_off_button)
         
-        # Boot configuration button
-        self.apply_boot_config_button = QPushButton("Apply Boot Configuration")
-        self.apply_boot_config_button.clicked.connect(self.apply_boot_config)
-        self.power_layout.addWidget(self.apply_boot_config_button)
-        
         self.scroll_layout.addWidget(self.power_group)
+        self.power_group.hide() # Hide group if empty
+
 
         
         
@@ -807,10 +822,10 @@ class SettingsScreen(QWidget):
             settings_changed = True
             restart_required = True
 
-        # Developer Mode Setting
-        new_developer_mode = self.developer_mode_checkbox.isChecked()
-        if new_developer_mode != self.settings_manager.get("developer_mode"):
-            self.settings_manager.set("developer_mode", new_developer_mode)
+        # Emulation Mode Setting
+        new_emulation_mode = self.emulation_mode_checkbox.isChecked()
+        if new_emulation_mode != self.settings_manager.get("emulation_mode"):
+            self.settings_manager.set("emulation_mode", new_emulation_mode)
             settings_changed = True
             restart_required = True
 

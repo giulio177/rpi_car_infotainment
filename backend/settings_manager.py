@@ -19,8 +19,8 @@ class SettingsManager:
             "show_cursor": False,
             "position_bottom_right": True,
             "ui_scale_mode": "auto",  # Options: "auto", "fixed_small", "fixed_medium", "fixed_large"
-            "developer_mode": False,  # Enable/disable developer features
             "ui_render_mode": "native",  # Options: "native", "html"
+            "emulation_mode": False, # Enable PC Emulation (Mock Hardware)
         }
         self.settings = self._load_settings()
 

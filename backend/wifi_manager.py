@@ -14,12 +14,23 @@ class WiFiManager(QThread):
     networks_updated = pyqtSignal(list)  # list of available networks
     connection_changed = pyqtSignal(bool, str)  # connected, ssid
 
-    def __init__(self):
+    def __init__(self, emulation_mode=False):
         super().__init__()
         self._is_running = True
         self.current_ssid = None
         self.is_wifi_enabled = False
         self.available_networks = []
+        self.emulation_mode = emulation_mode
+        
+        if self.emulation_mode:
+            print("[WiFi Manager] Running in EMULATION MODE")
+            self.is_wifi_enabled = True
+            self.mock_networks = [
+                 {'ssid': 'Home WiFi 5G', 'signal': 90, 'security': 'WPA2', 'secured': True},
+                 {'ssid': 'Office Network', 'signal': 75, 'security': 'WPA2', 'secured': True},
+                 {'ssid': 'Free Public WiFi', 'signal': 40, 'security': '--', 'secured': False},
+                 {'ssid': 'My iPhone Hotspot', 'signal': 95, 'security': 'WPA3', 'secured': True},
+            ]
 
         # Timer for periodic updates
         self.update_timer = QTimer()
@@ -74,6 +85,9 @@ class WiFiManager(QThread):
 
     def is_wifi_radio_enabled(self):
         """Check if WiFi radio is enabled."""
+        if self.emulation_mode:
+            return self.is_wifi_enabled
+
         try:
             result = subprocess.run(
                 ["nmcli", "radio", "wifi"],
@@ -86,6 +100,12 @@ class WiFiManager(QThread):
 
     def enable_wifi(self):
         """Enable WiFi radio."""
+        if self.emulation_mode:
+            print("[WiFi Manager - Mock] Enabling WiFi...")
+            self.is_wifi_enabled = True
+            self.wifi_status_changed.emit(True)
+            return True
+
         try:
             result = subprocess.run(
                 ["sudo", "nmcli", "radio", "wifi", "on"],
@@ -98,6 +118,14 @@ class WiFiManager(QThread):
 
     def disable_wifi(self):
         """Disable WiFi radio."""
+        if self.emulation_mode:
+            print("[WiFi Manager - Mock] Disabling WiFi...")
+            self.is_wifi_enabled = False
+            self.current_ssid = None
+            self.wifi_status_changed.emit(False)
+            self.connection_changed.emit(False, "")
+            return True
+
         try:
             result = subprocess.run(
                 ["sudo", "nmcli", "radio", "wifi", "off"],
@@ -110,6 +138,9 @@ class WiFiManager(QThread):
 
     def get_current_ssid(self):
         """Get the currently connected WiFi SSID."""
+        if self.emulation_mode:
+            return self.current_ssid
+
         try:
             # First try to get active connection
             result = subprocess.run(
@@ -143,6 +174,15 @@ class WiFiManager(QThread):
 
     def scan_networks(self):
         """Scan for available WiFi networks."""
+        if self.emulation_mode:
+            # Simulate slight signal fluctuation
+            import random
+            for net in self.mock_networks:
+                net['signal'] = max(0, min(100, net['signal'] + random.randint(-5, 5)))
+            # Sort
+            self.mock_networks.sort(key=lambda x: x['signal'], reverse=True)
+            return self.mock_networks
+
         try:
             # Trigger a rescan
             subprocess.run(
@@ -187,6 +227,23 @@ class WiFiManager(QThread):
 
     def connect_to_network(self, ssid, password=None):
         """Connect to a WiFi network."""
+        if self.emulation_mode:
+            print(f"[WiFi Manager - Mock] Connecting to {ssid}...")
+            time.sleep(1) # Fake delay
+            # Simulate failure for secured networks without password (simple check)
+            # Find network info
+            target_net = next((n for n in self.mock_networks if n['ssid'] == ssid), None)
+            
+            if target_net and target_net['secured'] and not password:
+                 # Check if "saved" (we'll pretend "Office Network" is saved)
+                 if ssid != "Office Network":
+                     return False, "Password required (Mock)"
+            
+            self.current_ssid = ssid
+            print(f"[WiFi Manager - Mock] Connected to {ssid}")
+            # Signals will be emitted by next update_status loop
+            return True, ""
+
         try:
             cmd = ["sudo", "nmcli", "dev", "wifi", "connect", ssid]
             if password:
@@ -211,6 +268,12 @@ class WiFiManager(QThread):
 
     def disconnect_current(self):
         """Disconnect from current WiFi network."""
+        if self.emulation_mode:
+            print(f"[WiFi Manager - Mock] Disconnecting from {self.current_ssid}...")
+            time.sleep(0.5)
+            self.current_ssid = None
+            return True
+
         try:
             # Get the current connection name
             result = subprocess.run(
@@ -237,6 +300,12 @@ class WiFiManager(QThread):
 
     def forget_network(self, ssid):
         """Forget a saved WiFi network."""
+        if self.emulation_mode:
+            print(f"[WiFi Manager - Mock] Forgot network {ssid}")
+            if self.current_ssid == ssid:
+                self.disconnect_current()
+            return True
+
         try:
             result = subprocess.run(
                 ["sudo", "nmcli", "connection", "delete", ssid],
@@ -257,6 +326,9 @@ class WiFiManager(QThread):
 
     def get_saved_networks(self):
         """Get list of saved WiFi networks."""
+        if self.emulation_mode:
+            return ["Office Network", "My iPhone Hotspot"]
+
         try:
             result = subprocess.run(
                 ["nmcli", "-t", "-f", "NAME,TYPE", "connection", "show"],

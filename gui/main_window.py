@@ -72,8 +72,8 @@ class MainWindow(QMainWindow):
         super().__init__(parent)
         self.settings_manager = settings_manager
         self.audio_manager = AudioManager()
-        self.bluetooth_manager = BluetoothManager()
-        self.wifi_manager = WiFiManager()
+        self.bluetooth_manager = BluetoothManager(self.settings_manager)
+        self.wifi_manager = WiFiManager(emulation_mode=self.settings_manager.get("emulation_mode"))
         self.airplay_manager = AirPlayManager()
         
 
@@ -321,6 +321,7 @@ class MainWindow(QMainWindow):
             radio_type=self.settings_manager.get("radio_type"),
             i2c_address=self.settings_manager.get("radio_i2c_address"),
             initial_freq=self.settings_manager.get("last_fm_station"),
+            emulation_mode=self.settings_manager.get("emulation_mode")
         )
         # BluetoothManager already instantiated
 
@@ -553,7 +554,6 @@ class MainWindow(QMainWindow):
             "window_resolution": resolution_label,
             "show_cursor": bool(cfg.get("show_cursor")),
             "position_bottom_right": bool(cfg.get("position_bottom_right")),
-            "developer_mode": bool(cfg.get("developer_mode")),
             "volume": volume_value,
             "radio_enabled": bool(cfg.get("radio_enabled")),
             "radio_type": radio_type_value,
@@ -817,7 +817,7 @@ class MainWindow(QMainWindow):
                 return [width, height]
             return _SkipSetting
 
-        if key in {"show_cursor", "position_bottom_right", "developer_mode", "radio_enabled", "obd_enabled"}:
+        if key in {"show_cursor", "position_bottom_right", "radio_enabled", "obd_enabled"}:
             return bool(value)
 
         if key == "last_fm_station":

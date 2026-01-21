@@ -32,11 +32,12 @@ class RadioManager(QThread):
     frequency_updated = pyqtSignal(float)
     signal_strength = pyqtSignal(int)  # e.g., 0-100
 
-    def __init__(self, radio_type="none", i2c_address=None, initial_freq=98.5):
+    def __init__(self, radio_type="none", i2c_address=None, initial_freq=98.5, emulation_mode=False):
         super().__init__()
         self.radio_type = radio_type
         self.i2c_address = i2c_address
         self.current_frequency = initial_freq
+        self.emulation_mode = emulation_mode
         self._is_running = True
         self._sdr = None
         self._i2c_bus = None
@@ -47,7 +48,12 @@ class RadioManager(QThread):
 
     def run(self):
         print("RadioManager thread started.")
-        if not self._initialize_hardware():
+        if self.emulation_mode:
+            print("[Radio Manager] Running in EMULATION MODE")
+            self.radio_status.emit("Emulation Mode")
+            # Immediately "tune" to initial
+            self.frequency_updated.emit(self.current_frequency)
+        elif not self._initialize_hardware():
             self.radio_status.emit(f"Error: Init failed ({self.radio_type})")
             self._is_running = False  # Stop thread if init fails
 
@@ -65,10 +71,14 @@ class RadioManager(QThread):
                 self._update_status()  # e.g., check signal strength periodically
                 time.sleep(1)  # Check every second
 
-        self._shutdown_hardware()
+        if not self.emulation_mode:
+            self._shutdown_hardware()
         print("RadioManager thread finished.")
 
     def _initialize_hardware(self):
+        if self.emulation_mode:
+            return True
+            
         print(f"Initializing radio type: {self.radio_type}")
         try:
             if self.radio_type == "sdr" and USE_SDR:
@@ -125,6 +135,17 @@ class RadioManager(QThread):
 
     def _perform_tune(self):
         print(f"Tuning to {self._target_frequency} MHz...")
+        
+        if self.emulation_mode:
+            # Emulate tuning delay
+            time.sleep(0.5) 
+            self.current_frequency = self._target_frequency
+            self.frequency_updated.emit(self.current_frequency)
+            self.radio_status.emit(f"Tuned {self.current_frequency:.1f} (Sim)")
+            # Simulate random good signal strength when tuned
+            self.signal_strength.emit(random.randint(70, 100))
+            return
+
         try:
             if self.radio_type == "sdr" and self._sdr:
                 # Tuning SDR often means changing the center frequency
@@ -161,6 +182,20 @@ class RadioManager(QThread):
         print("Starting radio scan...")
         self.radio_status.emit("Scanning...")
         found_stations = []
+        
+        if self.emulation_mode:
+            # Emulate scan
+            for _ in range(5): # Fake 5 steps
+                time.sleep(0.3)
+            
+            # Pretend we found something a bit higher
+            found_freq = self.current_frequency + 0.8
+            if found_freq > 108.0: found_freq = 88.0
+            
+            self.tune_frequency(found_freq)
+            # self.radio_status.emit("Scan Complete") # tune_frequency already emits status
+            return
+
         try:
             if self.radio_type == "sdr" and self._sdr:
                 # --- TODO: Implement SDR scanning ---
@@ -190,6 +225,11 @@ class RadioManager(QThread):
 
     def _update_status(self):
         # Periodically check signal strength, RDS data, etc.
+        if self.emulation_mode:
+            # Fluctuate random signal strength
+            self.signal_strength.emit(random.randint(60, 95))
+            return
+
         try:
             if self.radio_type == "sdr" and self._sdr:
                 # --- TODO: Estimate signal strength from SDR samples ---
@@ -223,6 +263,17 @@ class RadioManager(QThread):
         # Placeholder for seek functionality (often built into Si chips)
         print(f"Seek {direction} requested...")
         self.radio_status.emit(f"Seeking {direction}...")
+        
+        if self.emulation_mode:
+            # Simulate seek finding next station
+            time.sleep(0.5)
+            delta = 0.5 if direction == "up" else -0.5
+            new_freq = self.current_frequency + delta
+            if new_freq > 108.0: new_freq = 88.0
+            if new_freq < 87.5: new_freq = 108.0
+            self.tune_frequency(new_freq)
+            return
+
         # --- TODO: Implement seek logic using scan or specific chip commands ---
         # This might involve calling _perform_scan or chip-specific seek
         # For now, just simulate tuning slightly

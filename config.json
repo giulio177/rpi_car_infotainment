@@ -16,6 +16,7 @@
     "ui_scale_mode": "auto",
     "developer_mode": false,
     "ui_render_mode": "native",
+    "emulation_mode": true,
     "volume": 48,
     "power_control_enabled": true
 }

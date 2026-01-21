@@ -61,11 +61,30 @@ class BluetoothManager(QThread):
     playback_status_changed = pyqtSignal(str)
     devices_discovered = pyqtSignal(list) # List of dictionaries {path, name, address, paired, connected, trusted}
 
-    def __init__(self):
+    def __init__(self, settings_manager=None):
         super().__init__()
         print("DEBUG: BluetoothManager.__init__")
+        self.settings_manager = settings_manager
         self._is_running = True
-        self.bus = QDBusConnection.systemBus()
+        
+        # Check emulation mode
+        self.emulation_mode = False
+        if self.settings_manager:
+            self.emulation_mode = self.settings_manager.get("emulation_mode") or False
+            
+        if self.emulation_mode:
+            print("[BT Manager] Running in EMULATION MODE (Mock Data)")
+            self.bus = None # No DBus
+            # Mock Data State
+            self.mock_devices = [
+                {"path": "/org/bluez/hci0/dev_11_22_33_44_55_66", "name": "Pixel 7 Pro", "address": "11:22:33:44:55:66", "paired": True, "connected": False, "trusted": True, "rssi": -55},
+                {"path": "/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF", "name": "iPhone 15", "address": "AA:BB:CC:DD:EE:FF", "paired": False, "connected": False, "trusted": False, "rssi": -70},
+                {"path": "/org/bluez/hci0/dev_12_34_56_78_90_AB", "name": "JBL Speaker", "address": "12:34:56:78:90:AB", "paired": True, "connected": False, "trusted": True, "rssi": -40},
+            ]
+            self.mock_scanning = False
+            self.mock_discoverable = False
+        else:
+            self.bus = QDBusConnection.systemBus()
 
         # State variables
         self.adapter_path = None
@@ -412,6 +431,11 @@ class BluetoothManager(QThread):
 
     def start_scan(self):
         """Starts device discovery."""
+        if self.emulation_mode:
+            print("[BT Manager - Mock] Scanning started...")
+            self.mock_scanning = True
+            return True
+
         if not self.adapter_path:
             self.adapter_path = self.find_adapter()
         
@@ -435,6 +459,11 @@ class BluetoothManager(QThread):
 
     def stop_scan(self):
         """Stops device discovery."""
+        if self.emulation_mode:
+            print("[BT Manager - Mock] Scanning stopped.")
+            self.mock_scanning = False
+            return True
+
         if not self.adapter_path:
             return False
 
@@ -458,6 +487,20 @@ class BluetoothManager(QThread):
 
     def get_available_devices(self):
         """Returns a list of all known devices (paired or discovered)."""
+        if self.emulation_mode:
+            # Add random device occasionally if scanning
+            if self.mock_scanning and time.time() % 5 < 1 and len(self.mock_devices) < 5:
+                 self.mock_devices.append({
+                     "path": f"/org/bluez/hci0/dev_MOCK_{int(time.time())}", 
+                     "name": f"New Mock Device {len(self.mock_devices)}", 
+                     "address": f"FF:FF:FF:00:00:{len(self.mock_devices)}", 
+                     "paired": False, 
+                     "connected": False, 
+                     "trusted": False, 
+                     "rssi": -80 + (int(time.time()) % 20)
+                 })
+            return self.mock_devices
+
         devices = []
         try:
             om = QDBusInterface(BLUEZ_SERVICE, "/", DBUS_OM_IFACE, self.bus)
@@ -498,6 +541,16 @@ class BluetoothManager(QThread):
 
     def pair_device(self, device_path):
         """Pairs with a device."""
+        if self.emulation_mode:
+            print(f"[BT Manager - Mock] Pairing with {device_path}...")
+            # Find and update mock device
+            for dev in self.mock_devices:
+                if dev['path'] == device_path:
+                    dev['paired'] = True
+                    dev['trusted'] = True
+                    break
+            return True, "Pairing initiated"
+
         try:
             device = QDBusInterface(BLUEZ_SERVICE, device_path, DEVICE_IFACE, self.bus)
             print(f"BT Manager: Pairing with {device_path}...")
@@ -518,6 +571,24 @@ class BluetoothManager(QThread):
 
     def connect_device(self, device_path):
         """Connects to a device."""
+        if self.emulation_mode:
+            print(f"[BT Manager - Mock] Connecting to {device_path}...")
+            # Update mock state
+            for dev in self.mock_devices:
+                if dev['path'] == device_path:
+                    dev['connected'] = True
+                    self.connected_device_path = dev['path']
+                    self.connected_device_name = dev['name']
+                    self.current_battery = 85 # Mock battery
+                    self.connection_changed.emit(True, self.connected_device_name)
+                    self.battery_updated.emit(self.current_battery)
+                    # Also mock media player appearing
+                    self.media_player_path = device_path + "/player0"
+                    self.update_media_state({"Status": "playing", "Track": {"Title": "Mock Song", "Artist": "Mock Artist", "Album": "Mock Album", "Duration": 300000}, "Position": 1000})
+                else:
+                    dev['connected'] = False # Disconnect others
+            return True, "Connected"
+
         try:
             device = QDBusInterface(BLUEZ_SERVICE, device_path, DEVICE_IFACE, self.bus)
             print(f"BT Manager: Connecting to {device_path}...")
@@ -533,9 +604,50 @@ class BluetoothManager(QThread):
                 return False, err
         except Exception as e:
             return False, str(e)
+
+    def disconnect_device(self, device_path):
+        """Disconnects from a device."""
+        if self.emulation_mode:
+            print(f"[BT Manager - Mock] Disconnecting from {device_path}...")
+            for dev in self.mock_devices:
+                if dev['path'] == device_path:
+                    dev['connected'] = False
+            
+            if self.connected_device_path == device_path:
+                self.connected_device_path = None
+                self.connected_device_name = "Disconnected"
+                self.current_battery = None
+                self.connection_changed.emit(False, "Disconnected")
+                self.battery_updated.emit(None)
+                self.media_player_path = None
+                self.update_media_state({"Status": "stopped", "Track": {}, "Position": 0})
+            
+            return True, "Disconnected"
+
+        try:
+            device = QDBusInterface(BLUEZ_SERVICE, device_path, DEVICE_IFACE, self.bus)
+            print(f"BT Manager: Disconnecting from {device_path}...")
+            reply = device.call("Disconnect")
+            
+            if reply.type() != QDBusMessage.MessageType.ErrorMessage:
+                print(f"BT Manager: Disconnected from {device_path}")
+                return True, "Disconnected"
+            else:
+                err = reply.errorMessage()
+                print(f"BT Manager: Disconnection failed: {err}")
+                return False, err
+        except Exception as e:
+            return False, str(e)
             
     def remove_device_dbus(self, device_path):
         """Removes a device using D-Bus Adapter.RemoveDevice."""
+        if self.emulation_mode:
+            print(f"[BT Manager - Mock] Removing device {device_path}...")
+            self.mock_devices = [d for d in self.mock_devices if d['path'] != device_path]
+            if self.connected_device_path == device_path:
+                self.disconnect_device(device_path)
+            return True, "Removed"
+
         if not self.adapter_path:
              return False, "No adapter"
              
@@ -557,6 +669,22 @@ class BluetoothManager(QThread):
     # --- run Method (Polling Implementation) ---
     def run(self):
         print("BluetoothManager thread started.")
+        if self.emulation_mode:
+            # Emulation Loop
+            print("[BT Manager] Entering EMULATION polling loop")
+            while self._is_running:
+                # Simulate media position update if playing
+                if self.playback_status == "playing":
+                    current_pos = self.media_properties.get("Position", 0)
+                    new_pos = current_pos + 1000 # +1 sec
+                    self.media_properties["Position"] = new_pos
+                    # Emit sometimes to update UI
+                    # self.media_properties_changed.emit(self.media_properties) 
+                    # (Actually UI updates on event, let's just sleep)
+                
+                self.msleep(1000)
+            return
+
         if not self.bus.isConnected():  # ... error handling ...
             return
         self.adapter_path = self.find_adapter()
