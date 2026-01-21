@@ -318,42 +318,9 @@ class SettingsScreen(QWidget):
         self.power_layout = QVBoxLayout() # Usiamo Vertical per impilarli
         self.power_group.setLayout(self.power_layout)
 
-        # 1. Configurazione Pin
-        self.power_pin_number = 17  # <--- CAMBIA QUESTO NUMERO SE NECESSARIO
-        self.power_device = None
-
-        # 2. Checkbox "Abilita Keep-Alive"
-        # Se attivato: Pin va HIGH. Se disattivato: Pin va LOW.
-        self.power_toggle = QCheckBox(f"Enable Keep-Alive (GPIO {self.power_pin_number})")
-        is_power_enabled = self.settings_manager.get("power_control_enabled") or False
-        self.power_toggle.setChecked(is_power_enabled)
-        
-        # 3. Pulsante "Spegni Tutto"
-        self.power_off_button = QPushButton("SHUTDOWN (Cut Power)")
-        self.power_off_button.setMinimumHeight(50)
-        self.power_off_button.setStyleSheet("background-color: #ff5555; color: white; font-weight: bold;")
-        self.power_off_button.setEnabled(is_power_enabled) # Attivo solo se la funzione è abilitata
-
-        # 4. Inizializzazione Hardware
-        if GPIO_AVAILABLE:
-            try:
-                # Inizializziamo il pin. 
-                # Se la spunta era attiva salvata nelle settings, partiamo subito HIGH.
-                # Altrimenti partiamo LOW.
-                initial_state = is_power_enabled
-                self.power_device = OutputDevice(self.power_pin_number, active_high=True, initial_value=initial_state)
-            except Exception as e:
-                print(f"GPIO Error: {e}")
-                self.power_toggle.setEnabled(False)
-                self.power_toggle.setText("GPIO Error")
-
-        # 5. Collegamento Segnali
-        self.power_toggle.toggled.connect(self.on_power_toggle_changed)
-        self.power_off_button.clicked.connect(self.perform_hardware_shutdown)
-
         # Aggiunta al layout
-        self.power_layout.addWidget(self.power_toggle)
-        self.power_layout.addWidget(self.power_off_button)
+        # self.power_layout.addWidget(self.power_toggle)
+        # self.power_layout.addWidget(self.power_off_button)
         
         # Boot configuration button
         self.apply_boot_config_button = QPushButton("Apply Boot Configuration")
@@ -408,7 +375,7 @@ class SettingsScreen(QWidget):
         # Created as a child of 'self' (the overlay), NOT added to any layout.
         self.save_button = QPushButton("Apply Settings", self)
         self.save_button.setObjectName("settingsSaveButton")
-        self.save_button.setFixedSize(140, 45) # Slightly smaller than before
+        self.save_button.setFixedSize(160, 45) # Slightly smaller than before
         self.save_button.clicked.connect(self.apply_settings)
         
         # Initial position (will be updated by resizeEvent)
@@ -428,7 +395,7 @@ class SettingsScreen(QWidget):
         if hasattr(self, 'save_button'):
             # Position: Bottom Right with margin
             margin = 20
-            x = self.width() - self.save_button.width() - margin
+            x = self.width() - self.save_button.width() - margin - 20
             y = self.height() - self.save_button.height() - margin
             self.save_button.move(x, y)
             self.save_button.raise_() # Ensure top z-order
@@ -450,53 +417,7 @@ class SettingsScreen(QWidget):
         if keyboard.exec() == QDialog.DialogCode.Accepted:
             line_edit.setText(keyboard.get_text())
     
-    def on_power_toggle_changed(self, checked):
-        """
-        Gestisce il Toggle 'Master'.
-        - Se Checked: Pin va HIGH (3.3V) -> Il sistema rimane acceso.
-        - Se Unchecked: Pin va LOW (0V) -> Rilascia il controllo (come prima).
-        """
-        self.settings_manager.set("power_control_enabled", checked)
-        self.power_off_button.setEnabled(checked)
 
-        if not self.power_device:
-            return
-
-        if checked:
-            print(f"Power Control ENABLED: GPIO {self.power_pin_number} -> HIGH")
-            self.power_device.on() # Mette il pin a 3.3V
-        else:
-            print(f"Power Control DISABLED: GPIO {self.power_pin_number} -> LOW")
-            self.power_device.off() # Mette il pin a 0V
-
-    def perform_hardware_shutdown(self):
-        """
-        Taglia l'alimentazione portando il pin a LOW.
-        Opzionale: Esegue prima lo shutdown software pulito del sistema.
-        """
-        if not self.power_device:
-            return
-
-        # Chiede conferma per evitare spegnimenti accidentali in auto
-        reply = QMessageBox.question(
-            self, 
-            "Power Off", 
-            "Are you sure you want to cut power?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-        )
-
-        if reply == QMessageBox.StandardButton.Yes:
-            print("Cutting Power...")
-            
-            # OPZIONALE: Se vuoi che faccia anche lo shutdown pulito di Linux prima di tagliare:
-            # subprocess.run(["shutdown", "now"]) 
-            # (Ma se il tuo circuito è veloce, taglierà corrente prima che linux finisca)
-
-            self.power_device.off() # GPIO -> LOW (Taglia corrente)
-            
-            # Disattiviamo il bottone visivamente
-            self.power_off_button.setText("POWER CUT")
-            self.power_off_button.setEnabled(False)
 
     def apply_boot_config(self):
         script_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'deployment', 'configure_boot.sh'))
