@@ -545,6 +545,39 @@ echo "Servizio infotainment abilitato. Partirà automaticamente al prossimo rebo
 echo
 
 ###############################################################################
+# 12.5) Configurazione Secure Shutdown & Boot Speed
+###############################################################################
+echo ">>> Configurazione Secure Shutdown (GPIO 17) & Boot Speed..."
+
+# 1. Boot Delay e Splash
+if ! grep -q "disable_splash=1" "$CONFIG_FILE"; then
+    echo "disable_splash=1" >> "$CONFIG_FILE"
+    echo "Splash screen disabilitato."
+fi
+
+if ! grep -q "boot_delay=0" "$CONFIG_FILE"; then
+    echo "boot_delay=0" >> "$CONFIG_FILE"
+    echo "Boot delay impostato a 0."
+fi
+
+# 2. GPIO 17 Keep-Alive all'avvio (Output High)
+# gpio=17=op,dh  -> Op=Output, dh=Drive High
+if ! grep -q "gpio=17=op,dh" "$CONFIG_FILE"; then
+    echo "gpio=17=op,dh" >> "$CONFIG_FILE"
+    echo "GPIO 17 impostato su Output High (Keep-Alive) all'avvio."
+fi
+
+# 3. GPIO Poweroff allo spegnimento (Active Low)
+# Quando il kernel fa shutdown, porta il pin basso per tagliare corrente
+if ! grep -q "dtoverlay=gpio-poweroff,gpiopin=17,active_low=1" "$CONFIG_FILE"; then
+    echo "dtoverlay=gpio-poweroff,gpiopin=17,active_low=1" >> "$CONFIG_FILE"
+    echo "Overlay gpio-poweroff configurato su GPIO 17 (Active Low)."
+fi
+
+echo "Secure shutdown configurato."
+echo
+
+###############################################################################
 # 13) Fine
 ###############################################################################
 echo ">>> INSTALLAZIONE COMPLETATA."
